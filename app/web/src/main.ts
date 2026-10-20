@@ -554,7 +554,7 @@ function renderStatus(typing = false) {
   const words = n ? (splitFrontmatter(n.content)[1].replace(/[#>*_`\-[\]()|]/g, ' ').match(/[\p{L}\p{N}]+/gu) || []).length : 0;
   const pending = S.pendingCount();
   let state: string, icon: IconName, cls: string;
-  if (S.syncState === 'syncing') { state = t.syncing; icon = 'RefreshCw'; cls = 'busy'; }
+  if (S.syncState === 'syncing') { state = pending ? `${t.syncing} · ${t.pending(pending)}` : t.syncing; icon = 'RefreshCw'; cls = 'busy'; }
   else if (S.syncState === 'offline' || S.syncState === 'unauthorized') { state = pending ? `${t.offline} · ${t.pending(pending)}` : t.offline; icon = 'CloudOff'; cls = 'off'; }
   else if (pending) { state = t.pending(pending); icon = 'Cloud'; cls = 'pending'; }
   else { state = t.synced; icon = 'Cloud'; cls = 'ok'; }
@@ -1164,16 +1164,16 @@ async function start() {
   takeInvite();
   addEventListener('hashchange', async () => { await checkUiVersion(); if (takeInvite() && !S.token) pairScreen(); });
   await S.init();
+  // Aparelho já conectado abre na hora, com ou sem servidor (na rua o servidor não responde).
+  if (S.token) {
+    keepStorage();
+    if (pendingInvite) { const inv = pendingInvite; pendingInvite = ''; applyInvite(inv); }
+    return start();
+  }
   const st = await S.status();
   if (st?.setup) return setupScreen(st);
-  if (!S.token) {
-    if (st?.loopback && (await S.pair('', guessDevice())) === 'ok') { keepStorage(); return start(); }
-    return pairScreen(st ? '' : t.pairUnreachable);
-  }
-  keepStorage();
-  // QR lido por um aparelho já conectado: aplica o novo acesso
-  if (pendingInvite) { const inv = pendingInvite; pendingInvite = ''; await applyInvite(inv); }
-  start();
+  if (st?.loopback && (await S.pair('', guessDevice())) === 'ok') { keepStorage(); return start(); }
+  pairScreen(st ? '' : t.pairUnreachable);
 })();
 // Service worker = abrir sem servidor. Falha em HTTPS indica certificado ainda não confiável neste aparelho.
 let swFailed = false;
