@@ -29,7 +29,7 @@ Devices sync with your computer when they are on the same network as it. Away fr
 - **Local HTTPS that just works.** In *Home network* mode Cube4Notes creates its own certificate authority, restricted to `localhost`, `*.local`, the computer name and private IP ranges, so it cannot be abused to impersonate internet sites.
 - **A real desktop app.** Cube4Notes opens in its own window, using the system web engine (WebView2 on Windows, WebKit on Linux and macOS). In *Home network* mode, closing the window keeps it running next to the clock so other devices keep syncing; the icon reopens or quits it. Machines without a screen run it as a console server.
 - **Fast navigation.** Tabs, folder tree with drag and drop, `Ctrl+K` quick open and command palette, full-text search, outline and backlinks panel.
-- **53 terminal color themes** (Dracula, Nord, Gruvbox, Solarized, Catppuccin, Tokyo Night...) plus light, dark and sepia. Portuguese and English interface.
+- **53 terminal color themes** (Dracula, Nord, Gruvbox, Solarized, Catppuccin, Tokyo Night...) plus light, dark and sepia, from [Cube4Themes](https://github.com/robertoritter/cube4themes). Portuguese and English interface.
 
 | Phone | Vaults | Terminal theme |
 | --- | --- | --- |
