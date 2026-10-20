@@ -1,0 +1,12 @@
+{
+  "name": "Cube4Notes",
+  "short_name": "Cube4Notes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#17161c",
+  "theme_color": "#5c3fb3",
+  "icons": [
+    { "src": "/brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

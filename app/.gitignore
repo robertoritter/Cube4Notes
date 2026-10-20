@@ -1,0 +1,5 @@
+bin/
+obj/
+dist/
+web/node_modules/
+compilar.log

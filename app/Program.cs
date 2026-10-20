@@ -1,0 +1,642 @@
+/*
+ * Author: Roberto Ritter
+ * Studio: Cube4Code
+ * Website: https://cube4code.com
+ * Copyright (c) 2026 Roberto Ritter
+ *
+ * Cube4Notes Server: inicialização, assistente de primeira execução e rotas da API. Serve a interface web,
+ * sincroniza os vaults (pastas de notas Markdown) com os aparelhos e administra aparelhos e vaults.
+ * Modo "pessoal": só este computador (localhost). Modo "rede": HTTPS para os aparelhos da casa.
+ * Nenhuma alteração é descartada (conflito vira cópia, exclusão vai para a .lixeira).
+ */
+using System.Diagnostics;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+Console.OutputEncoding = Encoding.UTF8;
+
+var configArg = ArgValue(args, "--config");
+if (configArg is not null) ConfigStore.Dir = Path.GetFullPath(configArg);
+Directory.CreateDirectory(ConfigStore.Dir);
+var portArg = ArgValue(args, "--port") is { } portText ? ParsePort(portText) : (int?)null;
+var notesArg = ArgValue(args, "--notes");
+var forceHttp = args.Contains("--sem-https");
+var openBrowser = !args.Contains("--sem-navegador");
+
+var devices = new DeviceStore(Path.Combine(ConfigStore.Dir, "devices.json"));
+var invites = new InviteStore();
+var throttle = new FailureThrottle();
+var registry = new VaultRegistry();
+var contentTypes = new FileExtensionContentTypeProvider();
+contentTypes.Mappings[".webmanifest"] = "application/manifest+json";
+var tlsReady = false;
+
+// Reinicia o servidor (sem fechar o programa) quando o modo ou a porta mudam.
+while (true)
+{
+    var config = ConfigStore.Load() ?? ConfigStore.Migrate(notesArg);
+    var result = await RunAsync(config);
+    if (result == 0) return 0;
+    if (result < 0) return 1;
+    openBrowser = false;
+    Console.WriteLine("\n  Reiniciando com a nova configuração...\n");
+}
+
+// 0 = encerrar, 1 = reiniciar, -1 = erro
+async Task<int> RunAsync(AppConfig? config)
+{
+    var setup = config is null || config.Vaults.Count == 0;
+    var setupCode = setup ? NewSetupCode() : "";
+    var personal = !setup && config!.Mode == "pessoal";
+    var port = portArg ?? config?.Port ?? 43125;
+    var useHttps = !personal && !forceHttp;
+    var httpPort = port - 1;
+    var scheme = useHttps ? "https" : "http";
+    if (useHttps && !tlsReady) { Tls.Init(Path.Combine(ConfigStore.Dir, "tls")); tlsReady = true; }
+    if (config is not null) registry.Load(config);
+    var restart = false;
+
+    var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+    {
+        Args = args,
+        ContentRootPath = AppContext.BaseDirectory,
+        WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+    });
+    builder.Logging.SetMinimumLevel(LogLevel.Warning);
+    builder.WebHost.ConfigureKestrel(k =>
+    {
+        k.Limits.MaxRequestBodySize = 32L * 1024 * 1024;
+        k.Limits.MaxRequestHeadersTotalSize = 32 * 1024;
+        if (personal)
+        {
+            // Só este computador: nada exposto na rede, sem firewall e sem certificado.
+            k.Listen(IPAddress.Loopback, port);
+            k.Listen(IPAddress.IPv6Loopback, port);
+        }
+        else if (useHttps)
+        {
+            k.ListenAnyIP(port, o => o.UseHttps(h => h.ServerCertificateSelector = (_, _) => Tls.Current()));
+            k.ListenAnyIP(httpPort);
+        }
+        else k.ListenAnyIP(port);
+    });
+    var app = builder.Build();
+
+    // ------------------------------------------------------------ rede local, origem e autorização
+    app.Use(async (context, next) =>
+    {
+        var remote = context.Connection.RemoteIpAddress;
+        var headers = context.Response.Headers;
+        headers["X-Content-Type-Options"] = "nosniff";
+        headers["X-Frame-Options"] = "DENY";
+        headers["Referrer-Policy"] = "no-referrer";
+        headers["Cross-Origin-Opener-Policy"] = "same-origin";
+        headers["Cross-Origin-Resource-Policy"] = "same-origin";
+        headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
+        headers["Content-Security-Policy"] = Security.Csp;
+
+        if (remote is null || !Lan.IsLocalClient(remote))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+        if (!Security.HostAllowed(context.Request.Host.Host))
+        {
+            Security.Log($"Host recusado: {context.Request.Host.Host} de {Lan.Normalize(remote)}");
+            context.Response.StatusCode = StatusCodes.Status421MisdirectedRequest;
+            return;
+        }
+        var path = context.Request.Path;
+        if (useHttps && !context.Request.IsHttps)
+        {
+            if (path.Equals(Tls.CertPath, StringComparison.OrdinalIgnoreCase))
+            {
+                context.Response.ContentType = "application/x-x509-ca-cert";
+                context.Response.Headers.ContentDisposition = "attachment; filename=Cube4Notes-CA.cer";
+                await context.Response.Body.WriteAsync(Tls.CaDer);
+                return;
+            }
+            context.Response.Redirect($"https://{context.Request.Host.Host}:{port}{context.Request.PathBase}{path}{context.Request.QueryString}");
+            return;
+        }
+        if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method) && !Security.SameOrigin(context.Request))
+        {
+            Security.Log($"Origem recusada: {context.Request.Headers.Origin} de {Lan.Normalize(remote)}");
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+        if (path.StartsWithSegments("/api"))
+        {
+            headers.CacheControl = "no-store";
+            var open = path.StartsWithSegments("/api/status") || path.StartsWithSegments("/api/pair") || path.StartsWithSegments("/api/setup");
+            if (setup && !open)
+            {
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return;
+            }
+            if (!open)
+            {
+                var device = DeviceOf(context);
+                if (device is null)
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return;
+                }
+                context.Items["device"] = device;
+                var admin = device.Admin || IsLoopback(context);
+                context.Items["admin"] = admin;
+                if (path.StartsWithSegments("/api/admin") && !admin)
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return;
+                }
+                // /api/v/{vault}/...: só vaults liberados para este aparelho
+                if (path.StartsWithSegments("/api/v", out var rest))
+                {
+                    var id = rest.Value?.TrimStart('/').Split('/')[0] ?? "";
+                    var vault = registry.Get(id);
+                    if (vault is null || !(admin || device.CanAccess(id)))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status404NotFound;
+                        return;
+                    }
+                    context.Items["vault"] = vault;
+                }
+            }
+        }
+        else headers.CacheControl = path.StartsWithSegments("/assets") ? "public, max-age=31536000, immutable" : "no-cache";
+        await next();
+    });
+
+    app.MapGet(Tls.CertPath, () => useHttps ? Results.File(Tls.CaDer, "application/x-x509-ca-cert", "Cube4Notes-CA.cer") : Results.NotFound());
+    app.UseDefaultFiles();
+    app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = contentTypes });
+
+    // ------------------------------------------------------------ estado e pareamento
+    app.MapGet("/api/status", (HttpContext ctx) =>
+    {
+        var device = DeviceOf(ctx);
+        var loopback = IsLoopback(ctx);
+        return Results.Ok(new
+        {
+            name = config?.Name ?? Environment.MachineName,
+            setup,
+            mode = personal ? "pessoal" : "rede",
+            paired = device is not null,
+            loopback,
+            admin = device is not null && (device.Admin || loopback),
+            ui = UiVersion(),
+        });
+    });
+
+    app.MapPost("/api/pair", (HttpContext ctx, PairRequest body) =>
+    {
+        if (setup) return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        var ip = Lan.Normalize(ctx.Connection.RemoteIpAddress!).ToString();
+        var loopback = IsLoopback(ctx);
+        var admin = loopback;
+        var vaults = registry.All().Select(v => v.Id).ToList();
+        if (!loopback)
+        {
+            if (throttle.Blocked(ip)) return Results.Json(new { error = "wait" }, statusCode: StatusCodes.Status429TooManyRequests);
+            var invite = invites.Consume(body.Invite);
+            if (invite is null)
+            {
+                throttle.Fail(ip);
+                Security.Log($"Convite inválido de {ip}");
+                return Results.Json(new { error = "invite" }, statusCode: StatusCodes.Status403Forbidden);
+            }
+            admin = invite.Admin;
+            vaults = invite.Vaults;
+        }
+        // Aparelho já conectado que leu um convite novo: troca o acesso dele em vez de criar outro aparelho.
+        var existing = DeviceOf(ctx);
+        if (existing is not null)
+        {
+            var updated = loopback ? existing : devices.Update(existing.Id, admin, admin ? null : vaults)!;
+            Console.WriteLine($"  Acesso atualizado por convite: {updated.Name} ({ip})");
+            return Results.Ok(new { token = (string?)null, deviceId = updated.Id, deviceName = updated.Name, updated = true });
+        }
+        var name = ConfigStore.CleanName(body.DeviceName, "Aparelho");
+        var (token, device) = devices.Add(name, admin, vaults);
+        Console.WriteLine($"  Aparelho conectado: {device.Name} ({ip})");
+        return Results.Ok(new { token, deviceId = device.Id, deviceName = device.Name });
+    });
+
+    // ------------------------------------------------------------ assistente de primeira execução
+    app.MapGet("/api/setup/browse", (HttpContext ctx, string? path, string? code) =>
+    {
+        if (!setup) return Results.NotFound();
+        if (!SetupAllowed(ctx, code)) return Results.StatusCode(StatusCodes.Status403Forbidden);
+        return Browse(path);
+    });
+
+    app.MapPost("/api/setup", (HttpContext ctx, SetupRequest body) =>
+    {
+        if (!setup) return Results.Conflict(new { error = "Já configurado." });
+        if (!SetupAllowed(ctx, body.Code)) return Results.Json(new { error = "Código incorreto." }, statusCode: StatusCodes.Status403Forbidden);
+        var fresh = new AppConfig
+        {
+            Name = ConfigStore.CleanName(body.ServerName, Environment.MachineName),
+            Mode = body.Mode == "pessoal" ? "pessoal" : "rede",
+            Port = port,
+        };
+        var problem = ConfigStore.ValidateVaultPath(body.VaultPath, fresh);
+        if (problem is not null) return Results.BadRequest(new { error = problem });
+        var vaultName = ConfigStore.CleanName(body.VaultName, "Notas");
+        var id = ConfigStore.NewVaultId(vaultName, []);
+        fresh.Vaults.Add(new VaultConfig(id, vaultName, Path.GetFullPath(body.VaultPath!)));
+        Directory.CreateDirectory(fresh.Vaults[0].Path);
+        ConfigStore.Save(fresh);
+        var (token, device) = devices.Add(ConfigStore.CleanName(body.DeviceName, "Administrador"), true, []);
+        Console.WriteLine($"  Configuração concluída. Administrador: {device.Name}");
+        var host = IsLoopback(ctx) ? "localhost" : ctx.Request.Host.Host;
+        var nextUrl = fresh.Mode == "pessoal" ? $"http://localhost:{port}/" : $"https://{host}:{port}/";
+        restart = true;
+        _ = Task.Run(async () => { await Task.Delay(600); app.Lifetime.StopApplication(); });
+        return Results.Ok(new { token, deviceId = device.Id, deviceName = device.Name, next = nextUrl });
+    });
+
+    // ------------------------------------------------------------ vaults
+    app.MapGet("/api/vaults", (HttpContext ctx) =>
+    {
+        var device = (Device)ctx.Items["device"]!;
+        var admin = (bool)ctx.Items["admin"]!;
+        var list = registry.All().Where(v => admin || device.CanAccess(v.Id))
+            .OrderBy(v => v.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(v => new { id = v.Id, name = v.Name, legacy = v.Id == config?.LegacyVault, path = admin ? v.Root : null });
+        return Results.Ok(new { vaults = list });
+    });
+
+    app.MapGet("/api/v/{vault}/manifest", (HttpContext ctx) =>
+    {
+        var vault = (Vault)ctx.Items["vault"]!;
+        var folders = new List<string>();
+        var files = new List<ManifestFile>();
+        vault.Walk(vault.Root, "", folders, files);
+        return Results.Ok(new { folders, files });
+    });
+
+    app.MapPost("/api/v/{vault}/fetch", (HttpContext ctx, FetchRequest body) =>
+    {
+        var vault = (Vault)ctx.Items["vault"]!;
+        if ((body.Paths?.Count ?? 0) > 500) return Results.BadRequest(new { error = "too many paths" });
+        var list = new List<FileContent>();
+        foreach (var rel in body.Paths ?? [])
+        {
+            var full = NotePaths.Resolve(vault.Root, rel, markdown: true);
+            if (full is null || !File.Exists(full)) continue;
+            var content = File.ReadAllText(full);
+            list.Add(new FileContent(rel, content, Vault.Version(content)));
+        }
+        return Results.Ok(new { files = list });
+    });
+
+    app.MapGet("/api/v/{vault}/raw", (HttpContext ctx, string? path) =>
+    {
+        var vault = (Vault)ctx.Items["vault"]!;
+        var full = NotePaths.Resolve(vault.Root, path ?? "", markdown: false);
+        if (full is null || !File.Exists(full)) return Results.NotFound();
+        ctx.Response.Headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox";
+        var ext = Path.GetExtension(full).ToLowerInvariant();
+        if (Security.InlineTypes.TryGetValue(ext, out var type)) return Results.File(full, type);
+        return Results.File(full, "application/octet-stream", Path.GetFileName(full));
+    });
+
+    app.MapPost("/api/v/{vault}/sync", async (HttpContext ctx, SyncRequest body) =>
+    {
+        var vault = (Vault)ctx.Items["vault"]!;
+        var device = (Device)ctx.Items["device"]!;
+        if ((body.Ops?.Count ?? 0) > 500) return Results.BadRequest(new { error = "too many ops" });
+        var results = new List<OpResult>();
+        await vault.Gate.WaitAsync();
+        try
+        {
+            foreach (var op in body.Ops ?? [])
+            {
+                try { results.Add(vault.Apply(op, device.Name)); }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  Erro ao aplicar {op.Type} {op.Path ?? op.From} em {vault.Name}: {ex.Message}");
+                    results.Add(new OpResult(op.Id, "error", Message: "server error"));
+                }
+            }
+        }
+        finally { vault.Gate.Release(); }
+        return Results.Ok(new { results });
+    });
+
+    app.MapPost("/api/v/{vault}/attachment", async (HttpContext ctx, string? name) =>
+    {
+        var vault = (Vault)ctx.Items["vault"]!;
+        var request = ctx.Request;
+        var clean = NotePaths.SafeFileName(string.IsNullOrWhiteSpace(name) ? "imagem.png" : name);
+        var ext = Path.GetExtension(clean).ToLowerInvariant();
+        if (!Security.UploadTypes.Contains(ext)) return Results.StatusCode(StatusCodes.Status415UnsupportedMediaType);
+        if (request.ContentLength is > Security.MaxUpload) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        var folder = Path.Combine(vault.Root, "anexos");
+        Directory.CreateDirectory(folder);
+        var stem = Path.GetFileNameWithoutExtension(clean);
+        var target = Path.Combine(folder, clean);
+        for (var i = 2; File.Exists(target); i++) target = Path.Combine(folder, $"{stem}-{i}{ext}");
+        var temp = target + ".upload";
+        long total = 0;
+        await using (var file = File.Create(temp))
+        {
+            var buffer = new byte[81920];
+            int read;
+            while ((read = await request.Body.ReadAsync(buffer)) > 0)
+            {
+                total += read;
+                if (total > Security.MaxUpload) break;
+                await file.WriteAsync(buffer.AsMemory(0, read));
+            }
+        }
+        if (total > Security.MaxUpload || total == 0)
+        {
+            File.Delete(temp);
+            return Results.StatusCode(total == 0 ? StatusCodes.Status400BadRequest : StatusCodes.Status413PayloadTooLarge);
+        }
+        File.Move(temp, target);
+        return Results.Ok(new { path = "anexos/" + Path.GetFileName(target) });
+    });
+
+    // ------------------------------------------------------------ administração (aparelho administrador ou o próprio computador)
+    app.MapGet("/api/admin/browse", (string? path) => Browse(path));
+
+    app.MapPost("/api/admin/vaults", (VaultRequest body) =>
+    {
+        var current = ConfigStore.Load()!;
+        var problem = ConfigStore.ValidateVaultPath(body.Path, current);
+        if (problem is not null) return Results.BadRequest(new { error = problem });
+        var name = ConfigStore.CleanName(body.Name, "Notas");
+        var id = ConfigStore.NewVaultId(name, current.Vaults.Select(v => v.Id));
+        var full = Path.GetFullPath(body.Path!);
+        Directory.CreateDirectory(full);
+        current.Vaults.Add(new VaultConfig(id, name, full));
+        ConfigStore.Save(current);
+        config = current;
+        registry.Load(current);
+        Console.WriteLine($"  Vault criado: {name} ({full})");
+        return Results.Ok(new { id, name, path = full });
+    });
+
+    app.MapPatch("/api/admin/vaults/{id}", (string id, VaultRequest body) =>
+    {
+        var current = ConfigStore.Load()!;
+        var i = current.Vaults.FindIndex(v => v.Id == id);
+        if (i < 0) return Results.NotFound();
+        current.Vaults[i] = current.Vaults[i] with { Name = ConfigStore.CleanName(body.Name, current.Vaults[i].Name) };
+        ConfigStore.Save(current);
+        config = current;
+        registry.Load(current);
+        return Results.Ok(new { id, name = current.Vaults[i].Name });
+    });
+
+    // Tira o vault do Cube4Notes; a pasta e as notas continuam no disco.
+    app.MapDelete("/api/admin/vaults/{id}", (string id) =>
+    {
+        var current = ConfigStore.Load()!;
+        var vault = current.Vaults.FirstOrDefault(v => v.Id == id);
+        if (vault is null) return Results.NotFound();
+        if (current.Vaults.Count == 1) return Results.BadRequest(new { error = "É preciso ter pelo menos um vault." });
+        current.Vaults.Remove(vault);
+        ConfigStore.Save(current);
+        config = current;
+        registry.Load(current);
+        devices.ForgetVault(id);
+        Console.WriteLine($"  Vault removido da lista: {vault.Name} (a pasta {vault.Path} não foi apagada)");
+        return Results.Ok(new { removed = id });
+    });
+
+    app.MapPost("/api/admin/invite", (HttpContext ctx, InviteRequest body) =>
+    {
+        var known = registry.All().Select(v => v.Id).ToHashSet();
+        var vaults = (body.Vaults ?? known.ToList()).Where(known.Contains).Distinct().ToList();
+        var invite = invites.Create(body.Admin == true, vaults);
+        var addresses = Lan.Addresses().Select(a => new { address = a.Address.ToString(), url = $"{scheme}://{a.Address}:{port}/#convite={invite.Long}", primary = a.Primary, name = a.Interface });
+        return Results.Ok(new { expires = invite.Expires, shortCode = invite.Short, addresses, personal });
+    });
+
+    app.MapGet("/api/admin/devices", (HttpContext ctx) =>
+    {
+        var me = (Device)ctx.Items["device"]!;
+        return Results.Ok(new
+        {
+            devices = devices.All().Select(d => new { id = d.Id, name = d.Name, created = d.Created, lastSeen = devices.LastSeen(d.Id), current = d.Id == me.Id, admin = d.Admin, vaults = d.Vaults }),
+        });
+    });
+
+    app.MapPatch("/api/admin/devices/{id}", (string id, DeviceRequest body) =>
+    {
+        var known = registry.All().Select(v => v.Id).ToHashSet();
+        var updated = devices.Update(id, body.Admin, body.Vaults?.Where(known.Contains).Distinct().ToList());
+        return updated is null ? Results.NotFound() : Results.Ok(new { id, admin = updated.Admin, vaults = updated.Vaults });
+    });
+
+    app.MapDelete("/api/admin/devices/{id}", (string id) =>
+    {
+        var removed = devices.Remove(id);
+        if (removed is null) return Results.NotFound();
+        Console.WriteLine($"  Aparelho removido: {removed.Name}");
+        return Results.Ok(new { removed = removed.Id });
+    });
+
+    app.MapGet("/api/admin/server", () => Results.Ok(new { name = config!.Name, mode = config.Mode, port, configDir = ConfigStore.Dir }));
+
+    app.MapPatch("/api/admin/server", (ServerRequest body) =>
+    {
+        var current = ConfigStore.Load()!;
+        if (body.Name is not null) current.Name = ConfigStore.CleanName(body.Name, current.Name);
+        var mode = body.Mode is "pessoal" or "rede" ? body.Mode! : current.Mode;
+        var changedMode = mode != current.Mode;
+        current.Mode = mode;
+        ConfigStore.Save(current);
+        config = current;
+        if (changedMode)
+        {
+            restart = true;
+            _ = Task.Run(async () => { await Task.Delay(600); app.Lifetime.StopApplication(); });
+        }
+        var nextUrl = mode == "pessoal" ? $"http://localhost:{port}/" : $"https://localhost:{port}/";
+        return Results.Ok(new { name = current.Name, mode, restart = changedMode, next = nextUrl });
+    });
+
+    // ------------------------------------------------------------ início
+    PrintBanner(config, setup, setupCode, personal, scheme, port, httpPort, useHttps);
+    void OnNetworkChange(object? s, EventArgs e) => Lan.OnAddressesChanged(() => PrintAddresses(personal, scheme, port));
+    NetworkChange.NetworkAddressChanged += OnNetworkChange;
+    if (useHttps && OperatingSystem.IsWindows() && !args.Contains("--sem-instalar-certificado")) Tls.TrustOnWindows();
+    if (openBrowser) app.Lifetime.ApplicationStarted.Register(() => OpenBrowser($"{scheme}://localhost:{port}"));
+    try
+    {
+        await app.RunAsync();
+    }
+    catch (IOException ex) when (ex.InnerException is SocketException || ex.Message.Contains("address", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine($"\nA porta {port} já está em uso. Feche a outra janela do Cube4Notes ou use --port 43200.");
+        return -1;
+    }
+    finally
+    {
+        NetworkChange.NetworkAddressChanged -= OnNetworkChange;
+    }
+    return restart ? 1 : 0;
+
+    bool SetupAllowed(HttpContext ctx, string? code)
+    {
+        if (IsLoopback(ctx)) return true;
+        var ip = Lan.Normalize(ctx.Connection.RemoteIpAddress!).ToString();
+        if (throttle.Blocked(ip)) return false;
+        var ok = !string.IsNullOrEmpty(code) && code.Length < 32
+            && CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(new string(code.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant()), Encoding.ASCII.GetBytes(setupCode));
+        if (!ok) { throttle.Fail(ip); Security.Log($"Código de configuração inválido de {ip}"); }
+        return ok;
+    }
+}
+
+// ================================================================ funções
+Device? DeviceOf(HttpContext ctx)
+{
+    var auth = ctx.Request.Headers.Authorization.ToString();
+    return auth.StartsWith("Bearer ", StringComparison.Ordinal) ? devices.Find(auth[7..]) : null;
+}
+
+// Muda quando a interface é atualizada: o navegador recarrega sozinho para não ficar com a versão velha em memória.
+static string UiVersion()
+{
+    var index = Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html");
+    return File.Exists(index) ? File.GetLastWriteTimeUtc(index).Ticks.ToString("x") : "";
+}
+
+static bool IsLoopback(HttpContext ctx) => ctx.Connection.RemoteIpAddress is { } ip && IPAddress.IsLoopback(Lan.Normalize(ip));
+
+// Lista só subpastas (nunca arquivos) para escolher a pasta de um vault.
+static IResult Browse(string? path)
+{
+    var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+    var roots = OperatingSystem.IsWindows()
+        ? DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType is DriveType.Fixed or DriveType.Removable).Select(d => d.RootDirectory.FullName).ToList()
+        : ["/", home];
+    var suggested = Path.Combine(string.IsNullOrEmpty(docs) ? home : docs, "Cube4Notes");
+    string dir;
+    try { dir = string.IsNullOrWhiteSpace(path) ? home : Path.GetFullPath(path); }
+    catch (Exception) { return Results.BadRequest(new { error = "Caminho inválido." }); }
+    if (!Directory.Exists(dir)) return Results.Ok(new { path = dir, exists = false, parent = Path.GetDirectoryName(dir), entries = Array.Empty<object>(), roots, suggested });
+    List<object> entries;
+    try
+    {
+        entries = new DirectoryInfo(dir).EnumerateDirectories()
+            .Where(d => !d.Name.StartsWith('.') && (d.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0)
+            .OrderBy(d => d.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Take(500)
+            .Select(d => (object)new { name = d.Name, path = d.FullName })
+            .ToList();
+    }
+    catch (UnauthorizedAccessException) { entries = []; }
+    return Results.Ok(new { path = dir, exists = true, parent = Path.GetDirectoryName(dir), entries, roots, suggested });
+}
+
+static string NewSetupCode()
+{
+    const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    return new string(Enumerable.Range(0, 6).Select(_ => alphabet[RandomNumberGenerator.GetInt32(alphabet.Length)]).ToArray());
+}
+
+static string? ArgValue(string[] args, string name)
+{
+    var i = Array.IndexOf(args, name);
+    return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+}
+
+static int ParsePort(string value)
+{
+    if (int.TryParse(value, out var v) && v is >= 1024 and <= 65535) return v;
+    throw new ArgumentException("Use --port seguido de um número entre 1024 e 65535.");
+}
+
+static void PrintBanner(AppConfig? config, bool setup, string setupCode, bool personal, string scheme, int port, int httpPort, bool useHttps)
+{
+    Console.WriteLine();
+    if (setup)
+    {
+        Console.WriteLine("  Cube4Notes: primeira execução.");
+        Console.WriteLine($"  Neste computador, abra {scheme}://localhost:{port} para configurar.");
+        if (!personal)
+        {
+            Console.WriteLine("  De outro aparelho da rede (útil em servidor sem tela):");
+            PrintAddresses(personal, scheme, port);
+            Console.WriteLine($"  e digite o código de configuração: {setupCode}");
+        }
+        Console.WriteLine();
+        return;
+    }
+    Console.WriteLine($"  {config!.Name}: Cube4Notes está rodando.");
+    foreach (var v in config.Vaults) Console.WriteLine($"  Vault \"{v.Name}\": {v.Path}");
+    Console.WriteLine($"  Configuração: {ConfigStore.Dir}");
+    Console.WriteLine($"  Neste computador: {scheme}://localhost:{port}");
+    if (personal)
+    {
+        Console.WriteLine("  Modo pessoal: só este computador acessa (nada fica exposto na rede).");
+    }
+    else
+    {
+        PrintAddresses(personal, scheme, port);
+        Console.WriteLine();
+        Console.WriteLine("  Para conectar celular, iPad ou outro computador: abra o Cube4Notes num aparelho administrador,");
+        Console.WriteLine("  Preferências > Conectar aparelho, e aponte a câmera para o QR code.");
+        if (useHttps)
+        {
+            Console.WriteLine($"  Conexão protegida por HTTPS com certificado próprio do Cube4Notes (impressão digital {Tls.CaThumbprint[..16]}...).");
+            Console.WriteLine($"  Certificado para instalar nos aparelhos: http://<endereço>:{httpPort}{Tls.CertPath}");
+        }
+        Console.WriteLine("  Acesso restrito à rede local.");
+    }
+    Console.WriteLine("  Feche esta janela ou use Ctrl+C para encerrar.");
+    Console.WriteLine();
+}
+
+static void PrintAddresses(bool personal, string scheme, int port)
+{
+    if (personal) return;
+    var addresses = Lan.Addresses().ToList();
+    if (addresses.Count == 0) Console.WriteLine("  Nenhuma rede local ativa encontrada.");
+    foreach (var a in addresses.Where(a => a.Primary)) Console.WriteLine($"  Na rede local:    {scheme}://{a.Address}:{port}   ({a.Interface})");
+    var others = addresses.Where(a => !a.Primary).Select(a => a.Address.ToString()).ToList();
+    if (others.Count > 0) Console.WriteLine($"  Também responde em (VPN/placas virtuais): {string.Join(", ", others)}");
+}
+
+static void OpenBrowser(string url)
+{
+    try
+    {
+        if (OperatingSystem.IsWindows()) Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        else if (OperatingSystem.IsMacOS()) Process.Start("open", url);
+        else if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"))) Process.Start("xdg-open", url);
+    }
+    catch (Exception) { /* sem navegador disponível: o endereço já está no console */ }
+}
+
+// ================================================================ tipos da API
+record PairRequest(string? Invite, string? DeviceName);
+record SetupRequest(string? Code, string? Mode, string? ServerName, string? VaultName, string? VaultPath, string? DeviceName);
+record VaultRequest(string? Name, string? Path);
+record InviteRequest(bool? Admin, List<string>? Vaults);
+record DeviceRequest(bool? Admin, List<string>? Vaults);
+record ServerRequest(string? Name, string? Mode);
+record FetchRequest(List<string>? Paths);
+record SyncRequest(List<SyncOp>? Ops);
+record SyncOp(long? Id, string? Type, string? Path, string? Content, string? BaseVersion, string? From, string? To);
+record OpResult(long? Id, string Status, string? Version = null, string? ConflictPath = null, string? ConflictVersion = null, string? Message = null, string? MovedTo = null);
+record ManifestFile(string Path, string Version, DateTime Modified);
+record FileContent(string Path, string Content, string Version);

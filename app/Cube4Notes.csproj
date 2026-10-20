@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Cube4Notes</AssemblyName>
+    <RootNamespace>Cube4Notes</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- o código-fonte da interface (web/) e o servidor de teste (dev/) não fazem parte do executável -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);web/**;dev/**;notas-exemplo/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- interface já compilada; copiada ao lado do executável -->
+    <None Update="wwwroot/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
