@@ -9,6 +9,14 @@ Visão geral do produto, como instalar e usar: [README.pt-BR.md](../README.pt-BR
 - Executável independente para Windows: `gerar-executavel.ps1` (saída em `dist\win-x64`). A interface (`wwwroot`) vai embutida no executável como recurso, então o `.exe` é um arquivo único.
 - O projeto mira `net10.0`, nunca `net10.0-windows`: o que é específico do Windows (confiar no certificado) fica atrás de verificação do sistema em tempo de execução.
 
+## Janela e bandeja
+
+- Com tela disponível, o processo principal é o servidor e abre a janela num segundo processo (`Cube4Notes --janela <endereço>`), feita com Photino.NET (WebView2 no Windows, WebKitGTK no Linux, WebKit no macOS). Sem tela, ou com `--sem-janela`, roda no console como antes.
+- Abrir o Cube4Notes de novo com ele já rodando só abre outra janela.
+- *Só este computador*: fechar a janela encerra tudo. *Rede de casa*: o servidor continua; no Windows fica um ícone perto do relógio (Abrir / Encerrar), feito direto com a API do Windows para não depender de WinForms e continuar compilando no Linux. Em qualquer sistema, Preferências > Vaults e servidor > Encerrar o Cube4Notes também encerra (só no próprio computador).
+- Primeira execução numa janela: o assistente roda em HTTP só neste computador; o certificado só é criado se escolher *Rede de casa*.
+- Os dados da janela no Windows (WebView2) ficam em `<configuração>/janela`.
+
 ## Configuração
 
 Tudo fica numa pasta de configuração (padrão `%LOCALAPPDATA%\Cube4Notes`, ou `--config <pasta>`):
@@ -25,7 +33,7 @@ tls/            autoridade certificadora local e certificado do servidor (modo R
 - **Migração:** se existir a configuração da versão de uma pasta só (`pasta-de-notas.txt` ou `--notes`), ela vira o vault `notas` e os aparelhos antigos continuam valendo. No navegador, as notas e a fila offline da versão antiga são migradas para esse vault sem perdas.
 - Arquivos internos de cada vault ficam em `<vault>/.cube4notes/` (registro de renomeações) e `<vault>/.lixeira/`.
 
-Opções: `--config`, `--port`, `--notes`, `--sem-navegador`, `--sem-https`, `--sem-instalar-certificado`.
+Opções: `--config`, `--port`, `--notes`, `--sem-janela`, `--sem-navegador`, `--sem-https`, `--sem-instalar-certificado`.
 
 ## Aparelhos e permissões
 

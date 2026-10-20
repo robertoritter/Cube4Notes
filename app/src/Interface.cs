@@ -10,6 +10,7 @@
  */
 using System.Reflection;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
 
 static class Interface

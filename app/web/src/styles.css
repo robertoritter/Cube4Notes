@@ -504,3 +504,4 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
 .setup .pair-card .field.code { margin-bottom: 6px; }
 .setup-vault .field { margin-bottom: 12px; }
 .pair-card.center { text-align: center; display: grid; justify-items: center; gap: 12px; }
+.quit-btn { margin-top: 4px; }

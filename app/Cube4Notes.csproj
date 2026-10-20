@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <!-- WinExe: no Windows abre sem a tela preta do console (no Linux e no macOS não muda nada) -->
+    <OutputType>WinExe</OutputType>
+    <ApplicationIcon>icone/cube4notes.ico</ApplicationIcon>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -14,6 +16,8 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- janela própria multiplataforma: WebView2 (Windows), WebKitGTK (Linux), WebKit (macOS) -->
+    <PackageReference Include="Photino.NET" Version="4.0.16" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,6 +25,7 @@
     <Content Remove="wwwroot/**" />
     <None Remove="wwwroot/**" />
     <EmbeddedResource Include="wwwroot/**" LogicalName="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
+    <EmbeddedResource Include="icone/cube4notes.ico" LogicalName="icone/cube4notes.ico" />
   </ItemGroup>
 
 </Project>

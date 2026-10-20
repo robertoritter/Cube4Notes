@@ -59,6 +59,7 @@ const ui = {
   topBar: pref('topbar', '1') === '1',
   selectedFolder: '',
   admin: false,
+  loopback: false,
 };
 let editor: EditorHandle | null = null;
 let editorPath: string | null = null;
@@ -1073,7 +1074,14 @@ async function openVaultsAdmin() {
     h('h3', {}, t.server),
     h('form', { class: 'srv-name', onsubmit: async (e: Event) => { e.preventDefault(); try { await S.updateServer({ name: srvName.value }); toast(t.nameSaved); } catch (e: any) { toast(e.message || t.setupFailed, 'warn'); } } },
       h('label', { class: 'label' }, t.serverName), h('div', { class: 'inline' }, srvName, h('button', { class: 'btn', type: 'submit' }, t.save))),
-    h('span', { class: 'label' }, t.mode), modeBox);
+    h('span', { class: 'label' }, t.mode), modeBox,
+    ui.loopback ? h('button', { class: 'btn ghost danger-text quit-btn', onclick: () => dialog(t.quitQ, t.quitHint, t.quit, async () => {
+      flushWrite();
+      try { await S.quitServer(); } catch {}
+      app.replaceChildren(h('div', { class: 'pair' }, h('div', { class: 'pair-card center' },
+        h('img', { class: 'empty-logo', src: '/brand/cube4notes.png', alt: '', width: 64, height: 64 }), h('h1', {}, t.quitDone))));
+      document.querySelectorAll('.overlay').forEach(o => o.remove());
+    }, true) }, ic('X', 15), t.quit) : null);
   modal(t.manageVaults, body, 'wide vaults-modal');
 }
 
@@ -1142,7 +1150,7 @@ async function start() {
     if (!ui.active && ui.tabs.length) ui.active = ui.tabs[0];
   }
   renderAll();
-  S.status().then(st => { ui.admin = !!st?.admin; uiVersion ||= st?.ui || ''; renderVaultSwitch(); });
+  S.status().then(st => { ui.admin = !!st?.admin; ui.loopback = !!st?.loopback; uiVersion ||= st?.ui || ''; renderVaultSwitch(); });
   await S.sync();
   if (!ui.tabs.length) ui.tabs = savedTabs;
   ui.tabs = ui.tabs.filter(p => S.notes.has(p));

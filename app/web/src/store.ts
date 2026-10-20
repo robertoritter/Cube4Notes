@@ -328,6 +328,7 @@ export const listDevices = async () => (await json<{ devices: DeviceInfo[] }>('/
 export const updateDevice = (id: string, change: { admin?: boolean; vaults?: string[] }) => json('/api/admin/devices/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(change) });
 export const removeDevice = (id: string) => json('/api/admin/devices/' + encodeURIComponent(id), { method: 'DELETE' });
 export const serverInfo = () => json<{ name: string; mode: 'pessoal' | 'rede'; port: number; configDir: string }>('/api/admin/server');
+export const quitServer = () => json('/api/admin/quit', { method: 'POST' });
 export const updateServer = (change: { name?: string; mode?: string }) => json<{ name: string; mode: string; restart: boolean; next: string }>('/api/admin/server', { method: 'PATCH', body: JSON.stringify(change) });
 
 // ---------- sincronização de todos os vaults ----------

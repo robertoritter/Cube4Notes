@@ -27,6 +27,7 @@ Os aparelhos sincronizam com o computador quando estão na mesma rede que ele. L
 - **Vários vaults.** Qualquer pasta pode ser um vault. Cada aparelho acessa só os vaults que você escolher.
 - **Conectar aparelho por QR code**, ou por um código de 6 caracteres. Convites são de uso único e valem 5 minutos. Ler um convite novo num aparelho já conectado atualiza o acesso dele. O acesso de um aparelho pode ser retirado na hora.
 - **HTTPS local sem complicação.** No modo *Rede de casa* o Cube4Notes cria a própria autoridade certificadora, restrita a `localhost`, `*.local`, ao nome do computador e a IPs privados, então ela não serve para falsificar sites da internet.
+- **Aplicativo de verdade.** O Cube4Notes abre numa janela própria, com o motor web do sistema (WebView2 no Windows, WebKit no Linux e no macOS). No modo *Rede de casa*, fechar a janela deixa ele rodando perto do relógio para os outros aparelhos continuarem sincronizando; o ícone reabre ou encerra. Máquinas sem tela rodam como servidor no console.
 - **Navegação rápida.** Abas, árvore de pastas com arrastar e soltar, `Ctrl+K` para abrir notas e comandos, busca no conteúdo, painel de estrutura e de links para a nota.
 - **53 temas de terminal** (Dracula, Nord, Gruvbox, Solarized, Catppuccin, Tokyo Night...) além de claro, escuro e sépia. Interface em português e inglês.
 
@@ -38,8 +39,8 @@ Os aparelhos sincronizam com o computador quando estão na mesma rede que ele. L
 
 Requisito: [.NET 10 SDK](https://dotnet.microsoft.com/download), ou o `Cube4Notes.exe` independente (veja abaixo), que não precisa de nada instalado.
 
-1. Rode `app/iniciar.cmd` (ou `dotnet run -c Release` dentro de `app/`).
-2. O navegador abre no Cube4Notes. Na primeira execução, um assistente pergunta três coisas:
+1. Dê dois cliques no `Cube4Notes.exe` (ou, a partir do código, em `app/iniciar.cmd`).
+2. O Cube4Notes abre numa janela própria de aplicativo (sem navegador e sem console). Na primeira execução, um assistente pergunta três coisas:
    - onde você vai usar: *Só este computador* ou *Rede de casa*;
    - a pasta do primeiro vault (qualquer pasta; se não existir, é criada, e arquivos `.md` que já estiverem nela aparecem como notas);
    - o nome deste aparelho.
@@ -62,7 +63,8 @@ Configurar uma máquina sem tela: inicie o Cube4Notes nela, abra `https://<ip-de
 | `--config <pasta>` | Pasta da configuração (padrão `%LOCALAPPDATA%\Cube4Notes`) |
 | `--port <número>` | Porta (padrão 43125; no modo *Rede de casa* a porta anterior redireciona HTTP para HTTPS) |
 | `--notes <pasta>` | Importa uma pasta de notas como o vault "Notas" (atualização a partir do primeiro protótipo) |
-| `--sem-navegador` | Não abre o navegador ao iniciar |
+| `--sem-janela` | Servidor no console, sem janela (para máquinas sem tela) |
+| `--sem-navegador` | No modo console, não abre o navegador ao iniciar |
 | `--sem-https` | HTTP simples na rede (só para testes) |
 | `--sem-instalar-certificado` | Não adiciona o certificado à confiança do Windows |
 

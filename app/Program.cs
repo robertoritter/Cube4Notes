@@ -8,6 +8,8 @@
  * sincroniza os vaults (pastas de notas Markdown) com os aparelhos e administra aparelhos e vaults.
  * Modo "pessoal": só este computador (localhost). Modo "rede": HTTPS para os aparelhos da casa.
  * Nenhuma alteração é descartada (conflito vira cópia, exclusão vai para a .lixeira).
+ * Com tela disponível, abre numa janela própria (processo separado) e, no Windows, fica com um ícone
+ * perto do relógio; sem tela (servidor), roda só no console. "--sem-janela" força o modo console.
  */
 using System.Diagnostics;
 using System.Net;
@@ -27,6 +29,8 @@ Console.OutputEncoding = Encoding.UTF8;
 var configArg = ArgValue(args, "--config");
 if (configArg is not null) ConfigStore.Dir = Path.GetFullPath(configArg);
 Directory.CreateDirectory(ConfigStore.Dir);
+// Processo da janela: só mostra o Cube4Notes que já está rodando.
+if (ArgValue(args, "--janela") is { } windowUrl) return Janela.Run(windowUrl);
 var portArg = ArgValue(args, "--port") is { } portText ? ParsePort(portText) : (int?)null;
 var notesArg = ArgValue(args, "--notes");
 var forceHttp = args.Contains("--sem-https");
@@ -39,16 +43,70 @@ var registry = new VaultRegistry();
 var contentTypes = new FileExtensionContentTypeProvider();
 contentTypes.Mappings[".webmanifest"] = "application/manifest+json";
 var tlsReady = false;
+var windowMode = !args.Contains("--sem-janela") && Janela.HasDesktop();
+
+// Janela, ícone na bandeja e encerramento: compartilhados entre reinícios do servidor
+Process? windowProc = null;
+Bandeja? tray = null;
+var trayHinted = false;
+var currentPersonal = false;
+var currentUrl = "";
+Action? stopServer = null;
+
+if (windowMode)
+{
+    // Cube4Notes já aberto: este processo vira só mais uma janela dele.
+    var existing = ConfigStore.Load();
+    var existingPort = portArg ?? existing?.Port ?? 43125;
+    if (existing is not null && Janela.ServerRunning(existingPort))
+        return Janela.Run(existing.Mode == "pessoal" || forceHttp ? $"http://localhost:{existingPort}/" : $"https://localhost:{existingPort}/");
+    if (OperatingSystem.IsWindows())
+        tray = new Bandeja(Janela.IconPath(), "Cube4Notes", () => StartWindow(currentUrl), Quit);
+}
 
 // Reinicia o servidor (sem fechar o programa) quando o modo ou a porta mudam.
 while (true)
 {
     var config = ConfigStore.Load() ?? ConfigStore.Migrate(notesArg);
     var result = await RunAsync(config);
-    if (result == 0) return 0;
-    if (result < 0) return 1;
+    if (result <= 0)
+    {
+        if (OperatingSystem.IsWindows()) tray?.Dispose();
+        try { if (windowProc is { HasExited: false }) windowProc.Kill(); } catch (Exception) { }
+        return result == 0 ? 0 : 1;
+    }
     openBrowser = false;
     Console.WriteLine("\n  Reiniciando com a nova configuração...\n");
+}
+
+void StartWindow(string url)
+{
+    if (string.IsNullOrEmpty(url)) return;
+    if (windowProc is { HasExited: false })
+    {
+        if (OperatingSystem.IsWindows()) Bandeja.Focus(windowProc.MainWindowHandle);
+        return;
+    }
+    windowProc = Janela.Spawn(url);
+    if (windowProc is null) return;
+    windowProc.EnableRaisingEvents = true;
+    windowProc.Exited += (_, _) =>
+    {
+        // Só este computador: fechar a janela encerra. Rede de casa: continua atendendo os outros aparelhos.
+        if (currentPersonal) stopServer?.Invoke();
+        else if (OperatingSystem.IsWindows())
+        {
+            if (tray is null || trayHinted) return;
+            trayHinted = true;
+            tray.Notify("Cube4Notes continua rodando", "Os outros aparelhos seguem sincronizando. Clique no ícone para abrir ou encerrar.");
+        }
+    };
+}
+
+void Quit()
+{
+    try { if (windowProc is { HasExited: false }) windowProc.Kill(); } catch (Exception) { }
+    stopServer?.Invoke();
 }
 
 // 0 = encerrar, 1 = reiniciar, -1 = erro
@@ -56,7 +114,8 @@ async Task<int> RunAsync(AppConfig? config)
 {
     var setup = config is null || config.Vaults.Count == 0;
     var setupCode = setup ? NewSetupCode() : "";
-    var personal = !setup && config!.Mode == "pessoal";
+    // Primeira execução numa janela: o assistente roda só neste computador (sem certificado); o HTTPS só entra se escolher "Rede de casa".
+    var personal = setup ? windowMode : config!.Mode == "pessoal";
     var port = portArg ?? config?.Port ?? 43125;
     var useHttps = !personal && !forceHttp;
     var httpPort = port - 1;
@@ -460,6 +519,15 @@ async Task<int> RunAsync(AppConfig? config)
         return Results.Ok(new { removed = removed.Id });
     });
 
+    // Encerrar o Cube4Notes (só do próprio computador): útil onde não há ícone na bandeja.
+    app.MapPost("/api/admin/quit", (HttpContext ctx) =>
+    {
+        if (!IsLoopback(ctx)) return Results.StatusCode(StatusCodes.Status403Forbidden);
+        Console.WriteLine("  Encerrado pela interface.");
+        _ = Task.Run(async () => { await Task.Delay(400); app.Lifetime.StopApplication(); });
+        return Results.Ok(new { quitting = true });
+    });
+
     app.MapGet("/api/admin/server", () => Results.Ok(new { name = config!.Name, mode = config.Mode, port, configDir = ConfigStore.Dir }));
 
     app.MapPatch("/api/admin/server", (ServerRequest body) =>
@@ -485,7 +553,11 @@ async Task<int> RunAsync(AppConfig? config)
     void OnNetworkChange(object? s, EventArgs e) => Lan.OnAddressesChanged(() => PrintAddresses(personal, scheme, port));
     NetworkChange.NetworkAddressChanged += OnNetworkChange;
     if (useHttps && OperatingSystem.IsWindows() && !args.Contains("--sem-instalar-certificado")) Tls.TrustOnWindows();
-    if (openBrowser) app.Lifetime.ApplicationStarted.Register(() => OpenBrowser($"{scheme}://localhost:{port}"));
+    currentPersonal = personal;
+    currentUrl = $"{scheme}://localhost:{port}/";
+    stopServer = () => app.Lifetime.StopApplication();
+    if (openBrowser)
+        app.Lifetime.ApplicationStarted.Register(() => { if (windowMode) StartWindow(currentUrl); else OpenBrowser(currentUrl); });
     try
     {
         await app.RunAsync();

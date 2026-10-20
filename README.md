@@ -27,6 +27,7 @@ Devices sync with your computer when they are on the same network as it. Away fr
 - **Multiple vaults.** Any folder can be a vault. Each device gets access only to the vaults you choose.
 - **Pair a device with a QR code**, or a 6-character code. Invites are single-use and expire in 5 minutes. Scanning a new invite on a device that is already connected updates its access. Devices can be revoked instantly.
 - **Local HTTPS that just works.** In *Home network* mode Cube4Notes creates its own certificate authority, restricted to `localhost`, `*.local`, the computer name and private IP ranges, so it cannot be abused to impersonate internet sites.
+- **A real desktop app.** Cube4Notes opens in its own window, using the system web engine (WebView2 on Windows, WebKit on Linux and macOS). In *Home network* mode, closing the window keeps it running next to the clock so other devices keep syncing; the icon reopens or quits it. Machines without a screen run it as a console server.
 - **Fast navigation.** Tabs, folder tree with drag and drop, `Ctrl+K` quick open and command palette, full-text search, outline and backlinks panel.
 - **53 terminal color themes** (Dracula, Nord, Gruvbox, Solarized, Catppuccin, Tokyo Night...) plus light, dark and sepia. Portuguese and English interface.
 
@@ -38,8 +39,8 @@ Devices sync with your computer when they are on the same network as it. Away fr
 
 Requirements: [.NET 10 SDK](https://dotnet.microsoft.com/download), or the standalone `Cube4Notes.exe` (see below), which needs nothing installed.
 
-1. Run `app/iniciar.cmd` (or `dotnet run -c Release` inside `app/`).
-2. Your browser opens at Cube4Notes. On the first run a setup wizard asks three things:
+1. Double-click `Cube4Notes.exe` (or, from source, `app/iniciar.cmd`).
+2. Cube4Notes opens in its own app window (no browser, no console). On the first run a setup wizard asks three things:
    - where you will use it: *This computer only* or *Home network*;
    - the folder for your first vault (any folder; it is created if missing, and existing `.md` files show up as notes);
    - a name for this device.
@@ -62,7 +63,8 @@ Setting up a machine without a screen: start Cube4Notes there, open `https://<it
 | `--config <folder>` | Configuration folder (default `%LOCALAPPDATA%\Cube4Notes`) |
 | `--port <number>` | Port (default 43125; in *Home network* mode the port below it redirects HTTP to HTTPS) |
 | `--notes <folder>` | Import a single notes folder as the vault "Notas" (upgrade from the first prototype) |
-| `--sem-navegador` | Do not open the browser on start |
+| `--sem-janela` | Console server, no app window (for machines without a screen) |
+| `--sem-navegador` | In console mode, do not open the browser on start |
 | `--sem-https` | Plain HTTP on the network (testing only) |
 | `--sem-instalar-certificado` | Do not add the certificate to the Windows trust store |
 

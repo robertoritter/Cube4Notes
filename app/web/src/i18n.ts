@@ -200,6 +200,10 @@ const pt = {
   setupFinish: 'Começar',
   setupWrongCode: 'Código de configuração incorreto.',
   setupFailed: 'Não foi possível concluir. Confira os dados e tente de novo.',
+  quit: 'Encerrar o Cube4Notes',
+  quitQ: 'Encerrar o Cube4Notes?',
+  quitHint: 'O servidor para neste computador e os outros aparelhos deixam de sincronizar até ele ser aberto de novo. As notas de cada aparelho continuam guardadas.',
+  quitDone: 'O Cube4Notes foi encerrado. Pode fechar esta janela.',
 };
 export type Dict = typeof pt;
 const en: Dict = {
@@ -396,6 +400,10 @@ const en: Dict = {
   setupFinish: 'Get started',
   setupWrongCode: 'Wrong setup code.',
   setupFailed: 'Could not finish. Check the details and try again.',
+  quit: 'Quit Cube4Notes',
+  quitQ: 'Quit Cube4Notes?',
+  quitHint: 'The server stops on this computer and other devices stop syncing until it is opened again. Each device keeps its notes.',
+  quitDone: 'Cube4Notes has quit. You can close this window.',
 };
 export type Lang = 'pt-BR' | 'en';
 const dicts: Record<Lang, Dict> = { 'pt-BR': pt, en };
