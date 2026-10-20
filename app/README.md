@@ -6,7 +6,7 @@ Visão geral do produto, como instalar e usar: [README.pt-BR.md](../README.pt-BR
 
 - Windows: `iniciar.cmd` (compila e roda com o .NET 10 SDK). Equivale a `dotnet run -c Release` nesta pasta.
 - Verificar se compila sem rodar: `compilar.cmd` (resultado em `compilar.log`).
-- Executável independente para Windows: `gerar-executavel.ps1` (saída em `dist\win-x64`).
+- Executável independente para Windows: `gerar-executavel.ps1` (saída em `dist\win-x64`). A interface (`wwwroot`) vai embutida no executável como recurso, então o `.exe` é um arquivo único.
 - O projeto mira `net10.0`, nunca `net10.0-windows`: o que é específico do Windows (confiar no certificado) fica atrás de verificação do sistema em tempo de execução.
 
 ## Configuração

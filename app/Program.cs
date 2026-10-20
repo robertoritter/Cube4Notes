@@ -178,8 +178,17 @@ async Task<int> RunAsync(AppConfig? config)
     });
 
     app.MapGet(Tls.CertPath, () => useHttps ? Results.File(Tls.CaDer, "application/x-x509-ca-cert", "Cube4Notes-CA.cer") : Results.NotFound());
-    app.UseDefaultFiles();
-    app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = contentTypes });
+    // Interface embutida no executável; a pasta wwwroot no disco só é usada se o executável não tiver a interface.
+    app.Use(async (ctx, next) =>
+    {
+        if (!ctx.Request.Path.StartsWithSegments("/api") && await Interface.TryServe(ctx, contentTypes)) return;
+        await next();
+    });
+    if (!Interface.Embedded && Directory.Exists(app.Environment.WebRootPath))
+    {
+        app.UseDefaultFiles();
+        app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = contentTypes });
+    }
 
     // ------------------------------------------------------------ estado e pareamento
     app.MapGet("/api/status", (HttpContext ctx) =>
@@ -514,6 +523,7 @@ Device? DeviceOf(HttpContext ctx)
 // Muda quando a interface é atualizada: o navegador recarrega sozinho para não ficar com a versão velha em memória.
 static string UiVersion()
 {
+    if (Interface.Embedded) return Interface.Version;
     var index = Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html");
     return File.Exists(index) ? File.GetLastWriteTimeUtc(index).Ticks.ToString("x") : "";
 }

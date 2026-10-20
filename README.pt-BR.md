@@ -53,7 +53,7 @@ Configurar uma máquina sem tela: inicie o Cube4Notes nela, abra `https://<ip-de
 
 ### Executável independente
 
-`app/gerar-executavel.ps1` gera um `Cube4Notes.exe` independente em `app/dist/win-x64`, que roda em qualquer Windows sem .NET. Mantenha a pasta `wwwroot` ao lado dele.
+`app/gerar-executavel.ps1` gera um `Cube4Notes.exe` independente em `app/dist/win-x64`, que roda em qualquer Windows sem .NET. É um arquivo único, com a interface embutida: copie para onde quiser e dê dois cliques.
 
 ### Opções de linha de comando
 

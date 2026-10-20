@@ -53,7 +53,7 @@ Setting up a machine without a screen: start Cube4Notes there, open `https://<it
 
 ### Standalone executable
 
-`app/gerar-executavel.ps1` produces a self-contained `Cube4Notes.exe` in `app/dist/win-x64` that runs on any Windows PC without .NET. Keep the `wwwroot` folder next to it.
+`app/gerar-executavel.ps1` produces a self-contained `Cube4Notes.exe` in `app/dist/win-x64` that runs on any Windows PC without .NET. It is a single file with the interface built in: copy it anywhere and double-click.
 
 ### Command-line options
 

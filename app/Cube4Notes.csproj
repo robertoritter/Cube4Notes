@@ -17,8 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- interface já compilada; copiada ao lado do executável -->
-    <None Update="wwwroot/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- interface já compilada; vai embutida no executável (Cube4Notes.exe é um arquivo único) -->
+    <Content Remove="wwwroot/**" />
+    <None Remove="wwwroot/**" />
+    <EmbeddedResource Include="wwwroot/**" LogicalName="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>
