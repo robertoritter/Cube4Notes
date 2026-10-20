@@ -106,7 +106,7 @@ Mapa da documentação:
 - [`docs/01-arquitetura.md`](docs/01-arquitetura.md): componentes, fluxos, segurança e ambientes.
 - [`docs/02-plano-de-entrega.md`](docs/02-plano-de-entrega.md): fases e critérios de saída.
 - [`docs/05-cenarios-de-uso.md`](docs/05-cenarios-de-uso.md): cenário doméstico e aparelhos.
-- [`docs/03-licenciamento.md`](docs/03-licenciamento.md): alternativas de licença.
+- [`docs/03-licenciamento.md`](docs/03-licenciamento.md): alternativas de licença comparadas; decisão em [`docs/adr/0002-licenca-mit.md`](docs/adr/0002-licenca-mit.md).
 - [`docs/04-pesquisa-e-evidencias.md`](docs/04-pesquisa-e-evidencias.md): fontes externas.
 - [`AGENTS.md`](AGENTS.md): protocolo operacional obrigatório.
 - [`app/README.md`](app/README.md): referência técnica do app (API, configuração, testes).
@@ -138,7 +138,7 @@ python scripts/check_project.py                                # verificação d
 
 ## Licença
 
-Nenhuma licença foi escolhida ainda. Até uma ser publicada, este repositório **não é open source**: todos os direitos reservados.
+O Cube4Notes é open source, sob a [licença MIT](LICENSE). Os nomes Cube4Notes e Cube4Code e as logos não são cobertos pela licença.
 
 ---
 

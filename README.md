@@ -127,7 +127,7 @@ python scripts/check_project.py                                # repository stru
 
 ## License
 
-No license has been chosen yet. Until one is published, this repository is **not open source**: all rights reserved.
+Cube4Notes is open source under the [MIT License](LICENSE). The names Cube4Notes and Cube4Code and their logos are not covered by the license.
 
 ---
 

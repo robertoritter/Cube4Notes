@@ -45,7 +45,7 @@ Editar notas visualmente sem perder Markdown portável; usar o mesmo espaço no 
 - celular e iPad não sincronizam entre si diretamente; ambos sincronizam com o servidor quando ele voltar;
 - se dois clientes alterarem o mesmo arquivo offline, preservar as versões e sinalizar conflito; nunca descartar uma alteração silenciosamente;
 - Markdown é fonte de portabilidade;
-- a licença permanece em aberto; não criar `LICENSE` até decisão do proprietário.
+- licença MIT, decidida pelo proprietário (ADR 0002).
 
 ## Hipóteses a validar
 

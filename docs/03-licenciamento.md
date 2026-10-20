@@ -1,6 +1,6 @@
 # Alternativas de licenciamento
 
-Nenhuma licença foi escolhida. Até essa decisão, o repositório fica sem `LICENSE`; disponibilizar código publicamente sem licença não concede automaticamente permissões de uso, modificação ou redistribuição.
+Licença escolhida: MIT (ver Decisão, abaixo). Este documento registra as alternativas comparadas.
 
 Isto é uma análise prática, não aconselhamento jurídico.
 
@@ -23,6 +23,10 @@ O cenário atual é um servidor pessoal executado na rede doméstica, sem oferta
 4. Haverá CLA ou DCO para contribuições e possível relicenciamento futuro?
 5. Quais dependências do editor/desktop são compatíveis com a opção escolhida?
 
-## Recomendação provisória
+## Decisão
+
+Em 2026-10-20 o proprietário escolheu a **MIT** (ver [ADR 0002](adr/0002-licenca-mit.md)). A análise abaixo fica como registro.
+
+## Recomendação provisória (anterior à decisão)
 
 Não licenciar ainda é correto durante a fundação. Antes de publicar, compare principalmente **MPL-2.0** (equilíbrio e copyleft limitado), **AGPL-3.0** (proteção contra apropriação SaaS) e **Apache-2.0** (adoção máxima). Se a intenção for chamar o projeto de open source, não use BSL como se fosse equivalente.

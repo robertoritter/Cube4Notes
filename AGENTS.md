@@ -10,7 +10,7 @@ Leia `README.md`, `docs/00-visao-e-escopo.md` e `docs/01-arquitetura.md` antes d
 
 - Markdown legível por humanos é o formato canônico das notas.
 - Preserve a distinção entre fatos, hipóteses, propostas e decisões.
-- Não adicione `LICENSE`, cabeçalhos de licença ou identificador SPDX até decisão expressa do proprietário.
+- Licença decidida: MIT (`LICENSE`, ADR 0002). Não mude a licença nem acrescente outras sem decisão expressa do proprietário.
 - Não invente requisitos, integrações, comandos ou suporte de plataforma inexistentes.
 - O Cube4Notes roda no computador que guarda as notas (o do próprio usuário ou um servidor doméstico, por exemplo um Debian sempre ligado); outros computadores (Windows, Linux), celular e tablet são clientes.
 - O servidor é acessível somente pela rede local da casa. Não configurar acesso externo, túnel remoto ou serviço de nuvem.
