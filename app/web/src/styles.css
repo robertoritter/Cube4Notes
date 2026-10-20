@@ -505,3 +505,24 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
 .setup-vault .field { margin-bottom: 12px; }
 .pair-card.center { text-align: center; display: grid; justify-items: center; gap: 12px; }
 .quit-btn { margin-top: 4px; }
+
+/* caixa de link (editar e pré-visualizar): destacada do texto, com borda, sombra e campo legível */
+.milkdown .milkdown-link-edit > .link-edit,
+.milkdown .milkdown-link-preview > .link-preview {
+  height: auto; min-height: 40px; align-items: center; padding: 6px 6px 6px 12px; gap: 6px;
+  background: var(--side); border: 1px solid var(--line-2); border-radius: 10px; box-shadow: var(--shadow);
+  font-family: var(--ui);
+}
+.milkdown .milkdown-link-edit > .link-edit > .input-area {
+  width: min(340px, 64vw); height: 28px; padding: 0 8px; border-radius: 7px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--ink); font: 13.5px var(--ui);
+}
+.milkdown .milkdown-link-edit > .link-edit > .input-area:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.milkdown .milkdown-link-edit > .link-edit > .input-area::placeholder { color: var(--muted); opacity: .8; }
+.milkdown .milkdown-link-edit > .link-edit > .button,
+.milkdown .milkdown-link-preview > .link-preview > .button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; padding: 0; border-radius: 7px; }
+.milkdown .milkdown-link-edit > .link-edit > .button svg,
+.milkdown .milkdown-link-preview > .link-preview > .button svg { color: var(--ink-2); fill: var(--ink-2); }
+.milkdown .milkdown-link-preview > .link-preview > .link-display { color: var(--md-link, var(--accent)); font: 13.5px var(--ui); max-width: min(340px, 60vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.milkdown .milkdown-link-edit, .milkdown .milkdown-link-preview { margin: 4px 0; }
+.milkdown .milkdown-link-edit > .link-edit { width: max-content; max-width: calc(100vw - 32px); }
