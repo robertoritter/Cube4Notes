@@ -3,3 +3,4 @@ obj/
 dist/
 web/node_modules/
 compilar.log
+gerar-executavel.log
