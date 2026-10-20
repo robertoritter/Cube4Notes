@@ -15,7 +15,7 @@
     "idb": "^8.0.4",
     "lucide": "^1.59.0",
     "qrcode-generator": "^1.4.4",
-    "cube4themes": "github:robertoritter/cube4themes#v1.0.0"
+    "cube4themes": "github:robertoritter/Cube4Themes#v1.0.1"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
