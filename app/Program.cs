@@ -142,7 +142,9 @@ async Task<int> RunAsync(AppConfig? config)
     {
         Args = args,
         ContentRootPath = AppContext.BaseDirectory,
-        WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+        // só aponta a pasta wwwroot se ela existir (desenvolvimento); o executável usa a interface embutida, e o
+        // ASP.NET tentaria criar a pasta ao lado dele, o que falha quando ele está numa pasta só de leitura (/opt)
+        WebRootPath = Directory.Exists(Path.Combine(AppContext.BaseDirectory, "wwwroot")) ? Path.Combine(AppContext.BaseDirectory, "wwwroot") : null,
     });
     builder.Logging.SetMinimumLevel(LogLevel.Warning);
     builder.WebHost.ConfigureKestrel(k =>
