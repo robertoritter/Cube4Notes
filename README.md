@@ -226,7 +226,10 @@ Tests (Python 3; the sync tests also need Playwright):
 python app/dev/teste_sync.py                                   # adversarial sync scenarios
 python app/seguranca/teste_seguranca.py --lan https://<ip>:43125   # security suite against a running server
 python scripts/check_project.py                                # repository structure checks
+python app/dev/teste_executavel.py app/dist/<platform>/Cube4Notes # the built executable, as a new user would run it
 ```
+
+Every push to GitHub runs the same checks ([.github/workflows/ci.yml](.github/workflows/ci.yml)): the executable is built and tested on Windows, Linux and macOS, built and tested again on a minimal Debian with no extra libraries, installed as a systemd service, and the interface tests run against the test server.
 
 ## Roadmap
 

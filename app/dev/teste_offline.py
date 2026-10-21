@@ -43,4 +43,5 @@ async def main():
         check("edição continua guardada após reabrir", "pendente" in pend, pend)
         await b.close()
     print(f"\n{sum(R)} de {len(R)} verificações passaram.")
-asyncio.run(main())
+    return 0 if R and all(R) else 1
+raise SystemExit(asyncio.run(main()))

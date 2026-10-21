@@ -1,0 +1,122 @@
+# Author: Roberto Ritter
+# Studio: Cube4Code
+# Website: https://cube4code.com
+# Copyright (c) 2026 Roberto Ritter
+#
+# Verificação a cada push: gera o executável em Windows, Linux e macOS e testa como um usuário novo usaria
+# (dev/teste_executavel.py), instala o serviço do systemd num Ubuntu, compila e testa num Debian mínimo
+# (sem bibliotecas extras) e roda os testes da interface no servidor de teste.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  executavel:
+    name: Executável (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64, exe: Cube4Notes.exe }
+          - { os: ubuntu-latest, rid: linux-x64, exe: Cube4Notes }
+          - { os: macos-latest, rid: osx-arm64, exe: Cube4Notes }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Gerar (Windows)
+        if: runner.os == 'Windows'
+        working-directory: app
+        run: dotnet publish Cube4Notes.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o dist/win-x64
+      - name: Gerar (Linux e macOS, com o script do README)
+        if: runner.os != 'Windows'
+        working-directory: app
+        run: ./gerar-executavel.sh || (cat gerar-executavel.log; exit 1)
+      - name: Testar o executável
+        run: python app/dev/teste_executavel.py app/dist/${{ matrix.rid }}/${{ matrix.exe }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cube4Notes-${{ matrix.rid }}
+          path: app/dist/${{ matrix.rid }}/${{ matrix.exe }}
+
+  debian-minimo:
+    name: Debian mínimo (como num servidor recém-instalado)
+    runs-on: ubuntu-latest
+    container: debian:13
+    steps:
+      - name: Ferramentas básicas (sem libicu)
+        run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git python3 && rm -rf /var/lib/apt/lists/*
+      - uses: actions/checkout@v4
+      - name: .NET 10 SDK só para o usuário, como no README
+        run: curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0
+      - name: Gerar com o script do README
+        working-directory: app
+        run: ./gerar-executavel.sh || (cat gerar-executavel.log; exit 1)
+      - name: Testar o executável
+        run: python3 app/dev/teste_executavel.py app/dist/linux-x64/Cube4Notes
+
+  servico-linux:
+    name: Serviço do systemd (instalar-servico.sh)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - name: Gerar e instalar como no README
+        working-directory: app
+        run: |
+          ./gerar-executavel.sh || (cat gerar-executavel.log; exit 1)
+          ./instalar-servico.sh
+      - name: O serviço responde e mostra o código de configuração
+        run: |
+          for i in $(seq 1 60); do curl -skf https://127.0.0.1:43125/api/status && break; sleep 1; done
+          curl -skf https://127.0.0.1:43125/api/status | grep -q '"setup":true'
+          sudo journalctl -u cube4notes --no-pager -o cat | grep -E "setup code|código de configuração"
+          systemctl is-active cube4notes
+      - name: Atualizar (rodar o instalador de novo) mantém o serviço funcionando
+        working-directory: app
+        run: |
+          ./instalar-servico.sh
+          for i in $(seq 1 60); do curl -skf https://127.0.0.1:43125/api/status && break; sleep 1; done
+          systemctl is-active cube4notes
+      - name: Mensagens do serviço (em caso de falha)
+        if: failure()
+        run: sudo journalctl -u cube4notes --no-pager -n 200
+
+  interface:
+    name: Interface e sincronização (servidor de teste)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Compilar a interface
+        working-directory: app/web
+        run: |
+          npm ci
+          npx tsc -p .
+          npm run build
+      - name: Playwright
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Testes
+        working-directory: app
+        run: |
+          python dev/teste_sync.py
+          python dev/teste_offline.py
+          python dev/teste_recursos.py
+          python dev/teste_endereco.py
+          python dev/teste_idioma.py

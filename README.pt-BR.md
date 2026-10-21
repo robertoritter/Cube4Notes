@@ -237,7 +237,10 @@ Testes (Python 3; os de sincronização também precisam do Playwright):
 python app/dev/teste_sync.py                                   # cenários maldosos de sincronização
 python app/seguranca/teste_seguranca.py --lan https://<ip>:43125   # bateria de segurança contra um servidor rodando
 python scripts/check_project.py                                # verificação da estrutura do repositório
+python app/dev/teste_executavel.py app/dist/<plataforma>/Cube4Notes # o executável gerado, do jeito que um usuário novo usaria
 ```
+
+Cada push no GitHub roda as mesmas verificações ([.github/workflows/ci.yml](.github/workflows/ci.yml)): o executável é gerado e testado no Windows, no Linux e no macOS, gerado e testado de novo num Debian mínimo sem bibliotecas extras, instalado como serviço do systemd, e os testes da interface rodam no servidor de teste.
 
 ## Próximos passos
 
