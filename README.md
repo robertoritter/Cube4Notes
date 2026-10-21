@@ -62,11 +62,36 @@ Setting up a machine without a screen: start Cube4Notes there, open `https://<it
 
 `app/gerar-executavel.cmd` produces a self-contained `Cube4Notes.exe` in `app/dist/win-x64` that runs on any Windows PC without .NET. It is a single file with the interface built in: copy it anywhere and double-click.
 
+### Headless Linux server (systemd service)
+
+To keep your notes on an always-on Linux server (Debian, Ubuntu, Raspberry Pi OS; x64 or ARM64, including an Apple Silicon Mac running Linux):
+
+1. Install the .NET 10 SDK for your user only (no root needed):
+   ```bash
+   curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0
+   export PATH="$HOME/.dotnet:$PATH"
+   ```
+2. Get the code and build the executable (the machine's platform is detected automatically):
+   ```bash
+   git clone https://github.com/robertoritter/cube4notes.git
+   cd cube4notes/app
+   ./gerar-executavel.sh
+   ```
+3. Install it as a service (asks for `sudo`; the service runs as your user, not as root, and starts with the machine):
+   ```bash
+   ./instalar-servico.sh
+   ```
+   The script shows Cube4Notes' first messages, with its addresses and the **setup code**.
+4. On another device on the same network, open `https://<server-ip>:43125`, accept the browser warning (the certificate is not installed on that device yet), type the code and choose the folder of the first vault, which lives on the server.
+5. Then connect devices as usual: [Connecting a phone, step by step](#connecting-a-phone-step-by-step). Also reserve the server's IP in the router.
+
+Settings live in `~/.local/share/Cube4Notes` of the service user. Useful commands: `journalctl -u cube4notes -f` (messages), `sudo systemctl restart cube4notes`. To update: `git pull`, `./gerar-executavel.sh` and `./instalar-servico.sh` again (settings, devices and notes are kept). If the machine has a firewall (for example `ufw`), allow ports 43124 and 43125 (TCP) and 5353 (UDP) from the local network.
+
 ### Command-line options
 
 | Option | Effect |
 | --- | --- |
-| `--config <folder>` | Configuration folder (default `%LOCALAPPDATA%\Cube4Notes`) |
+| `--config <folder>` | Configuration folder (default `%LOCALAPPDATA%\Cube4Notes` on Windows, `~/.local/share/Cube4Notes` on Linux) |
 | `--port <number>` | Port (default 43125; in *Home network* mode the port below it redirects HTTP to HTTPS) |
 | `--notes <folder>` | Import a single notes folder as the vault "Notas" (upgrade from the first prototype) |
 | `--sem-janela` | Console server, no app window (for machines without a screen) |
@@ -124,7 +149,7 @@ Cube4Notes never goes through the internet. A phone or tablet talks directly to 
 
 - Guest Wi-Fi and networks that isolate devices block these name lookups. A normal home network allows them.
 - Android resolves `.local` names inconsistently, depending on the version and the browser. iPhone, iPad, macOS, Windows and Linux handle them well.
-- Cube4Notes answers for the name itself, so it does not depend on the operating system doing it (Windows often does not). On Windows it also adds a firewall rule for name lookups (UDP 5353, local network only) together with the rule for its own ports. On Linux, if `avahi-daemon` is running it already answers for the computer name and Cube4Notes leaves it to it. To turn the name off, start Cube4Notes with `--sem-nome-na-rede`.
+- Cube4Notes answers for the name itself, so it does not depend on the operating system doing it (Windows often does not). On Windows it also adds a firewall rule for name lookups (UDP 5353, local network only) together with the rule for its own ports. On Linux it shares the port with `avahi-daemon`, if it is running. To turn the name off, start Cube4Notes with `--sem-nome-na-rede`.
 - Two computers with the same name on the same network confuse the answer. Give them different names.
 
 **The simplest and most robust option: a fixed IP** (step 1 of [Connecting a phone](#connecting-a-phone-step-by-step)). In your router settings, look for *DHCP reservation* (also called *static lease* or *fixed IP*) and reserve the current IP for the computer that runs Cube4Notes. Then both the IP and the name keep working forever, on every device, including Android. With a fixed IP, using the name is optional.
@@ -161,8 +186,8 @@ Only the certificate *authority* needs installing. The server's own certificate 
 | Windows | Working, in daily validation |
 | iPhone / iPad (Safari, home screen app) | Working, in daily validation |
 | Android, other desktop browsers | Expected to work, not yet validated |
-| Linux | Cross-platform by design (`net10.0`); build script, CI and service setup in progress |
-| macOS | Planned; built and tested in CI only |
+| Linux (headless server, x64 and ARM64) | Build script and systemd service ready, being validated |
+| macOS (windowed app) | Planned; `gerar-executavel.sh` already builds the executable, the `.app` bundle is missing |
 
 ## Design principles
 

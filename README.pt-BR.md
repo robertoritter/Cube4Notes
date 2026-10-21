@@ -62,11 +62,36 @@ Configurar uma máquina sem tela: inicie o Cube4Notes nela, abra `https://<ip-de
 
 `app/gerar-executavel.cmd` gera um `Cube4Notes.exe` independente em `app/dist/win-x64`, que roda em qualquer Windows sem .NET. É um arquivo único, com a interface embutida: copie para onde quiser e dê dois cliques.
 
+### Servidor Linux sem tela (serviço do systemd)
+
+Para deixar as notas num servidor Linux sempre ligado (Debian, Ubuntu, Raspberry Pi OS; x64 ou ARM64, inclusive Mac com Apple Silicon rodando Linux):
+
+1. Instale o .NET 10 SDK só para o seu usuário (não precisa de root):
+   ```bash
+   curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0
+   export PATH="$HOME/.dotnet:$PATH"
+   ```
+2. Baixe o código e gere o executável (a plataforma da máquina é detectada sozinha):
+   ```bash
+   git clone https://github.com/robertoritter/cube4notes.git
+   cd cube4notes/app
+   ./gerar-executavel.sh
+   ```
+3. Instale como serviço (pede `sudo`; o serviço roda com o seu usuário, não como root, e inicia junto com a máquina):
+   ```bash
+   ./instalar-servico.sh
+   ```
+   O script mostra as primeiras mensagens do Cube4Notes, com os endereços e o **código de configuração**.
+4. Em outro aparelho da mesma rede, abra `https://<ip-do-servidor>:43125`, aceite o aviso do navegador (o certificado ainda não está instalado nesse aparelho), digite o código e escolha a pasta do primeiro vault, que fica no servidor.
+5. Depois, conecte os aparelhos normalmente: [Conectar um celular, passo a passo](#conectar-um-celular-passo-a-passo). Reserve também o IP do servidor no roteador.
+
+A configuração fica em `~/.local/share/Cube4Notes` do usuário do serviço. Comandos úteis: `journalctl -u cube4notes -f` (mensagens), `sudo systemctl restart cube4notes`. Para atualizar: `git pull`, `./gerar-executavel.sh` e `./instalar-servico.sh` de novo (configuração, aparelhos e notas continuam). Se a máquina tiver firewall (por exemplo `ufw`), libere as portas 43124 e 43125 (TCP) e 5353 (UDP) para a rede local.
+
 ### Opções de linha de comando
 
 | Opção | Efeito |
 | --- | --- |
-| `--config <pasta>` | Pasta da configuração (padrão `%LOCALAPPDATA%\Cube4Notes`) |
+| `--config <pasta>` | Pasta da configuração (padrão `%LOCALAPPDATA%\Cube4Notes` no Windows, `~/.local/share/Cube4Notes` no Linux) |
 | `--port <número>` | Porta (padrão 43125; no modo *Rede de casa* a porta anterior redireciona HTTP para HTTPS) |
 | `--notes <pasta>` | Importa uma pasta de notas como o vault "Notas" (atualização a partir do primeiro protótipo) |
 | `--sem-janela` | Servidor no console, sem janela (para máquinas sem tela) |
@@ -124,7 +149,7 @@ O Cube4Notes nunca passa pela internet. O celular ou tablet conversa direto com 
 
 - Wi-Fi de visitantes e redes que isolam os aparelhos bloqueiam essas perguntas pelo nome. Uma rede comum de casa permite.
 - O Android resolve nomes `.local` de forma irregular, conforme a versão e o navegador. iPhone, iPad, macOS, Windows e Linux resolvem bem.
-- O próprio Cube4Notes responde pelo nome, então não depende de o sistema fazer isso (o Windows muitas vezes não faz). No Windows ele também cria uma regra de firewall para as perguntas pelo nome (UDP 5353, só rede local) junto com a regra das portas dele. No Linux, se o `avahi-daemon` estiver rodando, ele já responde pelo nome do computador e o Cube4Notes deixa com ele. Para desligar o nome, inicie o Cube4Notes com `--sem-nome-na-rede`.
+- O próprio Cube4Notes responde pelo nome, então não depende de o sistema fazer isso (o Windows muitas vezes não faz). No Windows ele também cria uma regra de firewall para as perguntas pelo nome (UDP 5353, só rede local) junto com a regra das portas dele. No Linux ele divide a porta com o `avahi-daemon`, se estiver rodando. Para desligar o nome, inicie o Cube4Notes com `--sem-nome-na-rede`.
 - Dois computadores com o mesmo nome na mesma rede confundem a resposta. Dê nomes diferentes a eles.
 
 **A opção mais simples e robusta: IP fixo** (passo 1 de [Conectar um celular](#conectar-um-celular-passo-a-passo)). Nas configurações do roteador, procure *reserva de DHCP* (também chamada *IP fixo* ou *concessão estática*) e reserve o IP atual para o computador que roda o Cube4Notes. Assim o IP e o nome funcionam para sempre, em qualquer aparelho, inclusive Android. Com o IP fixo, usar o nome é opcional.
@@ -161,8 +186,8 @@ Só a *autoridade* precisa ser instalada. O certificado do próprio servidor é 
 | Windows | Funcionando, em validação diária |
 | iPhone / iPad (Safari, app na tela inicial) | Funcionando, em validação diária |
 | Android, outros navegadores de computador | Devem funcionar, ainda não validados |
-| Linux | Multiplataforma por construção (`net10.0`); script de compilação, CI e serviço em andamento |
-| macOS | Planejado; compilado e testado só em CI |
+| Linux (servidor sem tela, x64 e ARM64) | Script de compilação e serviço do systemd prontos, em validação |
+| macOS (app com janela) | Planejado; `gerar-executavel.sh` já gera o executável, falta o pacote `.app` |
 
 ## Princípios
 
