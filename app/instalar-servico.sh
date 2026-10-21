@@ -43,10 +43,13 @@ WantedBy=multi-user.target
 UNIT
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now cube4notes
-sleep 3
+started=$(date "+%Y-%m-%d %H:%M:%S")
+sudo systemctl enable cube4notes >/dev/null 2>&1
+sudo systemctl restart cube4notes
+sleep 4
 echo
 echo "Serviço instalado. Últimas mensagens do Cube4Notes:"
-sudo journalctl -u cube4notes -n 25 --no-pager -o cat
+sudo journalctl -u cube4notes --since "$started" --no-pager -o cat | grep -v "^Started \|^Stopped \|Consumed "
+if ! systemctl is-active --quiet cube4notes; then echo; echo "O serviço não ficou rodando. Veja as mensagens acima ou: journalctl -u cube4notes -n 80"; exit 1; fi
 echo
 echo "Ver de novo: journalctl -u cube4notes -f    Parar: sudo systemctl stop cube4notes    Atualizar: gere de novo e rode este script."
