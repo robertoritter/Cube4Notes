@@ -28,6 +28,11 @@ Devices sync with your computer when they are on the same network as it. Away fr
 - **Pair a device with a QR code**, or a 6-character code. Invites are single-use and expire in 5 minutes. Scanning a new invite on a device that is already connected updates its access. Devices can be revoked instantly.
 - **Local HTTPS that just works.** In *Home network* mode Cube4Notes creates its own certificate authority, restricted to `localhost`, `*.local`, the computer name and private IP ranges, so it cannot be abused to impersonate internet sites.
 - **A real desktop app.** Cube4Notes opens in its own window, using the system web engine (WebView2 on Windows, WebKit on Linux and macOS). In *Home network* mode, closing the window keeps it running next to the clock so other devices keep syncing; the icon reopens or quits it. Machines without a screen run it as a console server.
+- **Links between notes.** Type `[[` to pick a note and Cube4Notes writes a standard Markdown link (`[Note](folder/Note.md)`), so it keeps working in any editor. Rename or move a note, folder or attachment and every link follows. `Ctrl`+click (or a tap on touch screens) opens it; a link to a note that does not exist yet offers to create it.
+- **Images and PDFs, offline too.** Paste or drop them into a note. They are stored on the device right away, upload when the server is reachable, and images used in notes are kept on every device so they show up away from home.
+- **Version history.** Before a note is overwritten, the previous text is kept on the server (at most one version every 5 minutes of editing, up to 100 per note). Compare any version with the current text and restore it; restoring never loses the current text.
+- **Tags and properties.** `#tags` in the text or a `tags:` property, a tag panel, and search filters like `#project` or `status:open`. Properties (YAML front matter) are edited as fields; hand-written complex YAML is left untouched.
+- **Read-only access for AI agents (MCP).** Give an agent such as Claude Code its own read-only token for the vaults you choose. It can list, search and read notes over MCP, never write, and only from inside your network.
 - **Fast navigation.** Tabs, folder tree with drag and drop, `Ctrl+K` quick open and command palette, full-text search, outline and backlinks panel.
 - **53 terminal color themes** (Dracula, Nord, Gruvbox, Solarized, Catppuccin, Tokyo Night...) plus light, dark and sepia, from [Cube4Themes](https://github.com/robertoritter/Cube4Themes). Portuguese and English interface.
 
@@ -120,9 +125,7 @@ python scripts/check_project.py                                # repository stru
 ## Roadmap
 
 - Linux build script and CI (every build must also compile on Linux)
-- Native app window (Photino.NET) for *This computer only* mode
 - Install as a service (Windows service, systemd, launchd) and find the server by name on the network
-- Scoped, read-only tokens per vault for local AI agents, with an MCP integration
 - Optional automatic history of each vault with Git
 
 ## License

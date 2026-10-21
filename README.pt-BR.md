@@ -28,6 +28,11 @@ Os aparelhos sincronizam com o computador quando estão na mesma rede que ele. L
 - **Conectar aparelho por QR code**, ou por um código de 6 caracteres. Convites são de uso único e valem 5 minutos. Ler um convite novo num aparelho já conectado atualiza o acesso dele. O acesso de um aparelho pode ser retirado na hora.
 - **HTTPS local sem complicação.** No modo *Rede de casa* o Cube4Notes cria a própria autoridade certificadora, restrita a `localhost`, `*.local`, ao nome do computador e a IPs privados, então ela não serve para falsificar sites da internet.
 - **Aplicativo de verdade.** O Cube4Notes abre numa janela própria, com o motor web do sistema (WebView2 no Windows, WebKit no Linux e no macOS). No modo *Rede de casa*, fechar a janela deixa ele rodando perto do relógio para os outros aparelhos continuarem sincronizando; o ícone reabre ou encerra. Máquinas sem tela rodam como servidor no console.
+- **Links entre notas.** Digite `[[` para escolher a nota e o Cube4Notes grava um link Markdown padrão (`[Nota](pasta/Nota.md)`), que continua funcionando em qualquer editor. Renomeie ou mova uma nota, pasta ou anexo e todos os links acompanham. `Ctrl`+clique (ou um toque na tela) abre; link para nota que ainda não existe oferece criá-la.
+- **Imagens e PDFs, também offline.** Cole ou arraste na nota. Ficam guardados no aparelho na hora, sobem quando o servidor responde, e as imagens usadas nas notas ficam em todos os aparelhos para aparecer longe de casa.
+- **Histórico de versões.** Antes de uma nota ser sobrescrita, o texto anterior fica guardado no servidor (no máximo uma versão a cada 5 minutos de edição, até 100 por nota). Compare qualquer versão com o texto atual e restaure; restaurar nunca perde o texto atual.
+- **Tags e propriedades.** `#tags` no texto ou na propriedade `tags:`, painel de tags e filtros na busca como `#projeto` ou `status:aberto`. As propriedades (YAML no topo da nota) são editadas como campos; YAML elaborado escrito à mão não é mexido.
+- **Acesso somente leitura para agentes de IA (MCP).** Dê a um agente, como o Claude Code, um token próprio, só de leitura, para os vaults escolhidos. Ele lista, busca e lê notas por MCP, nunca escreve, e só de dentro da sua rede.
 - **Navegação rápida.** Abas, árvore de pastas com arrastar e soltar, `Ctrl+K` para abrir notas e comandos, busca no conteúdo, painel de estrutura e de links para a nota.
 - **53 temas de terminal** (Dracula, Nord, Gruvbox, Solarized, Catppuccin, Tokyo Night...) além de claro, escuro e sépia, vindos do [Cube4Themes](https://github.com/robertoritter/Cube4Themes). Interface em português e inglês.
 
@@ -131,9 +136,7 @@ python scripts/check_project.py                                # verificação d
 ## Próximos passos
 
 - Script de compilação e CI no Linux (toda versão precisa compilar também no Linux)
-- Janela própria (Photino.NET) para o modo *Só este computador*
 - Instalar como serviço (serviço do Windows, systemd, launchd) e achar o servidor pelo nome na rede
-- Tokens com escopo, somente leitura, por vault, para agentes de IA locais, com integração MCP
 - Histórico automático opcional de cada vault com Git
 
 ## Licença
