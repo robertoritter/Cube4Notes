@@ -427,25 +427,30 @@ async function renderDoc(keepScroll = false) {
   const note = S.notes.get(path)!;
   const [fm, body] = splitFrontmatter(note.content);
   frontmatter = fm;
-  const title = h('input', { class: 'title', id: 'title', value: baseName(path), 'aria-label': t.rename, spellcheck: 'false', placeholder: t.untitled });
+  if (unlockedTemplate && unlockedTemplate !== path) unlockedTemplate = '';
+  const title = h('input', { class: 'title', id: 'title', value: baseName(path), 'aria-label': t.rename, spellcheck: 'false', placeholder: t.untitled, readonly: locked(path) });
   title.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); editor?.focus(); } if (e.key === 'Escape') { title.value = baseName(path); title.blur(); } });
   title.addEventListener('change', () => renameActive(title.value));
   const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'path' }, ...dirOf(path).split('/').filter(Boolean).flatMap((seg, i, arr) => [
     h('button', { onclick: () => { const f = arr.slice(0, i + 1).join('/'); ui.expanded.add(f); ui.selectedFolder = f; setView('files'); toggleSidebar(true); renderSide(); } }, seg), h('span', { class: 'sep' }, '/'),
   ]));
   const host = h('div', { class: 'editor-host', id: 'editor-host' });
-  const parts: (Node | null)[] = [conflictBanner(path), crumbs, title];
-  if ((fm || propsOpen === path) && !ui.source) parts.push(propsEditor(path, fm));
+  const parts: (Node | null)[] = [conflictBanner(path), templateBanner(path), crumbs, title];
+  if ((fm || propsOpen === path) && !ui.source) {
+    const pe = propsEditor(path, fm);
+    if (locked(path)) { pe.classList.add('locked'); pe.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLButtonElement>('input, textarea, .props-body button').forEach(x => { x.disabled = true; }); }
+    parts.push(pe);
+  }
   parts.push(host, h('div', { class: 'relations-inline', id: 'relations-inline' }));
   doc.replaceChildren(...parts.filter(Boolean) as Node[]);
   if (ui.source) {
-    const ta = h('textarea', { id: 'source', class: 'source', spellcheck: 'false', 'aria-label': t.markdown }, note.content);
+    const ta = h('textarea', { id: 'source', class: 'source', spellcheck: 'false', 'aria-label': t.markdown, readonly: locked(path) }, note.content);
     ta.value = note.content;
     const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
     ta.addEventListener('input', () => { grow(); scheduleWrite(); });
     host.append(ta); editorPath = path; editorVault = S.activeVault; requestAnimationFrame(grow);
   } else {
-    const ed = await mountEditor(host, body, { topBar: ui.topBar, notePath: path, onChange: () => scheduleWrite(), onAttachmentError: (why, name) => toast(why === 'size' ? t.attachmentTooBig(name) : t.attachmentType(name), 'warn') });
+    const ed = await mountEditor(host, body, { topBar: ui.topBar && !locked(path), readonly: locked(path), notePath: path, onChange: () => scheduleWrite(), onAttachmentError: (why, name) => toast(why === 'size' ? t.attachmentTooBig(name) : t.attachmentType(name), 'warn') });
     if (seq !== mountSeq) { ed.destroy(); return; }
     editor = ed; editorPath = path; editorVault = S.activeVault;
     baseline = ed.getMarkdown();
@@ -456,6 +461,8 @@ async function renderDoc(keepScroll = false) {
 // ---------------------------------------------------------------- propriedades (frontmatter)
 let propsOpen = '';   // nota em que o usuário pediu para adicionar propriedades
 let propsRaw = false; // mostrar o YAML como texto
+let unlockedTemplate = ''; // modelo destravado para edição (só enquanto estiver aberto)
+const locked = (path: string) => isTemplate(path) && unlockedTemplate !== path;
 function setFrontmatter(next: string) { frontmatter = next; baseline = '\u0000'; scheduleWrite(); }
 function propsEditor(path: string, fm: string): HTMLElement {
   const parsed = parseProps(fm);
@@ -793,6 +800,26 @@ document.addEventListener('drop', e => {
   if (ta?.id !== 'source' || !e.dataTransfer?.files.length) return;
   e.preventDefault(); attachToSource(ta, [...e.dataTransfer.files]);
 }, true);
+
+// Modelo aberto: aviso fixo, porque o que for escrito aqui vale para todas as notas novas deste modelo.
+function templateBanner(path: string): HTMLElement | null {
+  if (!isTemplate(path)) return null;
+  const tpl = templates(S.notes).find(x => x.path === path);
+  // modelo de um conjunto pronto: dá para voltar ao texto original
+  const original = (['pt-BR', 'en'] as const).flatMap(l => kits(l).flatMap(k => kitNotes(k, l))).find(n => n.path === path)?.content;
+  const isLocked = locked(path);
+  return h('div', { class: 'banner template-banner', role: 'note' }, ic('LayoutTemplate', 18),
+    h('div', { class: 'banner-text' }, h('strong', {}, isLocked ? t.tplLockedTitle : t.tplBannerTitle), h('p', {}, isLocked ? t.tplLockedBody : t.tplBannerBody)),
+    h('div', { class: 'banner-actions' },
+      tpl ? h('button', { class: 'btn small primary', onclick: () => createSheetWith(tpl) }, ic('FilePlus', 14), t.tplUse) : null,
+      isLocked
+        ? h('button', { class: 'btn small', onclick: () => { unlockedTemplate = path; renderDoc(true); } }, ic('Pencil', 14), t.tplUnlock)
+        : h('button', { class: 'btn small', onclick: () => { flushWrite(); unlockedTemplate = ''; renderDoc(true); } }, ic('Check', 14), t.tplLock),
+      original && original !== S.notes.get(path)?.content ? h('button', { class: 'btn small', onclick: () => dialog(t.tplResetQ, t.tplResetHint, t.tplReset, async () => {
+        await S.writeNote(path, original); await renderDoc(); toast(t.tplResetDone);
+      }) }, ic('RotateCcw', 14), t.tplReset) : null,
+      h('button', { class: 'btn small', onclick: () => openHistory(path) }, ic('FileClock', 14), t.history)));
+}
 
 // ---------------------------------------------------------------- conflicts
 function conflictBanner(path: string): HTMLElement | null {

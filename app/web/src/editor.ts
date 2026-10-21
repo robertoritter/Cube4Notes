@@ -33,7 +33,7 @@ const tidy = (md: string) => md.replace(/^\|(?:\s*:?-+:?\s*\|)+\s*$/gm, row => r
 const safeDecode = (u: string) => { try { return decodeURIComponent(u); } catch { return u; } };
 const isRelative = (u: string) => !!u && !/^([a-z][a-z0-9+.-]*:|\/\/|#|\/)/i.test(u);
 
-export async function mountEditor(el: HTMLElement, markdown: string, opts: { topBar: boolean; onChange: (md: string) => void; notePath: string; onAttachmentError?: (why: 'size' | 'type', name: string) => void }): Promise<EditorHandle> {
+export async function mountEditor(el: HTMLElement, markdown: string, opts: { topBar: boolean; onChange: (md: string) => void; notePath: string; readonly?: boolean; onAttachmentError?: (why: 'size' | 'type', name: string) => void }): Promise<EditorHandle> {
   const pt = lang === 'pt-BR';
   const dir = opts.notePath.split('/').slice(0, -1).join('/');
   const resolveRel = (u: string) => {
@@ -98,6 +98,7 @@ export async function mountEditor(el: HTMLElement, markdown: string, opts: { top
   let ready = false;
   crepe.on(l => l.markdownUpdated((_ctx, md) => { if (ready) opts.onChange(tidy(md)); }));
   await crepe.create();
+  if (opts.readonly) crepe.setReadonly(true); // modelo travado: só para ver
   ready = true;
   return {
     destroy: () => { crepe.destroy(); },

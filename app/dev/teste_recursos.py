@@ -314,6 +314,15 @@ async def main():
             await pg.click(".type-list .tag-chip:has-text('#cliente')"); await pg.wait_for_timeout(300)
             rows = await pg.locator(".type-table tbody tr td.name").all_inner_texts()
             check("filtro por tag na lista", len(rows) == 1 and "Empresa Y" in rows[0], str(rows))
+            # modelo travado: escrever nele não muda nada; destravar permite
+            orig = read(v, "modelos/Empresa.md")
+            await A.open("Empresa"); await pg.wait_for_timeout(500)
+            if await pg.locator(".template-banner").count() == 0: await A.open("modelos/Empresa")
+            check("modelo abre travado, com aviso", await pg.locator(".template-banner").count() == 1 and await pg.locator("#editor-host .ProseMirror[contenteditable=false]").count() == 1)
+            await pg.click(".template-banner .btn:has-text('Destravar')"); await pg.wait_for_timeout(500)
+            check("destravar permite editar o modelo", await pg.locator("#editor-host .ProseMirror[contenteditable=true]").count() == 1)
+            await pg.click(".template-banner .btn:has-text('travar')"); await pg.wait_for_timeout(300)
+            check("modelo não muda por engano", read(v, "modelos/Empresa.md") == orig)
             # nota do dia
             await pg.keyboard.press("Alt+d"); await pg.wait_for_timeout(900); await A.sync()
             check("nota de hoje criada do modelo Diário", os.path.exists(os.path.join(v, f"Diário/{hoje}.md")) and "## Hoje" in read(v, f"Diário/{hoje}.md"), str(files(v)))
