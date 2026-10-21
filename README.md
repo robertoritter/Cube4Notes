@@ -52,7 +52,7 @@ Requirements: [.NET 10 SDK](https://dotnet.microsoft.com/download), or the stand
    - a name for this device.
 3. On the first run Windows asks once to trust the Cube4Notes certificate: accept it (it is only valid for local addresses). In *Home network* mode Cube4Notes then asks Windows once (administrator confirmation) to open its two ports, and name lookups, to the local network only. If a phone ever stops connecting, right-click the tray icon and choose *Liberar no firewall*.
 
-To connect a phone or tablet: open **Preferences > Connect device**, choose which vaults it may access, and scan the QR code. Then read [How devices find your computer](#how-devices-find-your-computer-read-this-before-connecting-a-phone), so a router changing the computer's IP does not leave the phone without the server. To stop the browser warning and let the app open with no connection, install the certificate on the device once: see [Installing the certificate](#installing-the-certificate-on-phones-tablets-and-other-computers).
+To connect a phone, tablet or another computer, follow [Connecting a phone, step by step](#connecting-a-phone-step-by-step).
 
 Everything can be changed later in **Preferences > Vaults and server**: add, rename or remove vaults, and switch between *This computer only* and *Home network* at any time.
 
@@ -75,7 +75,29 @@ Setting up a machine without a screen: start Cube4Notes there, open `https://<it
 | `--sem-instalar-certificado` | Do not add the certificate to the Windows trust store |
 | `--sem-nome-na-rede` | Do not answer for `<computer-name>-notes.local` on the local network |
 
-## How devices find your computer (read this before connecting a phone)
+## Connecting a phone, step by step
+
+Do it in this order. Steps 1 and 2 are done once and prevent almost every problem.
+
+1. **Reserve the computer's IP in the router.** In the router settings, look for *DHCP reservation* (also called *static IP* or *static lease*) and reserve the current IP of the computer running Cube4Notes. Without it, the router may give the computer another IP one day, and devices show "No server" (see [why](#how-devices-find-your-computer)).
+2. **Install the certificate on the device.** In the device's browser, open `http://<computer-ip>:43124/cube4notes-ca.cer` and follow [Installing the certificate](#installing-the-certificate-on-phones-tablets-and-other-computers). On an iPhone, do not skip the last step (Certificate Trust Settings). Without the certificate, the browser shows "Not Secure" and the app does not open away from home.
+3. **Scan the QR code.** On the computer, open **Preferences > Connect device**, choose which vaults the device may access and point the device's camera at the QR code.
+4. **Add to the Home Screen** (optional). On an iPhone, in Safari: Share > Add to Home Screen. Cube4Notes then opens like an app, also with no connection.
+
+That is it: the device syncs by itself on the home network and works offline away from it.
+
+### Common problems
+
+| What happens | Likely cause | What to do |
+|---|---|---|
+| Safari's address bar flickers between the address and search, and nothing opens | Safari got stuck on an earlier attempt | Fully close Safari (swipe it away in the app switcher) and scan the QR code again |
+| The browser shows "Not Secure" | The device does not trust the Cube4Notes certificate | Step 2. If it was installed before, remove the old profile and install again |
+| "No server" all of a sudden, with nothing changed | The router gave the computer another IP | Step 1, reserving the old IP; the app comes back with everything |
+| "No server" only on the phone, with the computer on | Phone not on the home Wi-Fi, or the Windows firewall | Check the Wi-Fi. On the computer, right-click the icon next to the clock > *Allow through firewall* |
+| "This device cannot find the computer by name" | Certificate not installed, or a network that blocks `.local` names | Install the certificate. With a reserved IP (step 1), the name is optional |
+| The interface is in another language | Each device follows its own system language | Preferences > Language |
+
+## How devices find your computer
 
 Cube4Notes never goes through the internet. A phone or tablet talks directly to the computer that keeps the notes, over your home Wi-Fi. That makes the **address** of the computer important, and it helps to know how it works.
 
@@ -105,7 +127,7 @@ Cube4Notes never goes through the internet. A phone or tablet talks directly to 
 - Cube4Notes answers for the name itself, so it does not depend on the operating system doing it (Windows often does not). On Windows it also adds a firewall rule for name lookups (UDP 5353, local network only) together with the rule for its own ports. On Linux, if `avahi-daemon` is running it already answers for the computer name and Cube4Notes leaves it to it. To turn the name off, start Cube4Notes with `--sem-nome-na-rede`.
 - Two computers with the same name on the same network confuse the answer. Give them different names.
 
-**The most robust option: a fixed IP.** In your router settings, look for *DHCP reservation* (also called *static lease* or *fixed IP*) and reserve the current IP for the computer that runs Cube4Notes. Then both the IP and the name keep working forever, on every device, including Android.
+**The simplest and most robust option: a fixed IP** (step 1 of [Connecting a phone](#connecting-a-phone-step-by-step)). In your router settings, look for *DHCP reservation* (also called *static lease* or *fixed IP*) and reserve the current IP for the computer that runs Cube4Notes. Then both the IP and the name keep working forever, on every device, including Android. With a fixed IP, using the name is optional.
 
 **If a device lost the server after the IP changed:** reserve the old IP in the router (the app comes back with everything, including changes made on the device that had not been sent yet), or scan the QR code again (the device downloads the notes again; changes made on it that were not sent stay in the old app until the old IP comes back).
 

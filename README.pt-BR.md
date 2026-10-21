@@ -52,7 +52,7 @@ Requisito: [.NET 10 SDK](https://dotnet.microsoft.com/download), ou o `Cube4Note
    - o nome deste aparelho.
 3. Na primeira execução o Windows pede uma vez para confiar no certificado do Cube4Notes: aceite (ele só vale para endereços locais). No modo *Rede de casa* o Cube4Notes pede ao Windows, uma vez (confirmação de administrador), para abrir as duas portas dele, e as perguntas pelo nome, só para a rede local. Se um dia o celular parar de conectar, clique com o botão direito no ícone perto do relógio e escolha *Liberar no firewall*.
 
-Para conectar celular ou tablet: abra **Preferências > Conectar aparelho**, escolha os vaults que ele pode acessar e leia o QR code. Depois leia [Como os aparelhos acham o seu computador](#como-os-aparelhos-acham-o-seu-computador-leia-antes-de-conectar-o-celular), para o roteador trocar o IP do computador sem deixar o celular sem servidor. Para o navegador parar de mostrar o aviso e o app abrir sem conexão, instale o certificado no aparelho uma vez: veja [Instalar o certificado](#instalar-o-certificado-no-celular-no-tablet-e-em-outros-computadores).
+Para conectar celular, tablet ou outro computador, siga [Conectar um celular, passo a passo](#conectar-um-celular-passo-a-passo).
 
 Tudo pode ser mudado depois em **Preferências > Vaults e servidor**: adicionar, renomear ou tirar vaults da lista, e trocar entre *Só este computador* e *Rede de casa* quando quiser.
 
@@ -75,7 +75,29 @@ Configurar uma máquina sem tela: inicie o Cube4Notes nela, abra `https://<ip-de
 | `--sem-instalar-certificado` | Não adiciona o certificado à confiança do Windows |
 | `--sem-nome-na-rede` | Não responder por `<nome-do-computador>-notes.local` na rede local |
 
-## Como os aparelhos acham o seu computador (leia antes de conectar o celular)
+## Conectar um celular, passo a passo
+
+Faça nesta ordem. Os passos 1 e 2 são feitos uma vez só e evitam quase todos os problemas.
+
+1. **Fixe o IP do computador no roteador.** Nas configurações do roteador, procure *reserva de DHCP* (também chamada *IP fixo* ou *concessão estática*) e reserve o IP atual do computador que roda o Cube4Notes. Sem isso, o roteador pode dar outro IP ao computador um dia, e os aparelhos ficam em "Sem servidor" (veja [por quê](#como-os-aparelhos-acham-o-seu-computador)).
+2. **Instale o certificado no aparelho.** No navegador do aparelho, abra `http://<ip-do-computador>:43124/cube4notes-ca.cer` e siga [Instalar o certificado](#instalar-o-certificado-no-celular-no-tablet-e-em-outros-computadores). No iPhone, não esqueça o último passo (Ajustes de Confiança de Certificados). Sem o certificado, o navegador mostra "Não seguro" e o app não abre longe de casa.
+3. **Leia o QR code.** No computador, abra **Preferências > Conectar aparelho**, escolha os vaults que o aparelho pode acessar e aponte a câmera do aparelho para o QR code.
+4. **Adicione à Tela de Início** (opcional). No iPhone, no Safari: Compartilhar > Adicionar à Tela de Início. O Cube4Notes passa a abrir como app, também sem conexão.
+
+Pronto: o aparelho sincroniza sozinho na rede de casa e funciona offline fora dela.
+
+### Problemas comuns
+
+| O que acontece | Causa provável | O que fazer |
+|---|---|---|
+| A barra do Safari pisca entre o endereço e a busca, e nada abre | O Safari ficou preso numa tentativa anterior | Feche o Safari de vez (deslize para cima na troca de apps) e leia o QR code de novo |
+| O navegador mostra "Não seguro" (*Not Secure*) | O aparelho não confia no certificado do Cube4Notes | Passo 2. Se já tinha instalado antes, apague o perfil antigo e instale de novo |
+| "Sem servidor" de repente, sem ter mudado nada | O roteador deu outro IP ao computador | Passo 1, reservando o IP antigo; o app volta com tudo |
+| "Sem servidor" só no celular, com o computador ligado | Celular fora do Wi-Fi de casa, ou firewall do Windows | Confira o Wi-Fi. No computador, clique com o botão direito no ícone perto do relógio > *Liberar no firewall* |
+| "Este aparelho não consegue achar o computador pelo nome" | Certificado não instalado, ou rede que bloqueia nomes `.local` | Instale o certificado. Com o IP fixo (passo 1), o nome é dispensável |
+| A interface está em outra língua | Cada aparelho segue a própria língua do sistema | Preferências > Idioma |
+
+## Como os aparelhos acham o seu computador
 
 O Cube4Notes nunca passa pela internet. O celular ou tablet conversa direto com o computador que guarda as notas, pelo Wi-Fi de casa. Por isso o **endereço** do computador importa, e vale saber como funciona.
 
@@ -105,7 +127,7 @@ O Cube4Notes nunca passa pela internet. O celular ou tablet conversa direto com 
 - O próprio Cube4Notes responde pelo nome, então não depende de o sistema fazer isso (o Windows muitas vezes não faz). No Windows ele também cria uma regra de firewall para as perguntas pelo nome (UDP 5353, só rede local) junto com a regra das portas dele. No Linux, se o `avahi-daemon` estiver rodando, ele já responde pelo nome do computador e o Cube4Notes deixa com ele. Para desligar o nome, inicie o Cube4Notes com `--sem-nome-na-rede`.
 - Dois computadores com o mesmo nome na mesma rede confundem a resposta. Dê nomes diferentes a eles.
 
-**A opção mais robusta: IP fixo.** Nas configurações do roteador, procure *reserva de DHCP* (também chamada *IP fixo* ou *concessão estática*) e reserve o IP atual para o computador que roda o Cube4Notes. Assim o IP e o nome funcionam para sempre, em qualquer aparelho, inclusive Android.
+**A opção mais simples e robusta: IP fixo** (passo 1 de [Conectar um celular](#conectar-um-celular-passo-a-passo)). Nas configurações do roteador, procure *reserva de DHCP* (também chamada *IP fixo* ou *concessão estática*) e reserve o IP atual para o computador que roda o Cube4Notes. Assim o IP e o nome funcionam para sempre, em qualquer aparelho, inclusive Android. Com o IP fixo, usar o nome é opcional.
 
 **Se um aparelho perdeu o servidor depois que o IP mudou:** reserve o IP antigo no roteador (o app volta com tudo, inclusive alterações feitas no aparelho que ainda não tinham subido), ou leia o QR code de novo (o aparelho baixa as notas de novo; alterações feitas nele que não subiram ficam no app antigo até o IP antigo voltar).
 
