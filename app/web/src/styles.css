@@ -571,3 +571,12 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag-chip { padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-2); font-size: 12.5px; font-weight: 600; }
 .tag-chip:hover { background: var(--sel); }
+
+/* agentes de IA */
+.agents { margin-bottom: 4px; }
+.agent-form, .agent-created { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--side); }
+.agent-created .inline { display: flex; gap: 8px; align-items: flex-start; }
+.agent-created .inline code, .agent-created .inline pre { flex: 1; min-width: 0; word-break: break-all; white-space: pre-wrap; }
+.agent-json { margin: 0; font: 12px/1.5 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; max-height: 180px; overflow: auto; }
+.agent-created code { font: 12px/1.5 var(--mono); }
+.agent-created .qr-link { margin: 0; color: var(--ink); }

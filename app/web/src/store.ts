@@ -403,7 +403,9 @@ export async function runSetup(body: { code: string; mode: string; serverName: s
 }
 
 // ---------- administração ----------
-export interface DeviceInfo { id: string; name: string; created: string; lastSeen: string | null; current: boolean; admin: boolean; vaults: string[] | null; }
+export interface DeviceInfo { id: string; name: string; created: string; lastSeen: string | null; current: boolean; admin: boolean; vaults: string[] | null; agent?: boolean; }
+export interface AgentCreated { id: string; name: string; token: string; local: string; network: string[]; https: boolean; }
+export const createAgent = (name: string, vaultIds: string[]) => json<AgentCreated>('/api/admin/agents', { method: 'POST', body: JSON.stringify({ name, vaults: vaultIds }) });
 export const adminBrowse = (path: string) => json<BrowseResult>('/api/admin/browse?path=' + encodeURIComponent(path));
 export const createVault = async (name: string, path: string) => { const v = await json('/api/admin/vaults', { method: 'POST', body: JSON.stringify({ name, path }) }); await refreshVaults(); return v; };
 export const renameVault = async (id: string, name: string) => { await json('/api/admin/vaults/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ name }) }); await refreshVaults(); };

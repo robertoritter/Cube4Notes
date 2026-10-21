@@ -189,7 +189,9 @@ async Task<int> RunAsync(AppConfig? config)
             return;
         }
         var path = context.Request.Path;
-        if (useHttps && !context.Request.IsHttps)
+        // Agente no próprio computador pode usar /mcp em http (o token não sai da máquina); da rede, só https.
+        var localMcp = path.Equals("/mcp", StringComparison.OrdinalIgnoreCase) && IsLoopback(context);
+        if (useHttps && !context.Request.IsHttps && !localMcp)
         {
             if (path.Equals(Tls.CertPath, StringComparison.OrdinalIgnoreCase))
             {
@@ -225,7 +227,13 @@ async Task<int> RunAsync(AppConfig? config)
                     return;
                 }
                 context.Items["device"] = device;
-                var admin = device.Admin || IsLoopback(context);
+                // Token de agente: só leitura, nunca administra (nem no próprio computador)
+                if (device.ReadOnly && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return;
+                }
+                var admin = !device.ReadOnly && (device.Admin || IsLoopback(context));
                 context.Items["admin"] = admin;
                 if (path.StartsWithSegments("/api/admin") && !admin)
                 {
@@ -264,6 +272,20 @@ async Task<int> RunAsync(AppConfig? config)
     }
 
     // ------------------------------------------------------------ estado e pareamento
+    // MCP: agentes de IA leem as notas liberadas (somente leitura).
+    app.MapMethods("/mcp", ["GET", "POST", "DELETE"], async (HttpContext ctx) =>
+    {
+        ctx.Response.Headers.CacheControl = "no-store";
+        if (setup) return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        var device = DeviceOf(ctx);
+        if (device is null)
+        {
+            ctx.Response.Headers.WWWAuthenticate = "Bearer";
+            return Results.Json(new { error = "Use o token do agente no cabeçalho Authorization: Bearer <token>." }, statusCode: StatusCodes.Status401Unauthorized);
+        }
+        return await Mcp.Handle(ctx, device, registry);
+    });
+
     app.MapGet("/api/status", (HttpContext ctx) =>
     {
         var device = DeviceOf(ctx);
@@ -275,7 +297,7 @@ async Task<int> RunAsync(AppConfig? config)
             mode = personal ? "pessoal" : "rede",
             paired = device is not null,
             loopback,
-            admin = device is not null && (device.Admin || loopback),
+            admin = device is not null && !device.ReadOnly && (device.Admin || loopback),
             ui = UiVersion(),
         });
     });
@@ -302,6 +324,7 @@ async Task<int> RunAsync(AppConfig? config)
         }
         // Aparelho já conectado que leu um convite novo: troca o acesso dele em vez de criar outro aparelho.
         var existing = DeviceOf(ctx);
+        if (existing is { ReadOnly: true }) return Results.StatusCode(StatusCodes.Status403Forbidden);
         if (existing is not null)
         {
             var updated = loopback ? existing : devices.Update(existing.Id, admin, admin ? null : vaults)!;
@@ -558,8 +581,20 @@ async Task<int> RunAsync(AppConfig? config)
         var me = (Device)ctx.Items["device"]!;
         return Results.Ok(new
         {
-            devices = devices.All().Select(d => new { id = d.Id, name = d.Name, created = d.Created, lastSeen = devices.LastSeen(d.Id), current = d.Id == me.Id, admin = d.Admin, vaults = d.Vaults }),
+            devices = devices.All().Select(d => new { id = d.Id, name = d.Name, created = d.Created, lastSeen = devices.LastSeen(d.Id), current = d.Id == me.Id, admin = d.Admin, vaults = d.Vaults, agent = d.ReadOnly }),
         });
+    });
+
+    // Agente de IA: token somente leitura para os vaults escolhidos (mostrado uma vez).
+    app.MapPost("/api/admin/agents", (AgentRequest body) =>
+    {
+        var known = registry.All().Select(v => v.Id).ToHashSet();
+        var vaults = (body.Vaults ?? []).Where(known.Contains).Distinct().ToList();
+        if (vaults.Count == 0) return Results.BadRequest(new { error = "Escolha pelo menos um vault." });
+        var (token, agent) = devices.Add(ConfigStore.CleanName(body.Name, "Agente"), false, vaults, readOnly: true);
+        Console.WriteLine($"  Agente criado: {agent.Name} (somente leitura: {string.Join(", ", vaults)})");
+        var addresses = Lan.Addresses().Where(a => a.Primary).Select(a => $"{scheme}://{a.Address}:{port}/mcp").ToList();
+        return Results.Ok(new { id = agent.Id, name = agent.Name, token, local = $"http://localhost:{(useHttps ? port - 1 : port)}/mcp", network = personal ? new List<string>() : addresses, https = useHttps });
     });
 
     app.MapPatch("/api/admin/devices/{id}", (string id, DeviceRequest body) =>
@@ -784,6 +819,7 @@ record SetupRequest(string? Code, string? Mode, string? ServerName, string? Vaul
 record VaultRequest(string? Name, string? Path);
 record InviteRequest(bool? Admin, List<string>? Vaults);
 record DeviceRequest(bool? Admin, List<string>? Vaults);
+record AgentRequest(string? Name, List<string>? Vaults);
 record ServerRequest(string? Name, string? Mode);
 record FetchRequest(List<string>? Paths);
 record SyncRequest(List<SyncOp>? Ops);

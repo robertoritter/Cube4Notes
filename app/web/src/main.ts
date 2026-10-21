@@ -1250,6 +1250,7 @@ async function openDevices() {
   const timer = h('p', { class: 'muted qr-timer' });
   const shortBox = h('b', { class: 'short-code' });
   const list = h('div', { class: 'devices' });
+  const agents = h('div', { class: 'devices agents' });
   const inviteHelp = h('div', { class: 'invite-help' });
   let inviteVaults = S.vaults.map(v => v.id), inviteAdmin = false;
   let tick: any = 0, again: any = 0;
@@ -1276,9 +1277,11 @@ async function openDevices() {
       upd(); tick = setInterval(upd, 1000);
     } catch { qrBox.replaceChildren(h('p', { class: 'muted' }, t.adminOnly)); }
   };
-  const loadDevices = async () => {
+  const loadDevices = async (withAgents = true) => {
     try {
-      const ds = await S.listDevices();
+      const all = await S.listDevices();
+      const ds = all.filter(d => !d.agent);
+      if (withAgents) drawAgents(all.filter(d => d.agent));
       list.replaceChildren(...ds.sort((a, b) => Number(b.current) - Number(a.current) || a.name.localeCompare(b.name)).map(d => {
         const summary = h('span', { class: 'access-sum' }, t.access + ': ' + accessText(d));
         return h('div', { class: 'device' },
@@ -1294,6 +1297,47 @@ async function openDevices() {
       }));
     } catch { list.replaceChildren(h('p', { class: 'muted' }, t.adminOnly)); }
   };
+  // Agentes de IA: token somente leitura por vault, usado pelo MCP
+  const drawAgents = (as: S.DeviceInfo[]) => {
+    agents.replaceChildren(
+      ...as.map(d => h('div', { class: 'device' },
+        h('div', { class: 'device-info' },
+          h('b', {}, ic('Bot', 14), ' ', d.name, h('span', { class: 'chip' }, t.readOnly)),
+          h('small', {}, t.access + ': ' + accessText(d) + (d.lastSeen ? ' · ' + t.lastSeen(new Date(d.lastSeen).toLocaleString(lang, { dateStyle: 'short', timeStyle: 'short' })) : ''))),
+        h('button', { class: 'btn small ghost danger-text', onclick: () => dialog(t.removeAgentQ(d.name), t.removeAgentHint, t.remove, async () => { await S.removeDevice(d.id); toast(t.deviceRemoved); loadDevices(); }, true) }, ic('Trash2', 14), t.remove))),
+      as.length ? '' : h('p', { class: 'muted small-note' }, t.noAgents),
+      h('button', { class: 'btn small', onclick: () => newAgent() }, ic('Plus', 14), t.newAgent));
+  };
+  const newAgent = () => {
+    const name = h('input', { class: 'field', maxlength: '60', value: lang === 'pt-BR' ? 'Meu agente' : 'My agent', 'aria-label': t.agentName });
+    const sel = new Set<string>(S.vaults.length === 1 ? [S.vaults[0].id] : []);
+    const checks = h('div', { class: 'access' }, ...S.vaults.map(v => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: sel.has(v.id), onchange: (e: Event) => { (e.target as HTMLInputElement).checked ? sel.add(v.id) : sel.delete(v.id); } }), h('span', {}, v.name))));
+    const err = h('p', { class: 'pair-err', role: 'alert' });
+    const form = h('form', { class: 'agent-form', onsubmit: async (e: Event) => {
+      e.preventDefault(); err.textContent = '';
+      if (!sel.size) { err.textContent = t.pickOneVault; return; }
+      try { const r = await S.createAgent(name.value.trim(), [...sel]); showAgent(r); }
+      catch (e: any) { err.textContent = e.message || t.setupFailed; }
+    } },
+      h('label', { class: 'label' }, t.agentName), name, h('span', { class: 'label' }, t.agentVaults), checks, err,
+      h('div', { class: 'modal-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => loadDevices() }, t.cancel), h('button', { class: 'btn primary', type: 'submit' }, ic('KeyRound', 15), t.createToken)));
+    agents.replaceChildren(form); name.focus(); name.select();
+  };
+  const showAgent = (r: S.AgentCreated) => {
+    const copy = (txt: string) => h('button', { type: 'button', class: 'btn small', onclick: () => { navigator.clipboard?.writeText(txt).then(() => toast(t.copied)).catch(() => {}); } }, ic('Copy', 14), t.copy);
+    const url = r.network[0] || r.local;
+    const cmd = `claude mcp add --transport http cube4notes ${url} --header "Authorization: Bearer ${r.token}"`;
+    const json = JSON.stringify({ mcpServers: { cube4notes: { type: 'http', url, headers: { Authorization: 'Bearer ' + r.token } } } }, null, 2);
+    agents.replaceChildren(h('div', { class: 'agent-created' },
+      h('p', {}, h('b', {}, t.agentReady(r.name)), ' ', t.agentTokenOnce),
+      h('span', { class: 'label' }, t.token), h('div', { class: 'inline' }, h('code', { class: 'qr-link' }, r.token), copy(r.token)),
+      h('span', { class: 'label' }, t.mcpAddress), h('p', { class: 'small-note' }, t.mcpLocal, ' ', h('code', {}, r.local)),
+      ...r.network.map(u => h('p', { class: 'small-note' }, t.mcpNetwork, ' ', h('code', {}, u))),
+      r.https && r.network.length ? h('p', { class: 'muted small-note' }, t.mcpCert) : '',
+      h('span', { class: 'label' }, 'Claude Code'), h('div', { class: 'inline' }, h('code', { class: 'qr-link' }, cmd), copy(cmd)),
+      h('span', { class: 'label' }, t.mcpOther), h('div', { class: 'inline' }, h('pre', { class: 'agent-json' }, json), copy(json)),
+      h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: () => loadDevices() }, t.done))));
+  };
   const forNext = h('div', { class: 'invite-access' }, h('span', { class: 'set-label' }, t.inviteFor),
     accessPicker(inviteVaults, false, (v, a) => { inviteVaults = v; inviteAdmin = a; clearTimeout(again); again = setTimeout(showInvite, 250); }));
   const body = h('div', { class: 'pair-admin' },
@@ -1302,7 +1346,8 @@ async function openDevices() {
       forNext,
       h('div', {}, inviteHelp),
       certHelp(),
-      h('h3', {}, t.connectedDevices), list));
+      h('h3', {}, t.connectedDevices), list,
+      h('h3', {}, ic('Bot', 15), ' ', t.agents), h('p', { class: 'muted small-note' }, t.agentsHelp), agents));
   inviteHelp.append(h('p', {}, t.qrHelp), h('span', { class: 'set-label' }, t.network), addrs, link, h('p', { class: 'short-help' }, t.shortHelp, ' ', shortBox));
   modal(t.connectDevice, body, 'wide devices-modal');
   const observer = new MutationObserver(() => { if (!body.isConnected) { clearInterval(tick); observer.disconnect(); } });

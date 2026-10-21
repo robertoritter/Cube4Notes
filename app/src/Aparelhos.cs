@@ -12,9 +12,10 @@ using System.Text;
 using System.Text.Json;
 
 // Vaults == null: acesso a todos (aparelhos conectados antes dos vaults existirem).
-record Device(string Id, string Name, string Hash, DateTime Created, bool Admin = false, List<string>? Vaults = null)
+// ReadOnly: agente de IA (só lê pelo /mcp, nunca administra nem escreve, sempre com lista de vaults).
+record Device(string Id, string Name, string Hash, DateTime Created, bool Admin = false, List<string>? Vaults = null, bool ReadOnly = false)
 {
-    public bool CanAccess(string vaultId) => Admin || Vaults is null || Vaults.Contains(vaultId);
+    public bool CanAccess(string vaultId) => ReadOnly ? Vaults?.Contains(vaultId) == true : Admin || Vaults is null || Vaults.Contains(vaultId);
 }
 
 sealed class DeviceStore
@@ -50,10 +51,12 @@ sealed class DeviceStore
 
     public DateTime? LastSeen(string id) { lock (sync) return seen.TryGetValue(id, out var t) ? t : null; }
 
-    public (string Token, Device Device) Add(string name, bool admin, List<string> vaults)
+    public (string Token, Device Device) Add(string name, bool admin, List<string> vaults, bool readOnly = false)
     {
-        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
-        var device = new Device(Guid.NewGuid().ToString(), name, Hash(token), DateTime.UtcNow, admin, admin ? null : vaults);
+        var token = (readOnly ? "c4n_agente_" : "") + Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        var device = readOnly
+            ? new Device(Guid.NewGuid().ToString(), name, Hash(token), DateTime.UtcNow, false, vaults, true)
+            : new Device(Guid.NewGuid().ToString(), name, Hash(token), DateTime.UtcNow, admin, admin ? null : vaults);
         lock (sync)
         {
             list.Add(device);
@@ -70,7 +73,7 @@ sealed class DeviceStore
             var i = list.FindIndex(x => x.Id == id);
             if (i < 0) return null;
             var d = list[i];
-            var isAdmin = admin ?? d.Admin;
+            var isAdmin = !d.ReadOnly && (admin ?? d.Admin); // agente nunca vira administrador
             d = d with { Admin = isAdmin, Vaults = isAdmin ? null : vaults ?? d.Vaults ?? [] };
             list[i] = d;
             Save();

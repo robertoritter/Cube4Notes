@@ -197,6 +197,64 @@ async def main():
             "Complexa.md": "---\nautor:\n  nome: X\n---\nok\n",
         }, tags)
 
+        # 5. Agentes de IA (MCP): token somente leitura, só os vaults escolhidos
+        def http(method, path, token=None, data=None, origin=None):
+            req = urllib.request.Request(URL.rstrip("/") + path, method=method, data=None if data is None else json.dumps(data).encode())
+            req.add_header("Content-Type", "application/json")
+            if token: req.add_header("Authorization", "Bearer " + token)
+            if origin: req.add_header("Origin", origin)
+            try:
+                with urllib.request.urlopen(req, timeout=10) as r: return r.status, json.loads(r.read() or b"null")
+            except urllib.error.HTTPError as e:
+                return e.code, None
+        def call(token, method, params=None, id_=1):
+            return http("POST", "/mcp", token, {"jsonrpc": "2.0", "id": id_, "method": method, "params": params or {}})
+        def tool(token, name, args=None):
+            st, r = call(token, "tools/call", {"name": name, "arguments": args or {}})
+            return r["result"]["content"][0]["text"], r["result"].get("isError", False)
+
+        async def agentes(A, B, v):
+            await A.page.click(".side-foot .icon-btn"); await A.page.click(".connect-btn"); await A.page.wait_for_timeout(800)
+            await A.page.click(".agents .btn:has-text('Criar acesso')")
+            await A.page.fill(".agent-form input.field", "Agente HAL")
+            await A.page.click(".agent-form .btn.primary"); await A.page.wait_for_timeout(800)
+            token = (await A.page.inner_text(".agent-created code.qr-link")).strip()
+            check("cria token de agente e mostra uma vez", token.startswith("c4n_agente_"), token[:20])
+            cmd = await A.page.inner_text(".agent-created")
+            check("mostra o comando para o Claude Code", "claude mcp add --transport http cube4notes" in cmd)
+            st, r = call(token, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}})
+            check("MCP initialize", st == 200 and r["result"]["serverInfo"]["name"] == "Cube4Notes", str(r))
+            st, _ = http("POST", "/mcp", token, {"jsonrpc": "2.0", "method": "notifications/initialized"})
+            check("MCP notificação recebe 202", st == 202, str(st))
+            st, r = call(token, "tools/list")
+            names = [x["name"] for x in r["result"]["tools"]]
+            check("MCP lista as 5 ferramentas de leitura", names == ["list_vaults", "list_notes", "read_note", "search_notes", "recent_notes"], str(names))
+            txt, _ = tool(token, "list_vaults")
+            check("agente vê só o vault liberado", '"notas"' in txt and "segredo" not in txt, txt)
+            txt, _ = tool(token, "search_notes", {"query": "reuniao"})
+            check("busca sem acento acha a nota", "trabalho/Reunião.md" in txt, txt)
+            txt, err = tool(token, "read_note", {"vault": "notas", "path": "trabalho/Reunião.md"})
+            check("lê a nota inteira", "pauta secreta" in txt and not err, txt)
+            txt, err = tool(token, "read_note", {"vault": "notas", "path": "../../etc/passwd.md"})
+            check("caminho fora do vault é recusado", err, txt)
+            txt, err = tool(token, "list_notes", {"vault": "segredo"})
+            check("vault não liberado é recusado", err and "não está liberado" in txt, txt)
+            st, _ = http("POST", "/api/v/notas/sync", token, {"ops": [{"id": 1, "type": "put", "path": "x.md", "content": "hack", "baseVersion": None}]})
+            check("token de agente não escreve (403)", st == 403 and not os.path.exists(os.path.join(v, "x.md")), str(st))
+            st, r = http("GET", "/api/status", token)
+            check("token de agente nunca é administrador", r and r["admin"] is False, str(r))
+            st, _ = http("GET", "/api/admin/devices", token)
+            check("token de agente não acessa a administração", st == 403, str(st))
+            st, _ = http("POST", "/mcp", None, {"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+            check("MCP sem token: 401", st == 401, str(st))
+            st, _ = http("POST", "/mcp", token, {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, origin="https://site-malicioso.com")
+            check("MCP chamado por outro site (Origin): 403", st == 403, str(st))
+            await A.page.click(".agent-created .btn.primary"); await A.page.wait_for_timeout(600)
+            await A.page.click(".agents .device .btn.danger-text"); await A.page.click(".modal.small .btn.danger"); await A.page.wait_for_timeout(600)
+            st, _ = call(token, "tools/list")
+            check("remover o agente invalida o token na hora", st == 401, str(st))
+        await scenario(p, "5. Agentes de IA (MCP)", {"trabalho/Reunião.md": "# Reunião\n\npauta secreta\n", "Lista.md": "leite\n"}, agentes)
+
     fails = [r for r in RESULTS if not r[1]]
     print(f"\n{len(RESULTS) - len(fails)} de {len(RESULTS)} verificações passaram.")
     return 1 if fails else 0

@@ -234,6 +234,7 @@ const handler = async (req, res) => {
   if (!['GET', 'HEAD'].includes(req.method) && !sameOrigin(req)) { log(`Origem recusada: ${req.headers.origin}`); return send(res, 403); }
   const u = new URL(req.url, 'http://x');
   if (u.pathname === '/cube4notes-ca.cer' && tlsCa) { res.writeHead(200, { 'Content-Type': 'application/x-x509-ca-cert', 'Content-Disposition': 'attachment; filename=Cube4Notes-CA.cer' }); return res.end(fs.readFileSync(tlsCa)); }
+  if (u.pathname === '/mcp') return mcp(req, res, isLoop(req) || !!req.socket.encrypted || !tlsCert);
   if (tlsCert && !req.socket.encrypted) { res.writeHead(302, { Location: `https://${String(req.headers.host).replace(/:\d+$/, '')}:${port}${req.url}` }); return res.end(); }
   if (u.pathname.startsWith('/api/')) {
     res.setHeader('Cache-Control', 'no-store');
@@ -244,13 +245,13 @@ const handler = async (req, res) => {
     const blocked = () => { const f = failures.get(ip); return f && f.count >= 10 && Date.now() - f.since < 600000; };
     const fail = () => { const f = failures.get(ip), now = Date.now(); failures.set(ip, f && now - f.since < 600000 ? { count: f.count + 1, since: f.since } : { count: 1, since: now }); };
     const setupAllowed = code => { if (loop) return true; if (blocked()) return false; const ok = String(code || '').replace(/\W/g, '').toUpperCase() === setupCode; if (!ok) { fail(); log(`Código de configuração inválido de ${ip}`); } return ok; };
-    const addDevice = (name, admin, vaults) => {
-      const token = crypto.randomBytes(32).toString('hex');
-      const d = { id: crypto.randomUUID(), name: cleanName(name, 'Aparelho'), hash: sha(token), created: new Date().toISOString(), admin, vaults };
+    const addDevice = (name, admin, vaults, readOnly = false) => {
+      const token = (readOnly ? 'c4n_agente_' : '') + crypto.randomBytes(32).toString('hex');
+      const d = { id: crypto.randomUUID(), name: cleanName(name, 'Aparelho'), hash: sha(token), created: new Date().toISOString(), admin: readOnly ? false : admin, vaults, ...(readOnly ? { readOnly: true } : {}) };
       devices.push(d); saveDevices(); seen.set(d.id, d.created);
       return { token, d };
     };
-    if (u.pathname === '/api/status') return send(res, 200, { name: config?.name || 'Cube4Notes', setup, mode: config?.mode || 'rede', paired: !!dev, loopback: loop, admin: !!dev && (dev.admin || loop), ui: (() => { try { return fs.statSync(path.join(www, 'index.html')).mtimeMs.toString(16); } catch { return ''; } })() });
+    if (u.pathname === '/api/status') return send(res, 200, { name: config?.name || 'Cube4Notes', setup, mode: config?.mode || 'rede', paired: !!dev, loopback: loop, admin: !!dev && !dev.readOnly && (dev.admin || loop), ui: (() => { try { return fs.statSync(path.join(www, 'index.html')).mtimeMs.toString(16); } catch { return ''; } })() });
     if (setup && u.pathname === '/api/setup/browse') { if (!setupAllowed(u.searchParams.get('code'))) return send(res, 403); return send(res, 200, browse(u.searchParams.get('path') || '')); }
     if (u.pathname === '/api/setup' && req.method === 'POST') {
       if (!setup) return send(res, 409, { error: 'Já configurado.' });
@@ -275,6 +276,7 @@ const handler = async (req, res) => {
         if (!key) { fail(); log(`Convite inválido de ${ip}`); return send(res, 403, { error: 'invite' }); }
         ({ admin, vaults } = invites.get(key)); invites.delete(key);
       }
+      if (dev?.readOnly) return send(res, 403);
       if (dev) { // aparelho já conectado: o convite troca o acesso dele
         if (!loop) { dev.admin = admin; dev.vaults = admin ? null : vaults; saveDevices(); }
         return send(res, 200, { token: null, deviceId: dev.id, deviceName: dev.name, updated: true });
@@ -284,8 +286,9 @@ const handler = async (req, res) => {
       return send(res, 200, { token, deviceId: d.id, deviceName: d.name });
     }
     if (!dev) return send(res, 401, { error: 'unauthorized' });
-    const isAdmin = dev.admin || loop;
-    const can = id => isAdmin || dev.vaults == null || dev.vaults.includes(id);
+    if (dev.readOnly && !['GET', 'HEAD'].includes(req.method)) return send(res, 403);
+    const isAdmin = !dev.readOnly && (dev.admin || loop);
+    const can = id => dev.readOnly ? (dev.vaults || []).includes(id) : isAdmin || dev.vaults == null || dev.vaults.includes(id);
     if (u.pathname === '/api/vaults') return send(res, 200, { vaults: config.vaults.filter(v => can(v.id)).map(v => ({ id: v.id, name: v.name, legacy: v.id === config.legacyVault, path: isAdmin ? path.resolve(v.path) : null })) });
     if (u.pathname.startsWith('/api/admin/')) {
       if (!isAdmin) return send(res, 403);
@@ -320,13 +323,21 @@ const handler = async (req, res) => {
         const code = crypto.randomBytes(18).toString('base64url'); const expires = Date.now() + 5 * 60000; invites.set(code, { expires, short, admin: b.admin === true, vaults });
         return send(res, 200, { expires: new Date(expires).toISOString(), shortCode: short, personal: config.mode === 'pessoal', addresses: lanAddrs().sort((a, b) => b.primary - a.primary).map(a => ({ address: a.address, url: `${tlsCert ? "https" : "http"}://${a.address}:${port}/#convite=${code}`, primary: a.primary, name: a.name })) });
       }
-      if (sub === 'devices' && req.method === 'GET') return send(res, 200, { devices: devices.map(d => ({ id: d.id, name: d.name, created: d.created, lastSeen: seen.get(d.id) || null, current: d.id === dev.id, admin: !!d.admin, vaults: d.vaults ?? null })) });
+      if (sub === 'devices' && req.method === 'GET') return send(res, 200, { devices: devices.map(d => ({ id: d.id, name: d.name, created: d.created, lastSeen: seen.get(d.id) || null, current: d.id === dev.id, admin: !!d.admin, vaults: d.vaults ?? null, agent: !!d.readOnly })) });
+      if (sub === 'agents' && req.method === 'POST') {
+        const b = await body(req, 64 * 1024); const known = config.vaults.map(v => v.id);
+        const vaults = [...new Set((b.vaults || []).filter(x => known.includes(x)))];
+        if (!vaults.length) return send(res, 400, { error: 'Escolha pelo menos um vault.' });
+        const { token, d } = addDevice(b.name || 'Agente', false, vaults, true);
+        const sch = tlsCert ? 'https' : 'http';
+        return send(res, 200, { id: d.id, name: d.name, token, local: `http://localhost:${tlsCert ? port - 1 : port}/mcp`, network: config.mode === 'pessoal' ? [] : lanAddrs().filter(a => a.primary).map(a => `${sch}://${a.address}:${port}/mcp`), https: !!tlsCert });
+      }
       const dm = /^devices\/([^/]+)$/.exec(sub);
       if (dm) {
         const id = decodeURIComponent(dm[1]); const d = devices.find(x => x.id === id); if (!d) return send(res, 404);
         if (req.method === 'PATCH') {
           const b = await body(req, 64 * 1024); const known = config.vaults.map(v => v.id);
-          if (typeof b.admin === 'boolean') d.admin = b.admin;
+          if (typeof b.admin === 'boolean' && !d.readOnly) d.admin = b.admin;
           d.vaults = d.admin ? null : Array.isArray(b.vaults) ? [...new Set(b.vaults.filter(x => known.includes(x)))] : (d.vaults ?? []);
           saveDevices(); return send(res, 200, { id, admin: d.admin, vaults: d.vaults });
         }
@@ -410,6 +421,52 @@ const handler = async (req, res) => {
   res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream', 'Cache-Control': p.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache' });
   fs.createReadStream(f).pipe(res);
 };
+// MCP (somente leitura) para agentes, igual ao servidor .NET.
+async function mcp(req, res, allowed) {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!allowed) { res.writeHead(302, { Location: `https://${String(req.headers.host).replace(/:\d+$/, '')}:${port}/mcp` }); return res.end(); }
+  if (!config) return send(res, 503);
+  const auth = req.headers.authorization || '';
+  const dev = auth.startsWith('Bearer ') ? findDevice(auth.slice(7)) : null;
+  if (!dev) { res.setHeader('WWW-Authenticate', 'Bearer'); return send(res, 401, { error: 'Use o token do agente no cabeçalho Authorization: Bearer <token>.' }); }
+  if (req.method !== 'POST') return send(res, 405);
+  const rpc = await body(req, 1024 * 1024);
+  if (rpc.__bad) return send(res, 200, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
+  if (Array.isArray(rpc) || typeof rpc !== 'object') return send(res, 200, { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request' } });
+  if (rpc.id === undefined || rpc.id === null) { res.writeHead(202); return res.end(); }
+  const ok = result => send(res, 200, { jsonrpc: '2.0', id: rpc.id, result });
+  const text = (t, isError) => ok({ content: [{ type: 'text', text: t }], ...(isError ? { isError: true } : {}) });
+  const fold = x => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const can = id => dev.readOnly ? (dev.vaults || []).includes(id) : dev.admin || dev.vaults == null || dev.vaults.includes(id);
+  const allowedVaults = config.vaults.filter(v => can(v.id)).sort((a, b) => a.name.localeCompare(b.name));
+  const notesOf = v => { useVault(v); return walk(root, '', { folders: [], files: [] }).files.map(f => ({ ...f, full: path.join(root, ...f.path.split('/')) })); };
+  const p = rpc.params || {};
+  if (rpc.method === 'initialize') return ok({ protocolVersion: ['2025-06-18', '2025-03-26', '2024-11-05'].includes(p.protocolVersion) ? p.protocolVersion : '2025-06-18', capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'Cube4Notes', version: '1.0.0' }, instructions: 'Notas Markdown do Cube4Notes, somente leitura.' });
+  if (rpc.method === 'ping') return ok({});
+  if (rpc.method === 'tools/list') return ok({ tools: ['list_vaults', 'list_notes', 'read_note', 'search_notes', 'recent_notes'].map(name => ({ name, description: name, inputSchema: { type: 'object', properties: {}, required: [] }, annotations: { readOnlyHint: true } })) });
+  if (rpc.method !== 'tools/call') return send(res, 200, { jsonrpc: '2.0', id: rpc.id, error: { code: -32601, message: 'Method not found' } });
+  const a = p.arguments || {}; const limit = Math.min(100, Math.max(1, Number(a.limit) || 20));
+  const vaultArg = optional => { if (!a.vault) return optional ? { v: null } : { err: 'Informe o vault (use list_vaults).' }; const v = allowedVaults.find(x => x.id === a.vault); return v ? { v } : { err: `Vault "${a.vault}" não existe ou não está liberado para este agente.` }; };
+  switch (p.name) {
+    case 'list_vaults': return text(JSON.stringify(allowedVaults.map(v => ({ id: v.id, name: v.name }))));
+    case 'list_notes': { const { v, err } = vaultArg(false); if (err) return text(err, true); const f = String(a.folder || '').replace(/^\/+|\/+$/g, ''); const list = notesOf(v).map(n => n.path).filter(x => !f || x.toLowerCase().startsWith(f.toLowerCase() + '/')); return text(list.length ? list.join('\n') : 'Nenhuma nota.'); }
+    case 'read_note': { const { v, err } = vaultArg(false); if (err) return text(err, true); useVault(v); const f = resolve(a.path || '', true); if (!f || !fs.existsSync(f)) return text('Nota não encontrada. Use list_notes ou search_notes para ver os caminhos.', true); return text(fs.readFileSync(f, 'utf8')); }
+    case 'search_notes': {
+      const words = fold(a.query || '').split(/\s+/).filter(Boolean); if (!words.length) return text('Informe o que buscar.', true);
+      const { v, err } = vaultArg(true); if (err) return text(err, true);
+      const hits = [];
+      for (const vault of v ? [v] : allowedVaults) for (const n of notesOf(vault).sort((x, y) => y.modified.localeCompare(x.modified))) {
+        if (hits.length >= limit) break;
+        const c = fs.readFileSync(n.full, 'utf8'); if (!words.every(w => fold(n.path + '\n' + c).includes(w))) continue;
+        const at = Math.max(0, fold(c).indexOf(words[0])); const s0 = Math.max(0, at - 80); const e0 = Math.min(c.length, s0 + 240);
+        hits.push({ vault: vault.id, path: n.path, modified: n.modified, snippet: (s0 > 0 ? '…' : '') + c.slice(s0, e0).replace(/\n/g, ' ') + (e0 < c.length ? '…' : '') });
+      }
+      return text(hits.length ? JSON.stringify(hits) : 'Nada encontrado.');
+    }
+    case 'recent_notes': { const { v, err } = vaultArg(true); if (err) return text(err, true); return text(JSON.stringify((v ? [v] : allowedVaults).flatMap(x => notesOf(x).map(n => ({ vault: x.id, path: n.path, modified: n.modified }))).sort((x, y) => y.modified.localeCompare(x.modified)).slice(0, limit))); }
+    default: return text(`Ferramenta desconhecida: ${p.name}`, true);
+  }
+}
 if (tlsCert) {
   https.createServer({ cert: fs.readFileSync(tlsCert), key: fs.readFileSync(tlsKey), maxHeaderSize: 32 * 1024 }, handler).listen(port, () => console.log(`mock em https://localhost:${port}  config=${configDir}${config ? '' : '  (primeira execução, código ' + setupCode + ')'}`));
   http.createServer({ maxHeaderSize: 32 * 1024 }, handler).listen(port - 1);

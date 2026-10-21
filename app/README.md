@@ -82,11 +82,14 @@ src/Aparelhos.cs           aparelhos, convites, registro de renomeações, limit
 src/Rede.cs                segurança de Host/Origem, validação de caminhos, endereços da rede local
 src/Tls.cs                 autoridade certificadora local e certificado do servidor
 src/Firewall.cs            regra do Firewall do Windows por porta, só para a rede local
+src/Historico.cs           histórico de versões de cada nota (.cube4notes/historico)
+src/Mcp.cs                 acesso somente leitura para agentes de IA (MCP em /mcp)
 Cube4Notes.csproj          projeto
 wwwroot/                   interface compilada
 web/                       código-fonte da interface (TypeScript + Vite + Milkdown)
 dev/mock-server.mjs        servidor de teste em Node com a mesma API, só para desenvolvimento
 dev/teste_sync.py          testes maldosos de sincronização (Playwright)
+dev/teste_recursos.py      links, anexos offline, histórico, tags e agentes (Playwright)
 seguranca/                 bateria de testes de segurança (Python, sem dependências)
 SEGURANCA.md               revisão OWASP e riscos conhecidos
 ```
@@ -97,6 +100,7 @@ Para alterar a interface: `cd web`, `npm install`, `npm run build` (recompila pa
 
 ```bash
 python dev/teste_sync.py                                          # 18 verificações de sincronização
+python dev/teste_recursos.py                                      # links, anexos, histórico, tags e agentes
 python seguranca/teste_seguranca.py --lan https://<ip>:43125      # 73 verificações de segurança
 ```
 

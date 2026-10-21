@@ -1,8 +1,8 @@
 # Revisão de segurança (OWASP Top 10)
 
-Data: 19/10/2026. Escopo: servidor `Program.cs`, interface `web/` e o contrato da API. Método: revisão de código item a item do OWASP Top 10, correções e uma bateria automatizada de ataques (`seguranca/teste_seguranca.py`, hoje 73 verificações, incluindo vaults e permissões por aparelho) mais testes de navegador para injeção de script.
+Data: 19/10/2026, revista em 21/10/2026 (links, anexos offline, histórico, agentes de IA). Escopo: servidor `Program.cs`, interface `web/` e o contrato da API. Método: revisão de código item a item do OWASP Top 10, correções e uma bateria automatizada de ataques (`seguranca/teste_seguranca.py`, hoje 95 verificações sobre HTTPS, incluindo vaults, permissões por aparelho e tokens de agente) mais testes de navegador para injeção de script.
 
-**Como os testes foram rodados:** a bateria passou 66/66 (sobre HTTPS) e, depois dos vaults, 73/73 contra o servidor de teste `dev/mock-server.mjs`, que implementa as mesmas regras do servidor .NET. O ambiente onde isto foi escrito não alcança a rede da casa, então a bateria **ainda precisa rodar no computador do servidor, contra o servidor .NET** (instruções no fim).
+**Como os testes foram rodados:** a bateria passou 66/66 (sobre HTTPS), depois dos vaults 73/73 e, com agentes, anexos e histórico, 95/95 sobre HTTPS contra o servidor de teste `dev/mock-server.mjs`, que implementa as mesmas regras do servidor .NET. O ambiente onde isto foi escrito não alcança a rede da casa, então a bateria **ainda precisa rodar no computador do servidor, contra o servidor .NET** (instruções no fim).
 
 ## Achados e correções
 
@@ -26,6 +26,9 @@ Data: 19/10/2026. Escopo: servidor `Program.cs`, interface `web/` e o contrato d
 | A08 Integridade | (verificado) | Gravação atômica de notas e da lista de aparelhos; nenhuma alteração é descartada (conflito vira cópia, exclusão vai para `.lixeira`). |
 | A09 Registro | Tentativas suspeitas não apareciam. | Console registra Host/Origem recusados, convites inválidos, bloqueios, aparelhos conectados e removidos, com limite para não inundar. |
 | A10 SSRF | (não se aplica) | O servidor não faz requisições para fora. |
+| A01 | (novo, 21/10) Agentes de IA precisavam ler notas sem receber o poder de um aparelho. | Token próprio de agente, **somente leitura** e com lista de vaults obrigatória: nunca é administrador (nem no próprio computador), qualquer método que não seja leitura na API recebe 403, não troca o acesso por convite e só lê pelo `/mcp` os vaults liberados. Da rede, `/mcp` só em HTTPS (HTTP redireciona); em HTTP só no próprio computador. `/mcp` passa pelas mesmas regras de Host, Origem e rede local. |
+| A01 | (novo, 21/10) Anexo enviado com caminho escolhido pelo aparelho (anexos colados offline). | Mesmo validador de caminhos das notas; só tipos de imagem e PDF (nunca `.md`); arquivo existente nunca é sobrescrito (ganha sufixo); temporário oculto até terminar. |
+| A01 | (novo, 21/10) Histórico de versões lido por caminho e id. | Caminho validado como nota; id só no formato de data (`yyyyMMdd-HHmmss-fff`), sem como montar caminho para fora de `.cube4notes/historico`. |
 
 ## Riscos que continuam (conscientes)
 
@@ -36,6 +39,8 @@ Data: 19/10/2026. Escopo: servidor `Program.cs`, interface `web/` e o contrato d
 - **Aparelhos pareados são confiáveis para escrever.** Um aparelho comprometido pode alterar notas (sempre com cópia em conflito e lixeira, nunca apagando de vez). Para tirar o acesso: Remover.
 - **Token guardado no navegador do aparelho** (IndexedDB). A CSP reduz o risco de um script roubá-lo; se o aparelho for perdido, remova-o na lista.
 - **Regra de firewall por porta.** No modo Rede de casa, o Windows libera as portas 43124 e 43125 só para a sub-rede local (`remoteip=localsubnet`), em qualquer perfil de rede, para o celular conectar mesmo que o Windows classifique o Wi-Fi como público. O servidor continua recusando qualquer endereço fora da rede local. Regras antigas presas ao caminho do `.exe` são apagadas, porque uma regra de bloqueio do programa venceria a liberação.
+- **Token de agente dá leitura de tudo o que foi liberado.** Quem copiar o token lê aqueles vaults de dentro da rede de casa. Libere só o necessário e remova o agente quando não usar mais. O console registra cada ferramenta usada por cada agente.
+- **Anexos e histórico guardados sem limite de espaço total.** O histórico fica limitado a 100 versões por nota e 180 dias; anexos guardados no aparelho, a 150 MB de pré-carga por vault (o que for aberto fica guardado).
 - **Notas sem criptografia em disco** no servidor e nos aparelhos; depende da proteção do próprio sistema (BitLocker, bloqueio do celular).
 
 ## Rodar a bateria no computador do servidor
