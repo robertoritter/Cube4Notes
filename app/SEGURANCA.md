@@ -35,6 +35,7 @@ Data: 19/10/2026. Escopo: servidor `Program.cs`, interface `web/` e o contrato d
 - **O administrador escolhe qualquer pasta do computador do servidor como vault.** Raiz do disco, pastas do sistema, a pasta de configuração e pastas dentro de outro vault são recusadas; o restante é decisão do administrador.
 - **Aparelhos pareados são confiáveis para escrever.** Um aparelho comprometido pode alterar notas (sempre com cópia em conflito e lixeira, nunca apagando de vez). Para tirar o acesso: Remover.
 - **Token guardado no navegador do aparelho** (IndexedDB). A CSP reduz o risco de um script roubá-lo; se o aparelho for perdido, remova-o na lista.
+- **Regra de firewall por porta.** No modo Rede de casa, o Windows libera as portas 43124 e 43125 só para a sub-rede local (`remoteip=localsubnet`), em qualquer perfil de rede, para o celular conectar mesmo que o Windows classifique o Wi-Fi como público. O servidor continua recusando qualquer endereço fora da rede local. Regras antigas presas ao caminho do `.exe` são apagadas, porque uma regra de bloqueio do programa venceria a liberação.
 - **Notas sem criptografia em disco** no servidor e nos aparelhos; depende da proteção do próprio sistema (BitLocker, bloqueio do celular).
 
 ## Rodar a bateria no computador do servidor

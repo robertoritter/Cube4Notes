@@ -61,7 +61,7 @@ if (windowMode)
     if (existing is not null && Janela.ServerRunning(existingPort))
         return Janela.Run(existing.Mode == "pessoal" || forceHttp ? $"http://localhost:{existingPort}/" : $"https://localhost:{existingPort}/");
     if (OperatingSystem.IsWindows())
-        tray = new Bandeja(Janela.IconPath(), "Cube4Notes", () => StartWindow(currentUrl), Quit);
+        tray = new Bandeja(Janela.IconPath(), "Cube4Notes", () => StartWindow(currentUrl), Quit, () => _ = Task.Run(() => AllowFirewall(true)));
 }
 
 // Reinicia o servidor (sem fechar o programa) quando o modo ou a porta mudam.
@@ -101,6 +101,20 @@ void StartWindow(string url)
             tray.Notify("Cube4Notes continua rodando", "Os outros aparelhos seguem sincronizando. Clique no ícone para abrir ou encerrar.");
         }
     };
+}
+
+// Libera as portas na rede local (uma vez, com a confirmação do Windows). manual: pedido pelo menu do ícone.
+void AllowFirewall(bool manual)
+{
+    if (!OperatingSystem.IsWindows()) return;
+    if (currentPersonal || string.IsNullOrEmpty(currentUrl)) return;
+    if (!manual && (Firewall.HasRule() || Firewall.RecentlyDeclined())) return;
+    var port = new Uri(currentUrl).Port;
+    Console.WriteLine("  O Windows vai pedir confirmação para liberar o Cube4Notes na rede local (portas " + (port - 1) + " e " + port + ").");
+    var ok = Firewall.Allow(port);
+    Console.WriteLine(ok ? "  Firewall liberado para a rede local." : "  Firewall não foi liberado; celular e outros aparelhos podem não conectar.");
+    if (tray is not null) tray.Notify(ok ? "Rede local liberada" : "Firewall não liberado",
+        ok ? "Celular e outros aparelhos da casa já podem conectar." : "Se o celular não conectar, use o menu do ícone: Liberar no firewall.");
 }
 
 void Quit()
@@ -558,6 +572,9 @@ async Task<int> RunAsync(AppConfig? config)
     stopServer = () => app.Lifetime.StopApplication();
     if (openBrowser)
         app.Lifetime.ApplicationStarted.Register(() => { if (windowMode) StartWindow(currentUrl); else OpenBrowser(currentUrl); });
+    // Rede de casa no Windows: sem a regra de firewall, o celular não alcança o servidor.
+    if (!personal && OperatingSystem.IsWindows() && !args.Contains("--sem-firewall"))
+        app.Lifetime.ApplicationStarted.Register(() => _ = Task.Run(() => AllowFirewall(false)));
     try
     {
         await app.RunAsync();

@@ -725,6 +725,7 @@ function openSettings(anchor: HTMLElement) {
       h('button', { class: 'btn wide connect-btn', onclick: () => { close(); openDevices(); } }, ic('Smartphone', 15), t.connectDevice),
       h('button', { class: 'btn wide', onclick: () => { close(); openVaultsAdmin(); } }, ic('Library', 15), t.manageVaults)) : null,
     h('div', { class: 'set-foot' }, h('span', {}, t.device + ': ', h('b', {}, S.deviceName || '—')), h('button', { class: 'btn small', onclick: () => S.sync() }, ic('RefreshCw', 14), t.syncNow)),
+    S.syncState === 'offline' && S.token ? h('p', { class: 'set-note' }, t.offlineHelp) : null,
     !isSecureContext ? h('p', { class: 'set-note' }, t.insecure) : null,
     swFailed ? h('div', { class: 'set-note' }, h('p', {}, t.certUntrusted)) : null,
     certHelp(),

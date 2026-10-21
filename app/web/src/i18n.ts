@@ -204,6 +204,7 @@ const pt = {
   quitQ: 'Encerrar o Cube4Notes?',
   quitHint: 'O servidor para neste computador e os outros aparelhos deixam de sincronizar até ele ser aberto de novo. As notas de cada aparelho continuam guardadas.',
   quitDone: 'O Cube4Notes foi encerrado. Pode fechar esta janela.',
+  offlineHelp: 'Sem contato com o servidor. Confira se o Cube4Notes está aberto no computador e se este aparelho está no Wi-Fi de casa. Se continuar, no computador clique com o botão direito no ícone do Cube4Notes (perto do relógio) e escolha Liberar no firewall.',
 };
 export type Dict = typeof pt;
 const en: Dict = {
@@ -404,6 +405,7 @@ const en: Dict = {
   quitQ: 'Quit Cube4Notes?',
   quitHint: 'The server stops on this computer and other devices stop syncing until it is opened again. Each device keeps its notes.',
   quitDone: 'Cube4Notes has quit. You can close this window.',
+  offlineHelp: 'Cannot reach the server. Check that Cube4Notes is open on the computer and that this device is on the home Wi-Fi. If it persists, on the computer right-click the Cube4Notes icon (next to the clock) and choose “Liberar no firewall” (allow through the firewall).',
 };
 export type Lang = 'pt-BR' | 'en';
 const dicts: Record<Lang, Dict> = { 'pt-BR': pt, en };

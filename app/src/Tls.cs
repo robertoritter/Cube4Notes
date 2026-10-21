@@ -5,7 +5,8 @@
  * Copyright (c) 2026 Roberto Ritter
  *
  * HTTPS local do Cube4Notes: autoridade certificadora própria, restrita a nomes e IPs locais,
- * certificado do servidor refeito quando o IP muda e confiança automática no Windows.
+ * certificado do servidor guardado entre uma abertura e outra (refeito só quando o IP muda ou perto de vencer)
+ * e confiança automática no Windows.
  */
 using System.Formats.Asn1;
 using System.Net;
@@ -22,6 +23,7 @@ static class Tls
     private static X509Certificate2? ca;
     private static X509Certificate2? leaf;
     private static string leafKey = "";
+    private static string dir = "";
     private static DateTime checkedAt = DateTime.MinValue;
 
     public static byte[] CaDer => ca!.Export(X509ContentType.Cert);
@@ -44,8 +46,9 @@ static class Tls
     }
     public static string CaThumbprint => ca!.Thumbprint;
 
-    public static void Init(string dir)
+    public static void Init(string folder)
     {
+        dir = folder;
         Directory.CreateDirectory(dir);
         var pfx = Path.Combine(dir, "cube4notes-ca.pfx");
         if (File.Exists(pfx))
@@ -107,14 +110,46 @@ static class Tls
             checkedAt = DateTime.UtcNow;
             var ips = Lan.Addresses().Select(a => a.Address).ToList();
             var key = string.Join(',', ips);
+            if (leaf is null) (leaf, leafKey) = LoadSaved();
             if (leaf is not null && key == leafKey && leaf.NotAfter > DateTime.Now.AddDays(14)) return leaf;
-            leaf = Issue(ips);
+            var pfx = Issue(ips);
+            leaf = X509CertificateLoader.LoadPkcs12(pfx, null);
             leafKey = key;
+            Save(pfx, key);
             return leaf;
         }
     }
 
-    private static X509Certificate2 Issue(List<IPAddress> ips)
+    // O mesmo certificado volta depois de fechar e abrir o Cube4Notes: os aparelhos não veem um certificado novo a cada início.
+    private static (X509Certificate2?, string) LoadSaved()
+    {
+        try
+        {
+            var pfx = Path.Combine(dir, "servidor.pfx");
+            var ips = Path.Combine(dir, "servidor-enderecos.txt");
+            if (!File.Exists(pfx) || !File.Exists(ips)) return (null, "");
+            var cert = X509CertificateLoader.LoadPkcs12FromFile(pfx, null);
+            // só vale se foi emitido pela autoridade atual (mesmo identificador de chave da autoridade)
+            var expected = X509AuthorityKeyIdentifierExtension.CreateFromCertificate(ca!, true, false).RawData;
+            var aki = cert.Extensions.Cast<X509Extension>().FirstOrDefault(e => e.Oid?.Value == "2.5.29.35")?.RawData;
+            if (!cert.HasPrivateKey || aki is null || !aki.AsSpan().SequenceEqual(expected)) return (null, "");
+            return (cert, File.ReadAllText(ips).Trim());
+        }
+        catch (Exception) { return (null, ""); }
+    }
+
+    private static void Save(byte[] pfx, string key)
+    {
+        try
+        {
+            File.WriteAllBytes(Path.Combine(dir, "servidor.pfx"), pfx);
+            File.WriteAllText(Path.Combine(dir, "servidor-enderecos.txt"), key);
+        }
+        catch (Exception ex) { Console.WriteLine($"  Certificado do servidor não foi guardado ({ex.Message})."); }
+    }
+
+    // Devolve o certificado com a chave em PFX (recarregar de PFX evita o erro de chave efêmera do Windows/SChannel).
+    private static byte[] Issue(List<IPAddress> ips)
     {
         using var key = RSA.Create(2048);
         var req = new CertificateRequest("CN=Cube4Notes", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -136,8 +171,7 @@ static class Tls
         if (notAfter > ca!.NotAfter) notAfter = ca.NotAfter.AddDays(-1);
         using var signed = req.Create(ca!, DateTimeOffset.UtcNow.AddDays(-1), notAfter, serial);
         using var withKey = signed.CopyWithPrivateKey(key);
-        // Recarregar de PFX evita o erro de chave efêmera do Windows (SChannel).
-        return X509CertificateLoader.LoadPkcs12(withKey.Export(X509ContentType.Pfx), null);
+        return withKey.Export(X509ContentType.Pfx);
     }
 
     // No Windows, adiciona o certificado às autoridades confiáveis do usuário atual (o Windows pede confirmação uma vez).

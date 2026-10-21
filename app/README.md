@@ -24,7 +24,7 @@ Tudo fica numa pasta de configuração (padrão `%LOCALAPPDATA%\Cube4Notes`, ou 
 ```text
 config.json     nome do servidor, modo, porta e lista de vaults
 devices.json    aparelhos conectados (só o hash do token), administrador e vaults liberados
-tls/            autoridade certificadora local e certificado do servidor (modo Rede de casa)
+tls/            autoridade certificadora local e certificado do servidor, guardado entre aberturas (modo Rede de casa)
 ```
 
 - Sem `config.json`, o servidor inicia no **assistente de primeira execução**. No próprio computador não pede código; de outro aparelho, pede o código mostrado no console.
@@ -81,6 +81,7 @@ src/Vaults.cs              operações de arquivo de cada vault (versão, confli
 src/Aparelhos.cs           aparelhos, convites, registro de renomeações, limite de tentativas
 src/Rede.cs                segurança de Host/Origem, validação de caminhos, endereços da rede local
 src/Tls.cs                 autoridade certificadora local e certificado do servidor
+src/Firewall.cs            regra do Firewall do Windows por porta, só para a rede local
 Cube4Notes.csproj          projeto
 wwwroot/                   interface compilada
 web/                       código-fonte da interface (TypeScript + Vite + Milkdown)

@@ -6,7 +6,7 @@
  *
  * Ícone do Cube4Notes perto do relógio do Windows (área de notificação), feito direto com a API do
  * Windows para o projeto continuar compilando no Linux (sem WinForms). Clique abre a janela;
- * botão direito mostra Abrir / Encerrar. Em outros sistemas não é usado.
+ * botão direito mostra Abrir / Liberar no firewall / Encerrar. Em outros sistemas não é usado.
  */
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -18,18 +18,19 @@ sealed class Bandeja : IDisposable
     private const uint WmLButtonUp = 0x0202, WmLButtonDblClk = 0x0203, WmRButtonUp = 0x0205, WmContextMenu = 0x007B;
     private const uint NimAdd = 0, NimModify = 1, NimDelete = 2;
     private const uint NifMessage = 1, NifIcon = 2, NifTip = 4, NifInfo = 0x10;
-    private const int CmdOpen = 1, CmdQuit = 2;
+    private const int CmdOpen = 1, CmdQuit = 2, CmdFirewall = 3;
 
     private readonly Action onOpen, onQuit;
+    private readonly Action? onFirewall;
     private readonly string? iconPath;
     private readonly string tip;
     private readonly WndProc proc;
     private IntPtr hwnd;
     private NotifyIconData data;
 
-    public Bandeja(string? iconPath, string tip, Action onOpen, Action onQuit)
+    public Bandeja(string? iconPath, string tip, Action onOpen, Action onQuit, Action? onFirewall = null)
     {
-        this.iconPath = iconPath; this.tip = tip; this.onOpen = onOpen; this.onQuit = onQuit;
+        this.iconPath = iconPath; this.tip = tip; this.onOpen = onOpen; this.onQuit = onQuit; this.onFirewall = onFirewall;
         proc = WindowProc;
         var ready = new ManualResetEventSlim();
         var t = new Thread(() => Loop(ready)) { IsBackground = true, Name = "Cube4Notes bandeja" };
@@ -114,6 +115,7 @@ sealed class Bandeja : IDisposable
                 var id = (int)(w.ToInt64() & 0xFFFF);
                 if (id == CmdOpen) Safe(onOpen);
                 if (id == CmdQuit) Safe(onQuit);
+                if (id == CmdFirewall && onFirewall is not null) Safe(onFirewall);
                 return IntPtr.Zero;
             case WmDestroy:
                 PostQuitMessage(0);
@@ -126,6 +128,7 @@ sealed class Bandeja : IDisposable
     {
         var menu = CreatePopupMenu();
         AppendMenu(menu, 0, new IntPtr(CmdOpen), "Abrir Cube4Notes");
+        if (onFirewall is not null) AppendMenu(menu, 0, new IntPtr(CmdFirewall), "Liberar no firewall (celular não conecta)");
         AppendMenu(menu, 0x800, IntPtr.Zero, null);
         AppendMenu(menu, 0, new IntPtr(CmdQuit), "Encerrar o Cube4Notes");
         GetCursorPos(out var p);

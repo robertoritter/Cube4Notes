@@ -44,7 +44,7 @@ Requisito: [.NET 10 SDK](https://dotnet.microsoft.com/download), ou o `Cube4Note
    - onde você vai usar: *Só este computador* ou *Rede de casa*;
    - a pasta do primeiro vault (qualquer pasta; se não existir, é criada, e arquivos `.md` que já estiverem nela aparecem como notas);
    - o nome deste aparelho.
-3. Na primeira execução o Windows pede uma vez para confiar no certificado do Cube4Notes: aceite (ele só vale para endereços locais). No modo *Rede de casa* o Firewall do Windows também pode pedir acesso: permita em **redes privadas**.
+3. Na primeira execução o Windows pede uma vez para confiar no certificado do Cube4Notes: aceite (ele só vale para endereços locais). No modo *Rede de casa* o Cube4Notes pede ao Windows, uma vez (confirmação de administrador), para abrir as duas portas dele só para a rede local. Se um dia o celular parar de conectar, clique com o botão direito no ícone perto do relógio e escolha *Liberar no firewall*.
 
 Para conectar celular ou tablet: abra **Preferências > Conectar aparelho**, escolha os vaults que ele pode acessar e leia o QR code. Para o navegador parar de mostrar o aviso e o app abrir sem conexão, instale o certificado no aparelho uma vez (as instruções estão na mesma tela).
 

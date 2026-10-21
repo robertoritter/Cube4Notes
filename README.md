@@ -44,7 +44,7 @@ Requirements: [.NET 10 SDK](https://dotnet.microsoft.com/download), or the stand
    - where you will use it: *This computer only* or *Home network*;
    - the folder for your first vault (any folder; it is created if missing, and existing `.md` files show up as notes);
    - a name for this device.
-3. On the first run Windows asks once to trust the Cube4Notes certificate: accept it (it is only valid for local addresses). In *Home network* mode Windows Firewall may also ask for access: allow it on **private networks**.
+3. On the first run Windows asks once to trust the Cube4Notes certificate: accept it (it is only valid for local addresses). In *Home network* mode Cube4Notes then asks Windows once (administrator confirmation) to open its two ports to the local network only. If a phone ever stops connecting, right-click the tray icon and choose *Liberar no firewall*.
 
 To connect a phone or tablet: open **Preferences > Connect device**, choose which vaults it may access, and scan the QR code. To stop the browser warning and let the app open with no connection, install the certificate on the device once (instructions are on the same screen).
 
