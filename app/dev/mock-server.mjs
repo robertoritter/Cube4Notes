@@ -218,7 +218,7 @@ function applyOp(op, device) {
 }
 const send = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(obj === undefined ? '' : JSON.stringify(obj)); };
 const body = (req, limit = 32 * 1024 * 1024) => new Promise(ok => { let b = '', n = 0; req.on('data', c => { n += c.length; if (n <= limit) b += c; }); req.on('end', () => { if (n > limit) return ok({ __tooLarge: true }); try { ok(JSON.parse(b || '{}')); } catch { ok({ __bad: true }); } }); });
-const findDevice = t => { if (!t || t.length > 200) return null; const d = devices.find(d => d.hash === sha(t)); if (d) seen.set(d.id, new Date().toISOString()); return d; };
+const findDevice = t => { if (!t || t.length > 200) return null; const h = sha(t); const d = devices.find(d => d.hash === h || (d.moreHashes || []).includes(h)); if (d) seen.set(d.id, new Date().toISOString()); return d; };
 const saveDevices = () => { fs.writeFileSync(devicesFile + '.tmp', JSON.stringify(devices, null, 2)); fs.renameSync(devicesFile + '.tmp', devicesFile); };
 const log = m => console.log(`  [segurança] ${m}`);
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
@@ -251,7 +251,7 @@ const handler = async (req, res) => {
       devices.push(d); saveDevices(); seen.set(d.id, d.created);
       return { token, d };
     };
-    if (u.pathname === '/api/status') return send(res, 200, { name: config?.name || 'Cube4Notes', setup, mode: config?.mode || 'rede', paired: !!dev, loopback: loop, admin: !!dev && !dev.readOnly && (dev.admin || loop), ui: (() => { try { return fs.statSync(path.join(www, 'index.html')).mtimeMs.toString(16); } catch { return ''; } })() });
+    if (u.pathname === '/api/status') return send(res, 200, { name: config?.name || 'Cube4Notes', setup, mode: config?.mode || 'rede', paired: !!dev, loopback: loop, admin: !!dev && !dev.readOnly && (dev.admin || loop), ui: (() => { try { return fs.statSync(path.join(www, 'index.html')).mtimeMs.toString(16); } catch { return ''; } })(), hostUrl: arg('--host-url', '') || null });
     if (setup && u.pathname === '/api/setup/browse') { if (!setupAllowed(u.searchParams.get('code'))) return send(res, 403); return send(res, 200, browse(u.searchParams.get('path') || '')); }
     if (u.pathname === '/api/setup' && req.method === 'POST') {
       if (!setup) return send(res, 409, { error: 'Já configurado.' });
@@ -268,12 +268,23 @@ const handler = async (req, res) => {
     if (setup) return send(res, 503);
     if (u.pathname === '/api/pair' && req.method === 'POST') {
       const b = await body(req, 64 * 1024);
+      if (b.transfer) { // o mesmo aparelho por outro endereço: ganha um token a mais
+        if (blocked()) return send(res, 429, { error: 'wait' });
+        let key = null; for (const [k, v] of invites) if (v.expires >= Date.now() && k === String(b.transfer).slice(0, 64) && v.deviceId) key = k;
+        const target = key && devices.find(d => d.id === invites.get(key).deviceId);
+        if (!target) { fail(); log(`Transferência inválida de ${ip}`); return send(res, 403, { error: 'invite' }); }
+        invites.delete(key);
+        const token = crypto.randomBytes(32).toString('hex');
+        target.moreHashes = [...(target.moreHashes || []).slice(-4), sha(token)]; saveDevices();
+        return send(res, 200, { token, deviceId: target.id, deviceName: target.name, transferred: true });
+      }
       let admin = loop, vaults = config.vaults.map(v => v.id);
       if (!loop) {
         if (blocked()) return send(res, 429, { error: 'wait' });
         const code = String(b.invite || '').slice(0, 64); const short = code.replace(/[^a-z0-9]/gi, '').toUpperCase();
         let key = null; for (const [k, v] of invites) if (v.expires >= Date.now() && (k === code || (short.length === 6 && v.short === short))) key = k;
         if (!key) { fail(); log(`Convite inválido de ${ip}`); return send(res, 403, { error: 'invite' }); }
+        if (invites.get(key).deviceId) { fail(); return send(res, 403, { error: 'invite' }); }
         ({ admin, vaults } = invites.get(key)); invites.delete(key);
       }
       if (dev?.readOnly) return send(res, 403);
@@ -289,6 +300,11 @@ const handler = async (req, res) => {
     if (dev.readOnly && !['GET', 'HEAD'].includes(req.method)) return send(res, 403);
     const isAdmin = !dev.readOnly && (dev.admin || loop);
     const can = id => dev.readOnly ? (dev.vaults || []).includes(id) : isAdmin || dev.vaults == null || dev.vaults.includes(id);
+    if (u.pathname === '/api/transfer' && req.method === 'POST') {
+      const code = crypto.randomBytes(18).toString('base64url'); const expires = Date.now() + 5 * 60000;
+      invites.set(code, { expires, short: '', admin: !!dev.admin, vaults: dev.vaults || [], deviceId: dev.id });
+      return send(res, 200, { invite: code, expires: new Date(expires).toISOString() });
+    }
     if (u.pathname === '/api/vaults') return send(res, 200, { vaults: config.vaults.filter(v => can(v.id)).map(v => ({ id: v.id, name: v.name, legacy: v.id === config.legacyVault, path: isAdmin ? path.resolve(v.path) : null })) });
     if (u.pathname.startsWith('/api/admin/')) {
       if (!isAdmin) return send(res, 403);
@@ -418,6 +434,7 @@ const handler = async (req, res) => {
   let p = u.pathname === '/' ? '/index.html' : decodeURIComponent(u.pathname);
   const f = path.join(www, path.normalize(p).replace(/^([/\\])+/, ''));
   if (!f.startsWith(www + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); }
+  if (p === '/brand/favicon.png') res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); // teste do endereço pelo nome
   res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream', 'Cache-Control': p.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache' });
   fs.createReadStream(f).pipe(res);
 };

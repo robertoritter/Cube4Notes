@@ -50,9 +50,9 @@ Requirements: [.NET 10 SDK](https://dotnet.microsoft.com/download), or the stand
    - where you will use it: *This computer only* or *Home network*;
    - the folder for your first vault (any folder; it is created if missing, and existing `.md` files show up as notes);
    - a name for this device.
-3. On the first run Windows asks once to trust the Cube4Notes certificate: accept it (it is only valid for local addresses). In *Home network* mode Cube4Notes then asks Windows once (administrator confirmation) to open its two ports to the local network only. If a phone ever stops connecting, right-click the tray icon and choose *Liberar no firewall*.
+3. On the first run Windows asks once to trust the Cube4Notes certificate: accept it (it is only valid for local addresses). In *Home network* mode Cube4Notes then asks Windows once (administrator confirmation) to open its two ports, and name lookups, to the local network only. If a phone ever stops connecting, right-click the tray icon and choose *Liberar no firewall*.
 
-To connect a phone or tablet: open **Preferences > Connect device**, choose which vaults it may access, and scan the QR code. To stop the browser warning and let the app open with no connection, install the certificate on the device once (instructions are on the same screen).
+To connect a phone or tablet: open **Preferences > Connect device**, choose which vaults it may access, and scan the QR code. Then read [How devices find your computer](#how-devices-find-your-computer-read-this-before-connecting-a-phone), so a router changing the computer's IP does not leave the phone without the server. To stop the browser warning and let the app open with no connection, install the certificate on the device once (instructions are on the same screen).
 
 Everything can be changed later in **Preferences > Vaults and server**: add, rename or remove vaults, and switch between *This computer only* and *Home network* at any time.
 
@@ -73,6 +73,38 @@ Setting up a machine without a screen: start Cube4Notes there, open `https://<it
 | `--sem-navegador` | In console mode, do not open the browser on start |
 | `--sem-https` | Plain HTTP on the network (testing only) |
 | `--sem-instalar-certificado` | Do not add the certificate to the Windows trust store |
+
+## How devices find your computer (read this before connecting a phone)
+
+Cube4Notes never goes through the internet. A phone or tablet talks directly to the computer that keeps the notes, over your home Wi-Fi. That makes the **address** of the computer important, and it helps to know how it works.
+
+**Two kinds of address**
+
+- **By IP**, for example `https://192.168.0.10:43125`. Always works on the home network, on any device. The catch: most routers hand out IPs automatically and may give the computer a different one later (`192.168.0.11`). A device still pointing to the old IP can no longer reach the server, and the app stays in "No server".
+- **By name**, for example `https://my-pc.local:43125` (the computer name followed by `.local`). The device asks the local network "who is my-pc.local?" and the computer answers with its current IP. This is the same mechanism (mDNS, also called Bonjour) that phones use to find printers and AirPlay speakers. When the IP changes, the name keeps working.
+
+**What Cube4Notes does**
+
+1. The QR code uses the IP, because it works on every device.
+2. Right after connecting, the app checks whether this device can also reach the computer by name. If it can, it offers to switch to the name. The switch keeps the same device access (no new QR code), sends any pending changes first and downloads the notes again at the new address, so nothing is lost. You can also do it later in **Preferences > Use the computer name as the address**.
+3. On iPhone and iPad, a site added to the Home Screen belongs to one address. After switching, add Cube4Notes to the Home Screen again and remove the old icon.
+
+**Is `my-pc.local` always my computer, on any network?** No, and that is fine. The name is answered by whoever is on the network you are on at that moment:
+
+- at home, your computer answers;
+- on another network (street, office, mobile data) nobody answers, and the app simply works offline, as it always does away from home;
+- if another network happens to have a computer with the same name, the app still refuses to connect: the connection uses HTTPS with a certificate created by your own computer, which no other machine can present. Your device token is also only valid on your server.
+
+**Where the name may not work**
+
+- Guest Wi-Fi and networks that isolate devices block these name lookups. A normal home network allows them.
+- Android resolves `.local` names inconsistently, depending on the version and the browser. iPhone, iPad, macOS, Windows and Linux handle them well.
+- On Windows, Cube4Notes adds a firewall rule for name lookups (UDP 5353, local network only) together with the rule for its own ports. On Linux, install `avahi-daemon` (it is already present on most desktop distributions).
+- Two computers with the same name on the same network confuse the answer. Give them different names.
+
+**The most robust option: a fixed IP.** In your router settings, look for *DHCP reservation* (also called *static lease* or *fixed IP*) and reserve the current IP for the computer that runs Cube4Notes. Then both the IP and the name keep working forever, on every device, including Android.
+
+**If a device lost the server after the IP changed:** reserve the old IP in the router (the app comes back with everything, including changes made on the device that had not been sent yet), or scan the QR code again (the device downloads the notes again; changes made on it that were not sent stay in the old app until the old IP comes back).
 
 ## Platforms
 

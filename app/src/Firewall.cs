@@ -7,7 +7,8 @@
  * Firewall do Windows: libera as portas do Cube4Notes só para a rede local, com uma regra por porta
  * (vale para qualquer cópia do programa, mesmo depois de mover ou recompilar o .exe). A regra é criada
  * uma vez, com a confirmação do Windows (UAC). Regras antigas presas a um caminho do .exe são removidas,
- * porque uma regra de bloqueio do programa venceria a liberação por porta.
+ * porque uma regra de bloqueio do programa venceria a liberação por porta. Também libera o mDNS (UDP 5353)
+ * na rede local, para os aparelhos acharem o computador pelo nome (<nome>.local) mesmo quando o IP muda.
  */
 using System.ComponentModel;
 using System.Diagnostics;
@@ -17,14 +18,17 @@ using System.Runtime.Versioning;
 static class Firewall
 {
     public const string RuleName = "Cube4Notes (rede local)";
+    public const string MdnsRule = "Cube4Notes (nome na rede, mDNS)";
     private static string DeclinedFile => Path.Combine(ConfigStore.Dir, "firewall-recusado.txt");
 
-    // A regra já existe? (consultar não precisa de administrador)
-    public static bool HasRule()
+    // As regras já existem? (consultar não precisa de administrador)
+    public static bool HasRule() => Exists(RuleName) && Exists(MdnsRule);
+
+    private static bool Exists(string name)
     {
         try
         {
-            var info = new ProcessStartInfo("netsh", $"advfirewall firewall show rule name=\"{RuleName}\"")
+            var info = new ProcessStartInfo("netsh", $"advfirewall firewall show rule name=\"{name}\"")
             {
                 UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
             };
@@ -54,6 +58,8 @@ static class Firewall
             commands.Add($"netsh advfirewall firewall delete rule name=all dir=in program=\"{exe}\"");
         commands.Add($"netsh advfirewall firewall delete rule name=\"{RuleName}\"");
         commands.Add($"netsh advfirewall firewall add rule name=\"{RuleName}\" dir=in action=allow protocol=TCP localport={port - 1}-{port} remoteip=localsubnet profile=any");
+        commands.Add($"netsh advfirewall firewall delete rule name=\"{MdnsRule}\"");
+        commands.Add($"netsh advfirewall firewall add rule name=\"{MdnsRule}\" dir=in action=allow protocol=UDP localport=5353 remoteip=localsubnet profile=any");
         var info = new ProcessStartInfo("cmd.exe", "/c " + string.Join(" & ", commands))
         {
             UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden,

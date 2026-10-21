@@ -13,7 +13,8 @@ using System.Text.Json;
 
 // Vaults == null: acesso a todos (aparelhos conectados antes dos vaults existirem).
 // ReadOnly: agente de IA (só lê pelo /mcp, nunca administra nem escreve, sempre com lista de vaults).
-record Device(string Id, string Name, string Hash, DateTime Created, bool Admin = false, List<string>? Vaults = null, bool ReadOnly = false)
+// MoreHashes: tokens extras do mesmo aparelho (ex.: depois de passar a usar o endereço pelo nome do computador).
+record Device(string Id, string Name, string Hash, DateTime Created, bool Admin = false, List<string>? Vaults = null, bool ReadOnly = false, List<string>? MoreHashes = null)
 {
     public bool CanAccess(string vaultId) => ReadOnly ? Vaults?.Contains(vaultId) == true : Admin || Vaults is null || Vaults.Contains(vaultId);
 }
@@ -41,7 +42,11 @@ sealed class DeviceStore
         {
             Device? found = null;
             foreach (var d in list)
+            {
                 if (CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(d.Hash), hash)) found = d;
+                foreach (var extra in d.MoreHashes ?? [])
+                    if (CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(extra), hash)) found = d;
+            }
             if (found is not null) seen[found.Id] = DateTime.UtcNow;
             return found;
         }
@@ -64,6 +69,22 @@ sealed class DeviceStore
             Save();
         }
         return (token, device);
+    }
+
+    // Novo token para um aparelho que já existe (o mesmo aparelho abrindo o Cube4Notes por outro endereço).
+    public string? AddToken(string id)
+    {
+        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        lock (sync)
+        {
+            var i = list.FindIndex(x => x.Id == id);
+            if (i < 0) return null;
+            var more = (list[i].MoreHashes ?? []).TakeLast(4).Append(Hash(token)).ToList();
+            list[i] = list[i] with { MoreHashes = more };
+            seen[id] = DateTime.UtcNow;
+            Save();
+        }
+        return token;
     }
 
     public Device? Update(string id, bool? admin, List<string>? vaults)
@@ -118,7 +139,8 @@ sealed class DeviceStore
 
 // Convites de uso único, válidos por 5 minutos. Cada um tem um código longo (vai no QR), um código curto de
 // 6 caracteres (para digitar) e o que o aparelho poderá acessar.
-sealed record Invite(string Long, string Short, DateTime Expires, bool Admin, List<string> Vaults);
+// DeviceId: convite de transferência (o próprio aparelho passando para outro endereço do servidor).
+sealed record Invite(string Long, string Short, DateTime Expires, bool Admin, List<string> Vaults, string? DeviceId = null);
 
 sealed class InviteStore
 {
@@ -127,11 +149,11 @@ sealed class InviteStore
     private const string Alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem 0/O e 1/I
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(5);
 
-    public Invite Create(bool admin, List<string> vaults)
+    public Invite Create(bool admin, List<string> vaults, string? deviceId = null)
     {
         var code = Convert.ToBase64String(RandomNumberGenerator.GetBytes(18)).Replace('+', '-').Replace('/', '_');
         var shortCode = new string(Enumerable.Range(0, 6).Select(_ => Alphabet[RandomNumberGenerator.GetInt32(Alphabet.Length)]).ToArray());
-        var invite = new Invite(code, shortCode, DateTime.UtcNow + Lifetime, admin, vaults);
+        var invite = new Invite(code, shortCode, DateTime.UtcNow + Lifetime, admin, vaults, deviceId);
         lock (sync)
         {
             Purge();

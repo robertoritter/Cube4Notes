@@ -50,9 +50,9 @@ Requisito: [.NET 10 SDK](https://dotnet.microsoft.com/download), ou o `Cube4Note
    - onde você vai usar: *Só este computador* ou *Rede de casa*;
    - a pasta do primeiro vault (qualquer pasta; se não existir, é criada, e arquivos `.md` que já estiverem nela aparecem como notas);
    - o nome deste aparelho.
-3. Na primeira execução o Windows pede uma vez para confiar no certificado do Cube4Notes: aceite (ele só vale para endereços locais). No modo *Rede de casa* o Cube4Notes pede ao Windows, uma vez (confirmação de administrador), para abrir as duas portas dele só para a rede local. Se um dia o celular parar de conectar, clique com o botão direito no ícone perto do relógio e escolha *Liberar no firewall*.
+3. Na primeira execução o Windows pede uma vez para confiar no certificado do Cube4Notes: aceite (ele só vale para endereços locais). No modo *Rede de casa* o Cube4Notes pede ao Windows, uma vez (confirmação de administrador), para abrir as duas portas dele, e as perguntas pelo nome, só para a rede local. Se um dia o celular parar de conectar, clique com o botão direito no ícone perto do relógio e escolha *Liberar no firewall*.
 
-Para conectar celular ou tablet: abra **Preferências > Conectar aparelho**, escolha os vaults que ele pode acessar e leia o QR code. Para o navegador parar de mostrar o aviso e o app abrir sem conexão, instale o certificado no aparelho uma vez (as instruções estão na mesma tela).
+Para conectar celular ou tablet: abra **Preferências > Conectar aparelho**, escolha os vaults que ele pode acessar e leia o QR code. Depois leia [Como os aparelhos acham o seu computador](#como-os-aparelhos-acham-o-seu-computador-leia-antes-de-conectar-o-celular), para o roteador trocar o IP do computador sem deixar o celular sem servidor. Para o navegador parar de mostrar o aviso e o app abrir sem conexão, instale o certificado no aparelho uma vez (as instruções estão na mesma tela).
 
 Tudo pode ser mudado depois em **Preferências > Vaults e servidor**: adicionar, renomear ou tirar vaults da lista, e trocar entre *Só este computador* e *Rede de casa* quando quiser.
 
@@ -73,6 +73,38 @@ Configurar uma máquina sem tela: inicie o Cube4Notes nela, abra `https://<ip-de
 | `--sem-navegador` | No modo console, não abre o navegador ao iniciar |
 | `--sem-https` | HTTP simples na rede (só para testes) |
 | `--sem-instalar-certificado` | Não adiciona o certificado à confiança do Windows |
+
+## Como os aparelhos acham o seu computador (leia antes de conectar o celular)
+
+O Cube4Notes nunca passa pela internet. O celular ou tablet conversa direto com o computador que guarda as notas, pelo Wi-Fi de casa. Por isso o **endereço** do computador importa, e vale saber como funciona.
+
+**Dois tipos de endereço**
+
+- **Pelo IP**, por exemplo `https://192.168.0.10:43125`. Funciona sempre na rede de casa, em qualquer aparelho. O problema: a maioria dos roteadores distribui os IPs sozinha e pode dar outro ao computador depois (`192.168.0.11`). Um aparelho que ainda aponta para o IP antigo deixa de achar o servidor, e o app fica em "Sem servidor".
+- **Pelo nome**, por exemplo `https://meu-pc.local:43125` (o nome do computador seguido de `.local`). O aparelho pergunta à rede local "quem é meu-pc.local?" e o computador responde com o IP atual. É o mesmo mecanismo (mDNS, também chamado Bonjour) que o celular usa para achar impressoras e caixas de som AirPlay. Quando o IP muda, o nome continua funcionando.
+
+**O que o Cube4Notes faz**
+
+1. O QR code usa o IP, porque funciona em qualquer aparelho.
+2. Logo depois de conectar, o app testa se este aparelho também acha o computador pelo nome. Se achar, oferece passar a usar o nome. A troca mantém o mesmo acesso do aparelho (sem QR novo), envia antes as alterações pendentes e baixa as notas de novo no endereço novo, então nada se perde. Também dá para fazer depois em **Preferências > Usar o nome do computador como endereço**.
+3. No iPhone e no iPad, um site adicionado à Tela de Início pertence a um endereço. Depois da troca, adicione o Cube4Notes de novo à Tela de Início e apague o ícone antigo.
+
+**O `meu-pc.local` é sempre o meu computador, em qualquer rede?** Não, e tudo bem. Quem responde pelo nome é quem estiver na rede em que você está naquele momento:
+
+- em casa, o seu computador responde;
+- em outra rede (rua, escritório, dados móveis) ninguém responde, e o app simplesmente funciona offline, como sempre funciona longe de casa;
+- se outra rede tiver um computador com o mesmo nome, o app mesmo assim se recusa a conectar: a conexão usa HTTPS com um certificado criado pelo seu próprio computador, que nenhuma outra máquina consegue apresentar. O token do aparelho também só vale no seu servidor.
+
+**Onde o nome pode não funcionar**
+
+- Wi-Fi de visitantes e redes que isolam os aparelhos bloqueiam essas perguntas pelo nome. Uma rede comum de casa permite.
+- O Android resolve nomes `.local` de forma irregular, conforme a versão e o navegador. iPhone, iPad, macOS, Windows e Linux resolvem bem.
+- No Windows, o Cube4Notes cria uma regra de firewall para as perguntas pelo nome (UDP 5353, só rede local) junto com a regra das portas dele. No Linux, instale o `avahi-daemon` (já vem na maioria das distribuições com interface gráfica).
+- Dois computadores com o mesmo nome na mesma rede confundem a resposta. Dê nomes diferentes a eles.
+
+**A opção mais robusta: IP fixo.** Nas configurações do roteador, procure *reserva de DHCP* (também chamada *IP fixo* ou *concessão estática*) e reserve o IP atual para o computador que roda o Cube4Notes. Assim o IP e o nome funcionam para sempre, em qualquer aparelho, inclusive Android.
+
+**Se um aparelho perdeu o servidor depois que o IP mudou:** reserve o IP antigo no roteador (o app volta com tudo, inclusive alterações feitas no aparelho que ainda não tinham subido), ou leia o QR code de novo (o aparelho baixa as notas de novo; alterações feitas nele que não subiram ficam no app antigo até o IP antigo voltar).
 
 ## Plataformas
 

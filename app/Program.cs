@@ -255,6 +255,8 @@ async Task<int> RunAsync(AppConfig? config)
             }
         }
         else headers.CacheControl = path.StartsWithSegments("/assets") ? "public, max-age=31536000, immutable" : "no-cache";
+        // O ícone pode ser carregado de outro endereço do mesmo servidor: é como o aparelho testa se acha o computador pelo nome.
+        if (path.Equals("/brand/favicon.png", StringComparison.OrdinalIgnoreCase)) headers["Cross-Origin-Resource-Policy"] = "cross-origin";
         await next();
     });
 
@@ -299,6 +301,8 @@ async Task<int> RunAsync(AppConfig? config)
             loopback,
             admin = device is not null && !device.ReadOnly && (device.Admin || loopback),
             ui = UiVersion(),
+            // endereço pelo nome do computador (não muda quando o IP muda); os aparelhos testam se conseguem usá-lo
+            hostUrl = useHttps && Tls.Machine.Length > 0 ? $"https://{Tls.Machine}.local:{port}/" : null,
         });
     });
 
@@ -309,6 +313,22 @@ async Task<int> RunAsync(AppConfig? config)
         var loopback = IsLoopback(ctx);
         var admin = loopback;
         var vaults = registry.All().Select(v => v.Id).ToList();
+        // Convite de transferência: o mesmo aparelho, agora por outro endereço (ganha um token a mais, nada é duplicado)
+        if (!string.IsNullOrEmpty(body.Transfer))
+        {
+            if (throttle.Blocked(ip)) return Results.Json(new { error = "wait" }, statusCode: StatusCodes.Status429TooManyRequests);
+            var transfer = invites.Consume(body.Transfer);
+            var target = transfer?.DeviceId is { } did ? devices.All().FirstOrDefault(d => d.Id == did) : null;
+            if (transfer?.DeviceId is null || target is null)
+            {
+                throttle.Fail(ip);
+                Security.Log($"Transferência inválida de {ip}");
+                return Results.Json(new { error = "invite" }, statusCode: StatusCodes.Status403Forbidden);
+            }
+            var extra = devices.AddToken(target.Id)!;
+            Console.WriteLine($"  Aparelho passou a usar o endereço {ctx.Request.Host.Host}: {target.Name} ({ip})");
+            return Results.Ok(new { token = extra, deviceId = target.Id, deviceName = target.Name, transferred = true });
+        }
         if (!loopback)
         {
             if (throttle.Blocked(ip)) return Results.Json(new { error = "wait" }, statusCode: StatusCodes.Status429TooManyRequests);
@@ -317,6 +337,11 @@ async Task<int> RunAsync(AppConfig? config)
             {
                 throttle.Fail(ip);
                 Security.Log($"Convite inválido de {ip}");
+                return Results.Json(new { error = "invite" }, statusCode: StatusCodes.Status403Forbidden);
+            }
+            if (invite.DeviceId is not null)
+            {
+                throttle.Fail(ip);
                 return Results.Json(new { error = "invite" }, statusCode: StatusCodes.Status403Forbidden);
             }
             admin = invite.Admin;
@@ -335,6 +360,14 @@ async Task<int> RunAsync(AppConfig? config)
         var (token, device) = devices.Add(name, admin, vaults);
         Console.WriteLine($"  Aparelho conectado: {device.Name} ({ip})");
         return Results.Ok(new { token, deviceId = device.Id, deviceName = device.Name });
+    });
+
+    // Convite para o próprio aparelho abrir o Cube4Notes por outro endereço (o nome do computador), sem novo QR.
+    app.MapPost("/api/transfer", (HttpContext ctx) =>
+    {
+        var device = (Device)ctx.Items["device"]!;
+        var invite = invites.Create(device.Admin, device.Vaults ?? [], device.Id);
+        return Results.Ok(new { invite = invite.Long, expires = invite.Expires });
     });
 
     // ------------------------------------------------------------ assistente de primeira execução
@@ -814,7 +847,7 @@ static void OpenBrowser(string url)
 }
 
 // ================================================================ tipos da API
-record PairRequest(string? Invite, string? DeviceName);
+record PairRequest(string? Invite, string? DeviceName, string? Transfer = null);
 record SetupRequest(string? Code, string? Mode, string? ServerName, string? VaultName, string? VaultPath, string? DeviceName);
 record VaultRequest(string? Name, string? Path);
 record InviteRequest(bool? Admin, List<string>? Vaults);

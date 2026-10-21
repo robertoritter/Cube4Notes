@@ -318,6 +318,24 @@ def main() -> int:
     s, _, _ = lan.req("GET", V + "/history/version?path=x.md&id=" + urllib.parse.quote("../../config"), token=tok)
     check("versão do histórico com id inválido -> 404", s == 404, str(s))
 
+    print("\nA01 Troca para o endereço pelo nome (convite de transferência)")
+    s, tr = lan.json("POST", "/api/transfer", body={}, token=tok)
+    tcode = tr.get("invite", "") if s == 200 else ""
+    check("aparelho cria convite de transferência para si mesmo", bool(tcode), str(s))
+    s, _, _ = lan.req("POST", "/api/transfer", body={})
+    check("transferência sem token -> 401", s == 401, str(s))
+    if tcode:
+        s, _, _ = lan.req("POST", "/api/pair", body={"invite": tcode, "deviceName": "x"})
+        check("convite de transferência não serve como convite comum", s == 403, str(s))
+        s, j5 = lan.json("POST", "/api/pair", body={"transfer": tcode, "deviceName": "x"})
+        check("transferência dá token ao mesmo aparelho", s == 200 and j5.get("deviceId") == dev_a and j5.get("token"), str(s))
+        s, _, _ = lan.req("POST", "/api/pair", body={"transfer": tcode, "deviceName": "x"})
+        check("convite de transferência não funciona duas vezes", s == 403, str(s))
+    s, jinv = loc.json("POST", "/api/admin/invite", body={}, token=tok)
+    if s == 200:
+        s, _, _ = lan.req("POST", "/api/pair", body={"transfer": jinv.get("shortCode", ""), "deviceName": "x"})
+        check("convite comum não serve como transferência", s == 403, str(s))
+
     print("\nLimpeza")
     loc.json("POST", V + "/sync", body={"ops": [{"id": 1, "type": "rmdir", "path": base}]}, token=tok)
     s, _, _ = loc.req("DELETE", "/api/admin/devices/" + dev_a, token=tok)

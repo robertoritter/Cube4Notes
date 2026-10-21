@@ -90,6 +90,7 @@ web/                       código-fonte da interface (TypeScript + Vite + Milkd
 dev/mock-server.mjs        servidor de teste em Node com a mesma API, só para desenvolvimento
 dev/teste_sync.py          testes maldosos de sincronização (Playwright)
 dev/teste_recursos.py      links, anexos offline, histórico, tags e agentes (Playwright)
+dev/teste_endereco.py      troca para o endereço pelo nome do computador (Playwright, openssl)
 seguranca/                 bateria de testes de segurança (Python, sem dependências)
 SEGURANCA.md               revisão OWASP e riscos conhecidos
 ```
@@ -101,6 +102,7 @@ Para alterar a interface: `cd web`, `npm install`, `npm run build` (recompila pa
 ```bash
 python dev/teste_sync.py                                          # 18 verificações de sincronização
 python dev/teste_recursos.py                                      # links, anexos, histórico, tags e agentes
+python dev/teste_endereco.py                                      # troca para o endereço pelo nome
 python seguranca/teste_seguranca.py --lan https://<ip>:43125      # 73 verificações de segurança
 ```
 

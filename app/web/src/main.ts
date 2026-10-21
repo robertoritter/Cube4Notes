@@ -1353,7 +1353,8 @@ function openSettings(anchor: HTMLElement) {
       h('button', { class: 'btn wide connect-btn', onclick: () => { close(); openDevices(); } }, ic('Smartphone', 15), t.connectDevice),
       h('button', { class: 'btn wide', onclick: () => { close(); openVaultsAdmin(); } }, ic('Library', 15), t.manageVaults)) : null,
     h('div', { class: 'set-foot' }, h('span', {}, t.device + ': ', h('b', {}, S.deviceName || '—')), h('button', { class: 'btn small', onclick: () => S.sync() }, ic('RefreshCw', 14), t.syncNow)),
-    S.syncState === 'offline' && S.token ? h('p', { class: 'set-note' }, t.offlineHelp) : null,
+    S.syncState === 'offline' && S.token ? h('p', { class: 'set-note' }, t.offlineHelp, usesIp() ? ' ' + t.offlineIpHelp(location.hostname) : '') : null,
+    usesIp() && S.token && S.syncState !== 'offline' ? h('button', { class: 'btn small ghost', onclick: () => { close(); offerNameAddress(true); } }, ic('Server', 14), t.nameAddressButton) : null,
     !isSecureContext ? h('p', { class: 'set-note' }, t.insecure) : null,
     swFailed ? h('div', { class: 'set-note' }, h('p', {}, t.certUntrusted)) : null,
     certHelp(),
@@ -1453,8 +1454,11 @@ function certHelp(): HTMLElement | null {
 // Pede ao navegador para não apagar as notas e o pareamento deste aparelho (o iOS limpa sites sem uso).
 function keepStorage() { try { navigator.storage?.persist?.(); } catch {} }
 let pendingInvite = '';
+let pendingTransfer = ''; // vindo de outro endereço do mesmo servidor (o aparelho já era conectado)
 // Convite vindo do QR code: guardado só em memória e removido da barra de endereço.
 function takeInvite(): boolean {
+  const tr = /[#&]transferir=([A-Za-z0-9_-]{10,64})/.exec(location.hash);
+  if (tr) { history.replaceState(null, '', location.pathname + location.search); if (!S.token) pendingTransfer = tr[1]; return false; }
   const m = /[#&]convite=([A-Za-z0-9_-]{10,64})/.exec(location.hash);
   if (!m) return false;
   history.replaceState(null, '', location.pathname + location.search);
@@ -1834,6 +1838,38 @@ async function start() {
   const want = ui.active && S.notes.has(ui.active) ? null : savedActive && S.notes.has(savedActive) ? savedActive : ui.tabs[0];
   if (want) await openNote(want);
   else { persistUi(); renderTabs(); renderSide(); }
+  setTimeout(() => offerNameAddress(false), 3000);
+}
+// ---------------------------------------------------------------- endereço pelo nome do computador
+// Aparelho que acha o servidor pelo IP (192.168.x.y) perde o servidor quando o roteador troca o IP.
+// Pelo nome (computador.local) ele continua achando. Testa se o nome funciona neste aparelho e oferece a troca.
+const usesIp = () => /^\d{1,3}(\.\d{1,3}){3}$|^\[/.test(location.hostname);
+let nameStatus: S.ServerStatus | null = null;
+function probe(url: string): Promise<boolean> {
+  return new Promise(ok => {
+    const img = new Image(); const tm = setTimeout(() => { img.src = ''; ok(false); }, 4000);
+    img.onload = () => { clearTimeout(tm); ok(true); };
+    img.onerror = () => { clearTimeout(tm); ok(false); };
+    img.src = url + 'brand/favicon.png?teste=' + Date.now();
+  });
+}
+async function offerNameAddress(manual: boolean) {
+  if (!usesIp() || !S.token) return;
+  nameStatus = await S.status();
+  const host = nameStatus?.hostUrl;
+  if (!host || new URL(host).host === location.host) return;
+  if (!manual) { const last = Number(pref('nameoffer', '0')); if (Date.now() - last < 7 * 86400000) return; }
+  if (!(await probe(host))) { if (manual) toast(t.nameAddressFails, 'warn'); return; }
+  setPref('nameoffer', String(Date.now()));
+  const ios = /iPhone|iPad/.test(navigator.userAgent) || ((navigator as any).standalone === true);
+  dialog(t.nameAddressQ(new URL(host).hostname), t.nameAddressBody(location.hostname, new URL(host).hostname) + (ios ? ' ' + t.nameAddressIos : ''), t.nameAddressGo, () => moveToName(host));
+}
+async function moveToName(host: string) {
+  flushWrite();
+  await S.sync();
+  if (S.pendingCount()) return toast(t.nameAddressPending, 'warn');
+  try { const r = await S.transferInvite(); location.href = host + '#transferir=' + r.invite; }
+  catch { toast(t.pairUnreachable, 'warn'); }
 }
 (async function boot() {
   setLang(lang); applyTheme();
@@ -1841,6 +1877,12 @@ async function start() {
   takeInvite();
   addEventListener('hashchange', async () => { await checkUiVersion(); if (takeInvite() && !S.token) pairScreen(); });
   await S.init();
+  // Mesmo aparelho chegando pelo endereço com o nome do computador: conecta sem pedir QR
+  if (pendingTransfer && !S.token) {
+    const r = await S.pair('', guessDevice(), pendingTransfer);
+    pendingTransfer = '';
+    if (r === 'ok') { keepStorage(); await start(); toast(t.nameAddressDone(location.host)); return; }
+  }
   // Aparelho já conectado abre na hora, com ou sem servidor (na rua o servidor não responde).
   if (S.token) {
     keepStorage();

@@ -282,7 +282,7 @@ async function json<T = any>(url: string, init: RequestInit = {}): Promise<T> {
   if (!r.ok) throw Object.assign(new Error(body?.error || String(r.status)), { status: r.status });
   return body as T;
 }
-export interface ServerStatus { name: string; setup: boolean; mode: 'pessoal' | 'rede'; paired: boolean; loopback: boolean; admin: boolean; ui?: string; }
+export interface ServerStatus { name: string; setup: boolean; mode: 'pessoal' | 'rede'; paired: boolean; loopback: boolean; admin: boolean; ui?: string; hostUrl?: string | null; }
 export async function status(): Promise<ServerStatus | null> {
   try { const r = await api('/api/status', {}, 4000); return r.ok ? r.json() : null; } catch { return null; }
 }
@@ -290,9 +290,9 @@ async function saveToken(t: string, name: string) {
   token = t; deviceName = name;
   await meta.put('meta', token, 'token'); await meta.put('meta', deviceName, 'deviceName');
 }
-export async function pair(invite: string, name: string): Promise<'ok' | 'wrong' | 'wait' | 'unreachable'> {
+export async function pair(invite: string, name: string, transfer = ''): Promise<'ok' | 'wrong' | 'wait' | 'unreachable'> {
   try {
-    const r = await api('/api/pair', { method: 'POST', body: JSON.stringify({ invite, deviceName: name }) });
+    const r = await api('/api/pair', { method: 'POST', body: JSON.stringify(transfer ? { transfer, deviceName: name } : { invite, deviceName: name }) });
     if (r.status === 403) return 'wrong';
     if (r.status === 429) return 'wait';
     if (!r.ok) return 'unreachable';
@@ -302,6 +302,8 @@ export async function pair(invite: string, name: string): Promise<'ok' | 'wrong'
     return 'ok';
   } catch { return 'unreachable'; }
 }
+// Convite para este mesmo aparelho abrir o servidor por outro endereço (o nome do computador).
+export const transferInvite = () => json<{ invite: string }>('/api/transfer', { method: 'POST' });
 export async function forgetToken() { token = ''; await meta.delete('meta', 'token'); }
 
 // Anexos: primeiro a cópia deste aparelho; senão busca no servidor (token no cabeçalho, nunca na URL),
