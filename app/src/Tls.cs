@@ -19,6 +19,8 @@ using System.Text;
 static class Tls
 {
     public const string CertPath = "/cube4notes-ca.cer";
+    // a mesma autoridade em PEM (texto), o formato que Node.js, Python e curl esperam (agentes de IA em outra máquina)
+    public const string PemPath = "/cube4notes-ca.pem";
     private static readonly object Sync = new();
     private static X509Certificate2? ca;
     private static X509Certificate2? leaf;
@@ -27,6 +29,7 @@ static class Tls
     private static DateTime checkedAt = DateTime.MinValue;
 
     public static byte[] CaDer => ca!.Export(X509ContentType.Cert);
+    public static string CaPem => new string(PemEncoding.Write("CERTIFICATE", CaDer)) + "\n";
 
     // Nome do computador em forma DNS (só ASCII). Com acento, usa a forma IDN que a rede usa de fato (xn--...);
     // se isso falhar, tira os acentos (João-PC -> joao-pc). Nome inválido mesmo assim fica de fora (IPs continuam valendo).

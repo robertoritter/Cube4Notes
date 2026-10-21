@@ -195,6 +195,13 @@ async Task<int> RunAsync(AppConfig? config)
         var localMcp = path.Equals("/mcp", StringComparison.OrdinalIgnoreCase) && IsLoopback(context);
         if (useHttps && !context.Request.IsHttps && !localMcp)
         {
+            if (path.Equals(Tls.PemPath, StringComparison.OrdinalIgnoreCase))
+            {
+                context.Response.ContentType = "application/x-pem-file";
+                context.Response.Headers.ContentDisposition = "attachment; filename=cube4notes-ca.pem";
+                await context.Response.WriteAsync(Tls.CaPem);
+                return;
+            }
             if (path.Equals(Tls.CertPath, StringComparison.OrdinalIgnoreCase))
             {
                 context.Response.ContentType = "application/x-x509-ca-cert";
@@ -263,6 +270,7 @@ async Task<int> RunAsync(AppConfig? config)
     });
 
     app.MapGet(Tls.CertPath, () => useHttps ? Results.File(Tls.CaDer, "application/x-x509-ca-cert", "Cube4Notes-CA.cer") : Results.NotFound());
+    app.MapGet(Tls.PemPath, () => useHttps ? Results.Text(Tls.CaPem, "application/x-pem-file") : Results.NotFound());
     // Interface embutida no executável; a pasta wwwroot no disco só é usada se o executável não tiver a interface.
     app.Use(async (ctx, next) =>
     {

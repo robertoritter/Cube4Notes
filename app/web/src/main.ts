@@ -1628,7 +1628,7 @@ async function openDevices() {
       h('span', { class: 'label' }, t.token), h('div', { class: 'inline' }, h('code', { class: 'qr-link' }, r.token), copy(r.token)),
       h('span', { class: 'label' }, t.mcpAddress), h('p', { class: 'small-note' }, t.mcpLocal, ' ', h('code', {}, r.local)),
       ...r.network.map(u => h('p', { class: 'small-note' }, t.mcpNetwork, ' ', h('code', {}, u))),
-      r.https && r.network.length ? h('p', { class: 'muted small-note' }, t.mcpCert) : '',
+      r.https && r.network.length ? h('p', { class: 'muted small-note' }, t.mcpCert((() => { const u = new URL(r.network[0]); return `http://${u.hostname}:${Number(u.port || 443) - 1}/cube4notes-ca.pem`; })())) : '',
       h('span', { class: 'label' }, 'Claude Code'), h('div', { class: 'inline' }, h('code', { class: 'qr-link' }, cmd), copy(cmd)),
       h('span', { class: 'label' }, t.mcpOther), h('div', { class: 'inline' }, h('pre', { class: 'agent-json' }, json), copy(json)),
       h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: () => loadDevices() }, t.done))));

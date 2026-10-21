@@ -114,6 +114,16 @@ def main():
         check("entrega a interface embutida", code == 200 and b"<html" in data.lower() and "text/html" in headers.get("Content-Type", ""), f"{code} {data[:120]!r}")
         code, data, _ = call(http + "/cube4notes-ca.cer")
         check("certificado para os aparelhos em HTTP", code == 200 and data[:1] == b"\x30", f"{code} {data[:20]!r}")
+        code, pem, _ = call(http + "/cube4notes-ca.pem")
+        ok = check("certificado em PEM para agentes (Node, Python, curl)", code == 200 and pem.startswith(b"-----BEGIN CERTIFICATE-----"), f"{code} {pem[:40]!r}")
+        if ok:
+            # como um agente de IA faria: verificação completa do certificado, confiando só na autoridade do Cube4Notes
+            strict = ssl.create_default_context(cadata=pem.decode())
+            try:
+                with urllib.request.build_opener(urllib.request.HTTPSHandler(context=strict)).open(base + "/api/status", timeout=10) as r:
+                    check("conexão HTTPS verificada com a autoridade do Cube4Notes", r.status == 200)
+            except Exception as e:
+                check("conexão HTTPS verificada com a autoridade do Cube4Notes", False, repr(e))
         code, _, headers = call(http + "/", follow=False)
         check("HTTP redireciona para HTTPS", code in (301, 302, 307, 308) and headers.get("Location", "").startswith("https://"), f"{code} {headers.get('Location')}")
         code, data, _ = call(base + "/api/vaults", token=token)
