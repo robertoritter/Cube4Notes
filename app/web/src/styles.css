@@ -551,3 +551,23 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
   .hist-list { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
   .hist-item { flex: 0 0 auto; }
 }
+
+/* propriedades em campos */
+.props-body { border-top: 1px solid var(--line); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.props-body .props-raw { border-top: 0; padding: 4px 2px; }
+.prop-row { display: grid; grid-template-columns: minmax(90px, 160px) 1fr auto; gap: 6px; align-items: center; }
+.prop-row input { width: 100%; min-width: 0; border: 1px solid transparent; border-radius: 7px; background: transparent; padding: 5px 8px; font: 13px/1.4 var(--sans, inherit); color: var(--ink); outline: 0; }
+.prop-row input:hover { border-color: var(--line); }
+.prop-row input:focus { border-color: var(--accent); background: var(--bg); }
+.prop-row .prop-key { color: var(--muted); font-weight: 600; }
+.prop-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+/* tags */
+.search-help { margin: 6px 2px 0; font-size: 11.5px; color: var(--muted); }
+.tag-list { display: flex; flex-direction: column; gap: 1px; padding: 6px 4px; }
+.tag-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; text-align: left; color: var(--ink-2); }
+.tag-row:hover { background: var(--hover); }
+.tag-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-row small { color: var(--muted); font-size: 11.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-chip { padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-2); font-size: 12.5px; font-weight: 600; }
+.tag-chip:hover { background: var(--sel); }

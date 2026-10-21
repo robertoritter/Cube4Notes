@@ -18,6 +18,7 @@ import qrcode from 'qrcode-generator';
 import { termThemes, findTheme, applyTermTheme, swatches } from './termtheme';
 import { resolveRef, noteLink, rewriteLinks, mover, isExternal } from './links';
 import { TextSelection } from '@milkdown/kit/prose/state';
+import { parseProps, serializeProps, noteTags, parseQuery, matches, noteProps, type Prop } from './props';
 
 // ---------------------------------------------------------------- helpers
 type Attrs = Record<string, any>;
@@ -45,13 +46,14 @@ const setPref = (k: string, v: string) => { try { localStorage.setItem('c4n-' + 
 const badName = (n: string) => !n.trim() || /[\\/:*?"<>|]/.test(n) || n.trim().startsWith('.');
 
 // ---------------------------------------------------------------- state
+type SideView = 'files' | 'search' | 'tags';
 const ui = {
   tabs: [] as string[],
   active: null as string | null,
   expanded: new Set<string>(),
   sidebar: pref('sidebar', innerWidth > 820 ? '1' : '0') === '1',
   panel: pref('panel', innerWidth > 1180 ? '1' : '0') === '1',
-  view: 'files' as 'files' | 'search',
+  view: 'files' as SideView,
   source: false,
   theme: pref('theme', 'system'),
   font: pref('font', 'serif'),
@@ -112,7 +114,7 @@ function shell() {
       h('div', { id: 'vault-switch' }),
       h('button', { class: 'quick', onclick: () => openPalette() }, ic('Search', 15), h('span', {}, t.paletteHint.split(',')[0]), h('kbd', {}, mod + ' K')),
       h('div', { class: 'side-tabs', role: 'tablist' },
-        sideTab('files', 'Folder', t.files), sideTab('search', 'Search', t.search),
+        sideTab('files', 'Folder', t.files), sideTab('search', 'Search', t.search), sideTab('tags', 'Tag', t.tags),
         h('span', { class: 'grow' }),
         iconBtn('FilePlus', t.newNote + '  (Alt+N)', () => newNote(ui.selectedFolder)),
         iconBtn('FolderPlus', t.newFolder, () => newFolder(ui.selectedFolder)),
@@ -151,10 +153,10 @@ function shell() {
 function iconBtn(name: IconName, label: string, onclick: (e: any) => void, cls = '') {
   return h('button', { class: 'icon-btn ' + cls, title: label, 'aria-label': label, onclick }, ic(name, 17));
 }
-function sideTab(v: 'files' | 'search', icon: IconName, label: string) {
+function sideTab(v: SideView, icon: IconName, label: string) {
   return h('button', { class: 'side-tab', role: 'tab', dataset: { view: v }, title: label, 'aria-label': label, onclick: () => setView(v) }, ic(icon, 16));
 }
-function setView(v: 'files' | 'search') { ui.view = v; renderSide(); if (v === 'search') setTimeout(() => $<HTMLInputElement>('#search-input')?.focus()); }
+function setView(v: SideView) { ui.view = v; renderSide(); if (v === 'search') setTimeout(() => $<HTMLInputElement>('#search-input')?.focus()); }
 function toggleSidebar(force?: boolean) { ui.sidebar = force ?? !ui.sidebar; app.classList.toggle('no-sidebar', !ui.sidebar); persistUi(); }
 function togglePanel(force?: boolean) { ui.panel = force ?? !ui.panel; app.classList.toggle('no-panel', !ui.panel); persistUi(); renderPanel(); }
 const mobile = () => innerWidth <= 820;
@@ -183,6 +185,7 @@ function renderSide() {
   document.querySelectorAll<HTMLElement>('.side-tab').forEach(b => b.classList.toggle('on', b.dataset.view === ui.view));
   const body = $('#side-body'); if (!body) return;
   if (ui.view === 'search') return renderSearch(body);
+  if (ui.view === 'tags') return renderTags(body);
   const tree = buildTree();
   const list = h('div', { class: 'tree', role: 'tree' });
   if (!S.activeVault) {
@@ -298,9 +301,18 @@ function renderSearch(body: HTMLElement) {
   const run = () => {
     searchQuery = input.value;
     results.replaceChildren();
-    const q = fold(searchQuery.trim()); if (q.length < 2) return;
+    // #tag, tag:x e chave:valor filtram; o resto busca no texto
+    const parsed = parseQuery(searchQuery, propKeys());
+    const filters = parsed.tags.length + parsed.props.length > 0;
+    const q = fold(parsed.text.trim()); if (q.length < 2 && !filters) return;
     let count = 0;
     for (const n of [...S.notes.values()].sort((a, b) => b.modified - a.modified)) {
+      if (filters && !matches(n.content, parsed)) continue;
+      if (q.length < 2) {
+        results.append(h('div', { class: 'hit' }, h('button', { class: 'hit-title', onclick: () => openNote(n.path) }, ic('FileText', 14), h('span', {}, baseName(n.path)), h('small', {}, dirOf(n.path)))));
+        if (++count >= 200) break;
+        continue;
+      }
       const titleHit = fold(baseName(n.path)).includes(q);
       const text = n.content; const ft = fold(text);
       const hits: number[] = []; let i = ft.indexOf(q);
@@ -309,7 +321,7 @@ function renderSearch(body: HTMLElement) {
       const group = h('div', { class: 'hit' }, h('button', { class: 'hit-title', onclick: () => openNote(n.path) }, ic('FileText', 14), h('span', {}, baseName(n.path)), h('small', {}, dirOf(n.path))));
       for (const at of hits) {
         const s = Math.max(0, at - 40), e = Math.min(text.length, at + q.length + 60);
-        group.append(h('button', { class: 'snippet', onclick: () => openNote(n.path, searchQuery.trim()) },
+        group.append(h('button', { class: 'snippet', onclick: () => openNote(n.path, parsed.text.trim()) },
           (s > 0 ? '…' : '') + plain(text.slice(s, at)), h('mark', {}, text.slice(at, at + q.length)), plain(text.slice(at + q.length, e)) + (e < text.length ? '…' : '')));
       }
       results.append(group);
@@ -318,8 +330,27 @@ function renderSearch(body: HTMLElement) {
     if (!count) results.append(h('p', { class: 'muted pad' }, t.noResults));
   };
   input.addEventListener('input', run);
-  body.replaceChildren(h('div', { class: 'search' }, input, results));
+  body.replaceChildren(h('div', { class: 'search' }, input, h('p', { class: 'search-help' }, t.searchHelp), results));
   run();
+}
+// Chaves de propriedade usadas no vault (para reconhecer chave:valor na busca).
+function propKeys() {
+  const keys = new Set<string>();
+  for (const n of S.notes.values()) if (n.content.startsWith('---')) for (const p of noteProps(n.content)) keys.add(fold(p.key));
+  return keys;
+}
+function tagCounts() {
+  const counts = new Map<string, number>();
+  for (const n of S.notes.values()) for (const tg of noteTags(n.content)) counts.set(tg, (counts.get(tg) || 0) + 1);
+  return counts;
+}
+function searchTag(tag: string) { searchQuery = '#' + tag; toggleSidebar(true); setView('search'); }
+function renderTags(body: HTMLElement) {
+  const counts = [...tagCounts()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], lang, { sensitivity: 'base' }));
+  body.replaceChildren(h('div', { class: 'tags-view' },
+    counts.length
+      ? h('div', { class: 'tag-list' }, ...counts.map(([tg, n]) => h('button', { class: 'tag-row', onclick: () => searchTag(tg) }, ic('Hash', 14), h('span', { class: 'name' }, tg), h('small', {}, String(n)))))
+      : h('p', { class: 'muted pad' }, t.noTags)));
 }
 
 // ---------------------------------------------------------------- tabs
@@ -388,12 +419,7 @@ async function renderDoc(keepScroll = false) {
   ]));
   const host = h('div', { class: 'editor-host', id: 'editor-host' });
   const parts: (Node | null)[] = [conflictBanner(path), crumbs, title];
-  if (fm && !ui.source) {
-    const ta = h('textarea', { class: 'props-raw', spellcheck: 'false', rows: String(fm.split('\n').length) }, fm.replace(/^---\r?\n|\r?\n---\r?\n?$/g, ''));
-    ta.addEventListener('input', () => { frontmatter = '---\n' + ta.value.replace(/\n+$/, '') + '\n---\n'; baseline = '\u0000'; scheduleWrite(); });
-    const keys = fm.split('\n').map(l => /^([\w-]+):/.exec(l)?.[1]).filter(Boolean) as string[];
-    parts.push(h('details', { class: 'props' }, h('summary', {}, ic('Hash', 14), h('span', {}, t.properties), h('span', { class: 'props-keys' }, keys.slice(0, 6).join(', '))), ta));
-  }
+  if ((fm || propsOpen === path) && !ui.source) parts.push(propsEditor(path, fm));
   parts.push(host);
   doc.replaceChildren(...parts.filter(Boolean) as Node[]);
   if (ui.source) {
@@ -411,6 +437,47 @@ async function renderDoc(keepScroll = false) {
   scroller.scrollTop = top;
   renderStatus(); renderPanel();
 }
+// ---------------------------------------------------------------- propriedades (frontmatter)
+let propsOpen = '';   // nota em que o usuário pediu para adicionar propriedades
+let propsRaw = false; // mostrar o YAML como texto
+function setFrontmatter(next: string) { frontmatter = next; baseline = '\u0000'; scheduleWrite(); }
+function propsEditor(path: string, fm: string): HTMLElement {
+  const parsed = parseProps(fm);
+  const box = h('details', { class: 'props', open: propsOpen === path || !fm ? true : null });
+  const keysOf = (ps: Prop[]) => ps.map(p => p.key).slice(0, 6).join(', ');
+  const summary = h('summary', {}, ic('Hash', 14), h('span', {}, t.properties), h('span', { class: 'props-keys' }, parsed ? keysOf(parsed) : ''));
+  const area = h('div', { class: 'props-body' });
+  box.append(summary, area);
+  const raw = () => {
+    const ta = h('textarea', { class: 'props-raw', spellcheck: 'false', rows: String(Math.max(2, frontmatter.split('\n').length - 1)) }, frontmatter.replace(/^---\r?\n|\r?\n---\r?\n?$/g, ''));
+    ta.addEventListener('input', () => setFrontmatter(ta.value.trim() ? '---\n' + ta.value.replace(/\n+$/, '') + '\n---\n' : ''));
+    area.replaceChildren(ta, parsed || !fm ? h('button', { class: 'btn small ghost', onclick: () => { propsRaw = false; renderDoc(true); } }, t.propsForm) : '');
+  };
+  if (!parsed || propsRaw) { raw(); return box; }
+  const props: Prop[] = parsed.map(p => ({ ...p }));
+  const save = () => { setFrontmatter(serializeProps(props)); summary.querySelector('.props-keys')!.textContent = keysOf(props); };
+  const draw = () => {
+    area.replaceChildren(
+      ...props.map((p, i) => {
+        const key = h('input', { class: 'prop-key', value: p.key, 'aria-label': t.propName, spellcheck: 'false' });
+        const val = h('input', { class: 'prop-val', value: Array.isArray(p.value) ? p.value.join(', ') : p.value, 'aria-label': t.propValue, placeholder: Array.isArray(p.value) ? t.propListHint : '' });
+        key.addEventListener('input', () => { p.key = key.value.replace(/[^\w -]/g, ''); save(); });
+        val.addEventListener('input', () => { p.value = Array.isArray(p.value) || /^tags?$|^aliases$/i.test(p.key) ? val.value.split(',').map(x => x.trim()).filter(Boolean) : val.value; save(); });
+        return h('div', { class: 'prop-row' }, key, val, h('button', { class: 'icon-btn', title: t.remove, 'aria-label': t.remove, onclick: () => { props.splice(i, 1); save(); draw(); } }, ic('X', 14)));
+      }),
+      h('div', { class: 'prop-actions' },
+        h('button', { class: 'btn small ghost', onclick: () => { props.push({ key: props.some(p => /^tags$/i.test(p.key)) ? '' : 'tags', value: props.some(p => /^tags$/i.test(p.key)) ? '' : [] }); draw(); const rows = area.querySelectorAll('.prop-row'); (rows[rows.length - 1]?.querySelectorAll<HTMLInputElement>('input')[props[props.length - 1].key ? 1 : 0])?.focus(); } }, ic('Plus', 14), t.addProp),
+        h('button', { class: 'btn small ghost', onclick: () => { propsRaw = true; renderDoc(true); } }, t.propsYaml)));
+  };
+  draw();
+  return box;
+}
+function addProperties() {
+  if (!ui.active) return;
+  propsOpen = ui.active; propsRaw = false;
+  if (ui.source) setSource(false); else renderDoc(true);
+}
+
 async function renameActive(v: string) {
   const path = ui.active; if (!path) return;
   v = v.trim();
@@ -793,7 +860,9 @@ function renderPanel() {
     }
     if (hit) links.push(h('button', { class: 'backlink', onclick: () => openNote(n.path) }, h('span', { class: 'bl-name' }, ic('FileText', 13), baseName(n.path)), h('span', { class: 'bl-line' }, plain(hit).replace(/\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, '$1').trim().slice(0, 120))));
   }
+  const myTags = noteTags(content);
   el.replaceChildren(
+    myTags.length ? h('section', {}, h('h3', {}, ic('Tag', 14), t.tags), h('div', { class: 'chips' }, ...myTags.map(tg => h('button', { class: 'tag-chip', onclick: () => searchTag(tg) }, '#' + tg)))) : '',
     h('section', {}, h('h3', {}, ic('ListTree', 14), t.outline), outline),
     h('section', {}, h('h3', {}, ic('Link', 14), t.backlinks), links.length ? h('div', { class: 'backlinks' }, ...links) : h('p', { class: 'muted' }, t.noBacklinks)),
   );
@@ -931,6 +1000,8 @@ function openPalette(initial = '') {
     { label: t.cmdTheme, icon: 'Settings' as IconName, run: () => { const order = ['light', 'dark', 'sepia', 'system']; ui.theme = order[(order.indexOf(ui.theme) + 1) % 4]; ui.term = ''; setPref('term', ''); setPref('theme', ui.theme); applyTheme(); toast(`${t.theme}: ${({ light: t.themeLight, dark: t.themeDark, sepia: t.themeSepia, system: t.themeSystem } as any)[ui.theme]}`); } },
     { label: t.cmdSync, icon: 'RefreshCw' as IconName, run: () => S.sync() },
     { label: t.history, icon: 'FileClock' as IconName, run: () => openHistory() },
+    { label: t.addProps, icon: 'Hash' as IconName, run: () => addProperties() },
+    { label: t.tags, icon: 'Tag' as IconName, run: () => { toggleSidebar(true); setView('tags'); } },
     ...termThemes.map(th => ({ label: `${t.termTheme.split(' (')[0]}: ${th.name} (${th.kind === 'dark' ? t.termDark : t.termLight})`, icon: 'Settings' as IconName, run: () => { ui.term = th.id; setPref('term', th.id); applyTheme(); } })),
   ];
   const update = () => {

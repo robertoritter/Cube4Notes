@@ -157,6 +157,46 @@ async def main():
             await A.page.keyboard.press("Escape"); await A.offline(False)
         await scenario(p, "3. Histórico de versões", {"Plano.md": "# Plano\n\ninicio\n"}, historico, extra=("--history-gap-ms", "0"))
 
+        # 4. Tags e propriedades
+        async def tags(A, B, v):
+            await A.page.click(".side-tab[data-view='tags']"); await A.page.wait_for_timeout(400)
+            rows = await A.page.locator(".tag-row .name").all_inner_texts()
+            check("painel de tags lista #tags do texto e da propriedade tags", set(["ideia", "trabalho", "projeto/cube4"]) <= set(rows) and "codigo" not in rows, str(rows))
+            await A.page.click(".tag-row:has-text('trabalho')"); await A.page.wait_for_timeout(400)
+            hits = await A.page.locator(".hit-title span").all_inner_texts()
+            check("clicar na tag filtra as notas", sorted(hits) == ["Ata", "Ideias"], str(hits))
+            await A.page.fill("#search-input", "status:aberto"); await A.page.wait_for_timeout(300)
+            hits = await A.page.locator(".hit-title span").all_inner_texts()
+            check("busca por propriedade:valor", hits == ["Ata"], str(hits))
+            await A.page.fill("#search-input", "#projeto pauta"); await A.page.wait_for_timeout(300)
+            hits = await A.page.locator(".hit-title span").all_inner_texts()
+            check("tag (com subtag) + texto", hits == ["Ata"], str(hits))
+            # editar propriedade em campos
+            await A.open("Ata")
+            await A.page.click(".props summary") if not await A.page.locator(".props[open]").count() else None
+            val = A.page.locator(".prop-row:has(.prop-key[value='status']) .prop-val")
+            await val.fill("fechado"); await A.page.wait_for_timeout(600); await A.sync()
+            d = read(v, "Ata.md")
+            check("editar propriedade grava YAML limpo e mantém o resto", d.startswith("---\ntags: [trabalho, projeto/cube4]\nstatus: fechado\n---\n") and "#ideia" not in d and "pauta" in d, d)
+            # adicionar propriedades numa nota sem
+            await A.open("Sem props")
+            await A.page.keyboard.press("Control+k"); await A.page.keyboard.type(">propriedades"); await A.page.keyboard.press("Enter")
+            await A.page.wait_for_timeout(500)
+            await A.page.click(".prop-actions .btn:has-text('Adicionar propriedade')"); await A.page.wait_for_timeout(300)
+            await A.page.keyboard.type("ideia, casa", delay=10); await A.page.wait_for_timeout(700); await A.sync()
+            d = read(v, "Sem props.md")
+            check("adicionar propriedades cria o frontmatter", d.startswith("---\ntags: [ideia, casa]\n---\n") and "texto simples" in d, d)
+            # YAML complexo não é reescrito
+            await A.open("Complexa")
+            n = await A.page.locator(".props textarea.props-raw").count()
+            check("YAML elaborado fica como texto (não é reescrito)", n == 1)
+        await scenario(p, "4. Tags e propriedades", {
+            "Ata.md": "---\ntags: [trabalho, projeto/cube4]\nstatus: aberto\n---\n# Ata\n\npauta da reunião\n",
+            "Ideias.md": "# Ideias\n\numa #ideia de #trabalho e `#codigo`\n",
+            "Sem props.md": "texto simples\n",
+            "Complexa.md": "---\nautor:\n  nome: X\n---\nok\n",
+        }, tags)
+
     fails = [r for r in RESULTS if not r[1]]
     print(f"\n{len(RESULTS) - len(fails)} de {len(RESULTS)} verificações passaram.")
     return 1 if fails else 0
