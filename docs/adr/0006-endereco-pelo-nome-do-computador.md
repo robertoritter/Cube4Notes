@@ -28,3 +28,4 @@ Os aparelhos guardam o app, as notas offline e o token por endereço (origem do 
 - No iPhone e no iPad, o atalho da Tela de Início precisa ser recriado depois da troca.
 - Android e redes que bloqueiam mDNS continuam pelo IP; para esses, a recomendação é reservar o IP no roteador.
 - Remover o aparelho invalida todos os tokens dele, de todos os endereços.
+- O nome só funciona se o aparelho confiar no certificado do Cube4Notes. Se a autoridade mudar (pasta `tls` apagada, outra configuração, outro computador), cada aparelho precisa remover o certificado antigo e instalar o novo; o README explica o passo a passo por sistema.

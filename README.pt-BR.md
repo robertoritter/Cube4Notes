@@ -52,7 +52,7 @@ Requisito: [.NET 10 SDK](https://dotnet.microsoft.com/download), ou o `Cube4Note
    - o nome deste aparelho.
 3. Na primeira execução o Windows pede uma vez para confiar no certificado do Cube4Notes: aceite (ele só vale para endereços locais). No modo *Rede de casa* o Cube4Notes pede ao Windows, uma vez (confirmação de administrador), para abrir as duas portas dele, e as perguntas pelo nome, só para a rede local. Se um dia o celular parar de conectar, clique com o botão direito no ícone perto do relógio e escolha *Liberar no firewall*.
 
-Para conectar celular ou tablet: abra **Preferências > Conectar aparelho**, escolha os vaults que ele pode acessar e leia o QR code. Depois leia [Como os aparelhos acham o seu computador](#como-os-aparelhos-acham-o-seu-computador-leia-antes-de-conectar-o-celular), para o roteador trocar o IP do computador sem deixar o celular sem servidor. Para o navegador parar de mostrar o aviso e o app abrir sem conexão, instale o certificado no aparelho uma vez (as instruções estão na mesma tela).
+Para conectar celular ou tablet: abra **Preferências > Conectar aparelho**, escolha os vaults que ele pode acessar e leia o QR code. Depois leia [Como os aparelhos acham o seu computador](#como-os-aparelhos-acham-o-seu-computador-leia-antes-de-conectar-o-celular), para o roteador trocar o IP do computador sem deixar o celular sem servidor. Para o navegador parar de mostrar o aviso e o app abrir sem conexão, instale o certificado no aparelho uma vez: veja [Instalar o certificado](#instalar-o-certificado-no-celular-no-tablet-e-em-outros-computadores).
 
 Tudo pode ser mudado depois em **Preferências > Vaults e servidor**: adicionar, renomear ou tirar vaults da lista, e trocar entre *Só este computador* e *Rede de casa* quando quiser.
 
@@ -108,6 +108,29 @@ O Cube4Notes nunca passa pela internet. O celular ou tablet conversa direto com 
 **A opção mais robusta: IP fixo.** Nas configurações do roteador, procure *reserva de DHCP* (também chamada *IP fixo* ou *concessão estática*) e reserve o IP atual para o computador que roda o Cube4Notes. Assim o IP e o nome funcionam para sempre, em qualquer aparelho, inclusive Android.
 
 **Se um aparelho perdeu o servidor depois que o IP mudou:** reserve o IP antigo no roteador (o app volta com tudo, inclusive alterações feitas no aparelho que ainda não tinham subido), ou leia o QR code de novo (o aparelho baixa as notas de novo; alterações feitas nele que não subiram ficam no app antigo até o IP antigo voltar).
+
+## Instalar o certificado no celular, no tablet e em outros computadores
+
+No modo *Rede de casa* o Cube4Notes usa HTTPS com uma **autoridade certificadora criada no seu próprio computador**, que só vale para nomes locais e IPs privados. O computador do servidor confia nela sozinho. Cada outro aparelho precisa instalá-la **uma vez**; sem isso o navegador mostra avisos, o app não fica guardado no aparelho para usar longe de casa e a troca para o endereço pelo nome (veja acima) falha sem avisar.
+
+O certificado fica sempre disponível, em HTTP comum para poder ser baixado antes de ser confiável, em `http://<ip-do-computador>:43124/cube4notes-ca.cer` (a porta é uma abaixo da do app). As mesmas instruções aparecem em **Preferências > Conectar aparelho**.
+
+- **iPhone / iPad** (use o Safari; outros navegadores do iOS não instalam certificados):
+  1. abra o endereço acima e permita o download;
+  2. **Ajustes > Geral > VPN e Gerenciamento de Dispositivo**: instale o perfil "Cube4Notes CA (<nome do computador>)";
+  3. **Ajustes > Geral > Sobre > Ajustes de Confiança de Certificados**: ligue a confiança total no "Cube4Notes CA". Esse último passo é fácil de esquecer e, sem ele, nada muda.
+- **Android**: baixe o arquivo e vá em **Configurações > Segurança > Criptografia e credenciais > Instalar um certificado > Certificado CA**, escolha o arquivo e reabra o navegador. Os nomes dos menus variam conforme o fabricante.
+- **Outro computador com Windows**: abra o arquivo e instale em *Autoridades de Certificação Raiz Confiáveis*. **macOS**: abra no Acesso às Chaves e marque *Sempre Confiar*. **Linux**: copie para o repositório do sistema (`/usr/local/share/ca-certificates/` e `update-ca-certificates` no Debian/Ubuntu); o Firefox pode precisar importar nas configurações dele.
+
+**Sinais de que o aparelho não confia no certificado atual**
+
+- O Safari ou o Chrome mostra *Não seguro* (*Not Secure*) ou um aviso de certificado ao lado do endereço.
+- A barra de endereço pisca ou volta para a tela de busca depois de ler o QR code.
+- O app não abre longe de casa, ou o Cube4Notes nunca oferece o endereço pelo nome.
+
+**Quando a autoridade certificadora muda, todos os aparelhos precisam instalar de novo.** Ela é criada uma vez e fica na pasta de configuração (`%LOCALAPPDATA%\Cube4Notes\tls` no Windows). Ela é criada de novo se essa pasta for apagada, se o Cube4Notes rodar com outra pasta `--config`, ou em outro computador. Nesse caso, em cada aparelho, remova antes o perfil/certificado antigo e instale o novo. O nome do certificado mostra de qual computador ele é: "Cube4Notes CA (<nome do computador>)".
+
+Só a *autoridade* precisa ser instalada. O certificado do próprio servidor é renovado sozinho quando os endereços do computador mudam, e os aparelhos que confiam na autoridade o aceitam sem fazer nada.
 
 ## Plataformas
 

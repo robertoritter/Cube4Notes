@@ -52,7 +52,7 @@ Requirements: [.NET 10 SDK](https://dotnet.microsoft.com/download), or the stand
    - a name for this device.
 3. On the first run Windows asks once to trust the Cube4Notes certificate: accept it (it is only valid for local addresses). In *Home network* mode Cube4Notes then asks Windows once (administrator confirmation) to open its two ports, and name lookups, to the local network only. If a phone ever stops connecting, right-click the tray icon and choose *Liberar no firewall*.
 
-To connect a phone or tablet: open **Preferences > Connect device**, choose which vaults it may access, and scan the QR code. Then read [How devices find your computer](#how-devices-find-your-computer-read-this-before-connecting-a-phone), so a router changing the computer's IP does not leave the phone without the server. To stop the browser warning and let the app open with no connection, install the certificate on the device once (instructions are on the same screen).
+To connect a phone or tablet: open **Preferences > Connect device**, choose which vaults it may access, and scan the QR code. Then read [How devices find your computer](#how-devices-find-your-computer-read-this-before-connecting-a-phone), so a router changing the computer's IP does not leave the phone without the server. To stop the browser warning and let the app open with no connection, install the certificate on the device once: see [Installing the certificate](#installing-the-certificate-on-phones-tablets-and-other-computers).
 
 Everything can be changed later in **Preferences > Vaults and server**: add, rename or remove vaults, and switch between *This computer only* and *Home network* at any time.
 
@@ -108,6 +108,29 @@ Cube4Notes never goes through the internet. A phone or tablet talks directly to 
 **The most robust option: a fixed IP.** In your router settings, look for *DHCP reservation* (also called *static lease* or *fixed IP*) and reserve the current IP for the computer that runs Cube4Notes. Then both the IP and the name keep working forever, on every device, including Android.
 
 **If a device lost the server after the IP changed:** reserve the old IP in the router (the app comes back with everything, including changes made on the device that had not been sent yet), or scan the QR code again (the device downloads the notes again; changes made on it that were not sent stay in the old app until the old IP comes back).
+
+## Installing the certificate on phones, tablets and other computers
+
+In *Home network* mode Cube4Notes uses HTTPS with a **certificate authority created on your own computer**, valid only for local names and private IP ranges. The server computer trusts it automatically. Every other device must install it **once**; without it the browser shows warnings, the app cannot be kept on the device for use away from home, and the switch to the name address (see above) fails silently.
+
+The certificate is always available, over plain HTTP so it can be downloaded before it is trusted, at `http://<computer-ip>:43124/cube4notes-ca.cer` (the port is one below the app port). The same instructions are in **Preferences > Connect device**.
+
+- **iPhone / iPad** (use Safari; other iOS browsers cannot install certificates):
+  1. open the address above and allow the download;
+  2. **Settings > General > VPN & Device Management**: install the profile "Cube4Notes CA (<computer name>)";
+  3. **Settings > General > About > Certificate Trust Settings**: turn on full trust for "Cube4Notes CA". This last step is easy to miss and without it nothing changes.
+- **Android**: download the file, then **Settings > Security > Encryption & credentials > Install a certificate > CA certificate**, pick the file and reopen the browser. Menu names vary by manufacturer.
+- **Another Windows computer**: open the file and install it under *Trusted Root Certification Authorities*. **macOS**: open it in Keychain Access and set it to *Always Trust*. **Linux**: copy it to the system store (`/usr/local/share/ca-certificates/` and `update-ca-certificates` on Debian/Ubuntu); Firefox may need it imported in its own settings.
+
+**Signs the device does not trust the current certificate**
+
+- Safari or Chrome shows *Not Secure* (or a certificate warning) next to the address.
+- The address bar flickers or keeps going back to the search page after scanning the QR code.
+- The app does not open away from home, or Cube4Notes never offers the name address.
+
+**When the certificate authority changes, every device must install it again.** It is created once and kept in the configuration folder (`%LOCALAPPDATA%\Cube4Notes\tls` on Windows). It is created again if that folder is deleted, if Cube4Notes runs with a different `--config` folder, or on another computer. In that case, on each device remove the old profile/certificate first and install the new one. The certificate name shows which computer it belongs to: "Cube4Notes CA (<computer name>)".
+
+Only the certificate *authority* needs installing. The server's own certificate is renewed automatically when the computer's addresses change, and devices that trust the authority accept it without any action.
 
 ## Platforms
 
