@@ -676,7 +676,10 @@ async Task<int> RunAsync(AppConfig? config)
 
     // ------------------------------------------------------------ início
     PrintBanner(config, setup, setupCode, personal, scheme, port, httpPort, useHttps);
-    void OnNetworkChange(object? s, EventArgs e) => Lan.OnAddressesChanged(() => PrintAddresses(personal, scheme, port));
+    // Rede de casa: responde pelo nome do computador (<nome>.local), que continua valendo quando o IP muda.
+    using var mdns = !personal && !setup && Tls.Machine.Length > 0 && !args.Contains("--sem-nome-na-rede") ? new Mdns(Tls.Machine) : null;
+    if (mdns is not null && mdns.Start()) Console.WriteLine($"  Pelo nome:        {scheme}://{mdns.Name}:{port}");
+    void OnNetworkChange(object? s, EventArgs e) { Lan.OnAddressesChanged(() => PrintAddresses(personal, scheme, port)); mdns?.Refresh(); }
     NetworkChange.NetworkAddressChanged += OnNetworkChange;
     if (useHttps && OperatingSystem.IsWindows() && !args.Contains("--sem-instalar-certificado")) Tls.TrustOnWindows();
     currentPersonal = personal;

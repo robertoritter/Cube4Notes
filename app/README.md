@@ -82,6 +82,7 @@ src/Aparelhos.cs           aparelhos, convites, registro de renomeações, limit
 src/Rede.cs                segurança de Host/Origem, validação de caminhos, endereços da rede local
 src/Tls.cs                 autoridade certificadora local e certificado do servidor
 src/Firewall.cs            regra do Firewall do Windows por porta, só para a rede local
+src/Mdns.cs                responde pelo nome do computador na rede local (<nome>.local, mDNS)
 src/Historico.cs           histórico de versões de cada nota (.cube4notes/historico)
 src/Mcp.cs                 acesso somente leitura para agentes de IA (MCP em /mcp)
 Cube4Notes.csproj          projeto
@@ -91,6 +92,7 @@ dev/mock-server.mjs        servidor de teste em Node com a mesma API, só para d
 dev/teste_sync.py          testes maldosos de sincronização (Playwright)
 dev/teste_recursos.py      links, anexos offline, histórico, tags e agentes (Playwright)
 dev/teste_endereco.py      troca para o endereço pelo nome do computador (Playwright, openssl)
+dev/teste_mdns.py          confere se o computador responde pelo nome na rede (rodar na rede de casa)
 seguranca/                 bateria de testes de segurança (Python, sem dependências)
 SEGURANCA.md               revisão OWASP e riscos conhecidos
 ```

@@ -73,6 +73,7 @@ Configurar uma máquina sem tela: inicie o Cube4Notes nela, abra `https://<ip-de
 | `--sem-navegador` | No modo console, não abre o navegador ao iniciar |
 | `--sem-https` | HTTP simples na rede (só para testes) |
 | `--sem-instalar-certificado` | Não adiciona o certificado à confiança do Windows |
+| `--sem-nome-na-rede` | Não responder por `<nome-do-computador>.local` na rede local |
 
 ## Como os aparelhos acham o seu computador (leia antes de conectar o celular)
 
@@ -99,7 +100,7 @@ O Cube4Notes nunca passa pela internet. O celular ou tablet conversa direto com 
 
 - Wi-Fi de visitantes e redes que isolam os aparelhos bloqueiam essas perguntas pelo nome. Uma rede comum de casa permite.
 - O Android resolve nomes `.local` de forma irregular, conforme a versão e o navegador. iPhone, iPad, macOS, Windows e Linux resolvem bem.
-- No Windows, o Cube4Notes cria uma regra de firewall para as perguntas pelo nome (UDP 5353, só rede local) junto com a regra das portas dele. No Linux, instale o `avahi-daemon` (já vem na maioria das distribuições com interface gráfica).
+- O próprio Cube4Notes responde pelo nome, então não depende de o sistema fazer isso (o Windows muitas vezes não faz). No Windows ele também cria uma regra de firewall para as perguntas pelo nome (UDP 5353, só rede local) junto com a regra das portas dele. No Linux, se o `avahi-daemon` estiver rodando, ele já responde pelo nome do computador e o Cube4Notes deixa com ele. Para desligar o nome, inicie o Cube4Notes com `--sem-nome-na-rede`.
 - Dois computadores com o mesmo nome na mesma rede confundem a resposta. Dê nomes diferentes a eles.
 
 **A opção mais robusta: IP fixo.** Nas configurações do roteador, procure *reserva de DHCP* (também chamada *IP fixo* ou *concessão estática*) e reserve o IP atual para o computador que roda o Cube4Notes. Assim o IP e o nome funcionam para sempre, em qualquer aparelho, inclusive Android.

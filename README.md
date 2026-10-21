@@ -73,6 +73,7 @@ Setting up a machine without a screen: start Cube4Notes there, open `https://<it
 | `--sem-navegador` | In console mode, do not open the browser on start |
 | `--sem-https` | Plain HTTP on the network (testing only) |
 | `--sem-instalar-certificado` | Do not add the certificate to the Windows trust store |
+| `--sem-nome-na-rede` | Do not answer for `<computer-name>.local` on the local network |
 
 ## How devices find your computer (read this before connecting a phone)
 
@@ -99,7 +100,7 @@ Cube4Notes never goes through the internet. A phone or tablet talks directly to 
 
 - Guest Wi-Fi and networks that isolate devices block these name lookups. A normal home network allows them.
 - Android resolves `.local` names inconsistently, depending on the version and the browser. iPhone, iPad, macOS, Windows and Linux handle them well.
-- On Windows, Cube4Notes adds a firewall rule for name lookups (UDP 5353, local network only) together with the rule for its own ports. On Linux, install `avahi-daemon` (it is already present on most desktop distributions).
+- Cube4Notes answers for the name itself, so it does not depend on the operating system doing it (Windows often does not). On Windows it also adds a firewall rule for name lookups (UDP 5353, local network only) together with the rule for its own ports. On Linux, if `avahi-daemon` is running it already answers for the computer name and Cube4Notes leaves it to it. To turn the name off, start Cube4Notes with `--sem-nome-na-rede`.
 - Two computers with the same name on the same network confuse the answer. Give them different names.
 
 **The most robust option: a fixed IP.** In your router settings, look for *DHCP reservation* (also called *static lease* or *fixed IP*) and reserve the current IP for the computer that runs Cube4Notes. Then both the IP and the name keep working forever, on every device, including Android.

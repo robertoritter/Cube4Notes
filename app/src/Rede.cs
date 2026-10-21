@@ -167,6 +167,23 @@ static class Lan
         return false;
     }
 
+    // Endereços deste computador na mesma sub-rede de quem perguntou (para responder pelo nome com o IP certo).
+    public static IEnumerable<IPAddress> SameSubnet(IPAddress remote)
+    {
+        remote = Normalize(remote);
+        if (remote.AddressFamily != AddressFamily.InterNetwork) yield break;
+        var r = remote.GetAddressBytes();
+        foreach (var nic in Unicast())
+        {
+            if (!IsPrivate(nic.Address) || nic.IPv4Mask is null) continue;
+            var l = nic.Address.GetAddressBytes();
+            var m = nic.IPv4Mask.GetAddressBytes();
+            var same = true;
+            for (var i = 0; i < 4; i++) if ((l[i] & m[i]) != (r[i] & m[i])) { same = false; break; }
+            if (same) yield return nic.Address;
+        }
+    }
+
     public static void OnAddressesChanged(Action print)
     {
         var now = string.Join(',', LanAddresses());

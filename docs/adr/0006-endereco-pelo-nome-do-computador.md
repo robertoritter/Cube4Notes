@@ -12,6 +12,7 @@ Os aparelhos guardam o app, as notas offline e o token por endereço (origem do 
 - O QR continua usando o IP, que funciona em qualquer aparelho.
 - O servidor informa em `/api/status` o endereço pelo nome (`https://<nome-do-computador>.local:<porta>/`), já coberto pelo certificado local.
 - Num aparelho que usa o IP, o app testa se alcança o nome (carregando o ícone do servidor pelo endereço com nome; só esse arquivo aceita ser carregado de outra origem). Se alcança, oferece a troca. A troca envia antes as alterações pendentes e usa um **convite de transferência**: de uso único, válido por 5 minutos, criado pelo próprio aparelho autenticado e preso a ele, que dá um token a mais ao mesmo aparelho no endereço novo. Nada é duplicado e o acesso continua o mesmo.
+- O próprio servidor responde pelo nome na rede local (mDNS), porque o Windows muitas vezes não responde por `<nome>.local`. Responde só ao próprio nome, só a endereços da rede local e só com IPs locais.
 - O firewall do Windows passa a aceitar também as perguntas pelo nome (mDNS, UDP 5353), só da sub-rede local.
 - A documentação explica os dois tipos de endereço, os limites do nome e recomenda reservar o IP no roteador.
 
