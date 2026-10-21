@@ -302,7 +302,7 @@ async Task<int> RunAsync(AppConfig? config)
             admin = device is not null && !device.ReadOnly && (device.Admin || loopback),
             ui = UiVersion(),
             // endereço pelo nome do computador (não muda quando o IP muda); os aparelhos testam se conseguem usá-lo
-            hostUrl = useHttps && Tls.Machine.Length > 0 ? $"https://{Tls.Machine}.local:{port}/" : null,
+            hostUrl = useHttps && Tls.NetName.Length > 0 ? $"https://{Tls.NetName}:{port}/" : null,
         });
     });
 
@@ -677,7 +677,7 @@ async Task<int> RunAsync(AppConfig? config)
     // ------------------------------------------------------------ início
     PrintBanner(config, setup, setupCode, personal, scheme, port, httpPort, useHttps);
     // Rede de casa: responde pelo nome do computador (<nome>.local), que continua valendo quando o IP muda.
-    using var mdns = !personal && !setup && Tls.Machine.Length > 0 && !args.Contains("--sem-nome-na-rede") ? new Mdns(Tls.Machine) : null;
+    using var mdns = !personal && !setup && Tls.NetName.Length > 0 && !args.Contains("--sem-nome-na-rede") ? new Mdns(Tls.NetName) : null;
     if (mdns is not null && mdns.Start()) Console.WriteLine($"  Pelo nome:        {scheme}://{mdns.Name}:{port}");
     void OnNetworkChange(object? s, EventArgs e) { Lan.OnAddressesChanged(() => PrintAddresses(personal, scheme, port)); mdns?.Refresh(); }
     NetworkChange.NetworkAddressChanged += OnNetworkChange;

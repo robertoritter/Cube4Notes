@@ -5,10 +5,11 @@
 #
 # Confere se o computador do Cube4Notes responde pelo nome na rede local (<nome>.local, mDNS).
 # Rode em outro computador da mesma rede (ou no próprio): python dev/teste_mdns.py <nome-do-computador>
+# (pergunta por <nome-do-computador>-notes.local, o nome que o Cube4Notes usa na rede)
 import socket, struct, sys, time
 
 name = (sys.argv[1] if len(sys.argv) > 1 else socket.gethostname()).lower()
-if not name.endswith(".local"): name += ".local"
+if not name.endswith(".local"): name = (name if name.endswith("-notes") else name + "-notes") + ".local"
 
 def query(qname: str) -> bytes:
     q = b"".join(bytes([len(p)]) + p.encode() for p in qname.split(".")) + b"\0"

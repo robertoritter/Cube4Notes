@@ -82,7 +82,7 @@ src/Aparelhos.cs           aparelhos, convites, registro de renomeações, limit
 src/Rede.cs                segurança de Host/Origem, validação de caminhos, endereços da rede local
 src/Tls.cs                 autoridade certificadora local e certificado do servidor
 src/Firewall.cs            regra do Firewall do Windows por porta, só para a rede local
-src/Mdns.cs                responde pelo nome do computador na rede local (<nome>.local, mDNS)
+src/Mdns.cs                responde pelo nome do Cube4Notes na rede local (<computador>-notes.local, mDNS)
 src/Historico.cs           histórico de versões de cada nota (.cube4notes/historico)
 src/Mcp.cs                 acesso somente leitura para agentes de IA (MCP em /mcp)
 Cube4Notes.csproj          projeto

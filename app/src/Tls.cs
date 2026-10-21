@@ -46,6 +46,10 @@ static class Tls
     }
     public static string CaThumbprint => ca!.Thumbprint;
 
+    // Nome do Cube4Notes na rede de casa: <computador>-notes.local. É um nome só dele (o sistema responde por
+    // <computador>.local, às vezes com o endereço de uma VPN ou placa virtual, o que confundiria os aparelhos).
+    public static string NetName => Machine.Length is > 0 and <= 57 ? Machine + "-notes.local" : "";
+
     public static void Init(string folder)
     {
         dir = folder;
@@ -109,7 +113,7 @@ static class Tls
             if (leaf is not null && DateTime.UtcNow - checkedAt < TimeSpan.FromSeconds(15)) return leaf;
             checkedAt = DateTime.UtcNow;
             var ips = Lan.Addresses().Select(a => a.Address).ToList();
-            var key = string.Join(',', ips);
+            var key = string.Join(',', ips) + "|" + NetName; // certificado novo quando o IP ou o nome mudam
             if (leaf is null) (leaf, leafKey) = LoadSaved();
             if (leaf is not null && key == leafKey && leaf.NotAfter > DateTime.Now.AddDays(14)) return leaf;
             var pfx = Issue(ips);
@@ -156,6 +160,7 @@ static class Tls
         var san = new SubjectAlternativeNameBuilder();
         san.AddDnsName("localhost");
         if (Machine.Length > 0) { san.AddDnsName(Machine); san.AddDnsName(Machine + ".local"); }
+        if (NetName.Length > 0) san.AddDnsName(NetName);
         san.AddIpAddress(IPAddress.Loopback);
         foreach (var ip in ips) san.AddIpAddress(ip);
         req.CertificateExtensions.Add(san.Build());

@@ -34,7 +34,7 @@ static class Security
         host = host.Trim('[', ']').TrimEnd('.').ToLowerInvariant();
         if (host is "localhost" or "127.0.0.1" or "::1") return true;
         var machine = Tls.Machine;
-        if (machine.Length > 0 && (host == machine || host == machine + ".local")) return true;
+        if (machine.Length > 0 && (host == machine || host == machine + ".local" || host == Tls.NetName)) return true;
         return IPAddress.TryParse(host, out var ip) && Lan.Addresses().Any(a => a.Address.Equals(ip));
     }
 

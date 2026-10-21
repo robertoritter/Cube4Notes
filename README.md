@@ -73,7 +73,7 @@ Setting up a machine without a screen: start Cube4Notes there, open `https://<it
 | `--sem-navegador` | In console mode, do not open the browser on start |
 | `--sem-https` | Plain HTTP on the network (testing only) |
 | `--sem-instalar-certificado` | Do not add the certificate to the Windows trust store |
-| `--sem-nome-na-rede` | Do not answer for `<computer-name>.local` on the local network |
+| `--sem-nome-na-rede` | Do not answer for `<computer-name>-notes.local` on the local network |
 
 ## How devices find your computer (read this before connecting a phone)
 
@@ -82,7 +82,9 @@ Cube4Notes never goes through the internet. A phone or tablet talks directly to 
 **Two kinds of address**
 
 - **By IP**, for example `https://192.168.0.10:43125`. Always works on the home network, on any device. The catch: most routers hand out IPs automatically and may give the computer a different one later (`192.168.0.11`). A device still pointing to the old IP can no longer reach the server, and the app stays in "No server".
-- **By name**, for example `https://my-pc.local:43125` (the computer name followed by `.local`). The device asks the local network "who is my-pc.local?" and the computer answers with its current IP. This is the same mechanism (mDNS, also called Bonjour) that phones use to find printers and AirPlay speakers. When the IP changes, the name keeps working.
+- **By name**, for example `https://my-pc-notes.local:43125` (the computer name followed by `-notes.local`). The device asks the local network "who is my-pc-notes.local?" and Cube4Notes answers with the computer's current IP. This is the same mechanism (mDNS, also called Bonjour) that phones use to find printers and AirPlay speakers. When the IP changes, the name keeps working.
+
+  Why `-notes` and not just `my-pc.local`? The operating system may also answer for `my-pc.local`, and sometimes with the address of a VPN or virtual network adapter that the phone cannot reach. A name of its own means only Cube4Notes answers, always with the address of the home network.
 
 **What Cube4Notes does**
 
@@ -90,7 +92,7 @@ Cube4Notes never goes through the internet. A phone or tablet talks directly to 
 2. Right after connecting, the app checks whether this device can also reach the computer by name. If it can, it offers to switch to the name. The switch keeps the same device access (no new QR code), sends any pending changes first and downloads the notes again at the new address, so nothing is lost. You can also do it later in **Preferences > Use the computer name as the address**.
 3. On iPhone and iPad, a site added to the Home Screen belongs to one address. After switching, add Cube4Notes to the Home Screen again and remove the old icon.
 
-**Is `my-pc.local` always my computer, on any network?** No, and that is fine. The name is answered by whoever is on the network you are on at that moment:
+**Is `my-pc-notes.local` always my computer, on any network?** No, and that is fine. The name is answered by whoever is on the network you are on at that moment:
 
 - at home, your computer answers;
 - on another network (street, office, mobile data) nobody answers, and the app simply works offline, as it always does away from home;

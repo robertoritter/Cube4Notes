@@ -4,7 +4,7 @@
  * Website: https://cube4code.com
  * Copyright (c) 2026 Roberto Ritter
  *
- * Responde pelo nome do computador na rede local (<nome>.local), pelo protocolo mDNS (o mesmo usado por
+ * Responde pelo nome do Cube4Notes na rede local (<computador>-notes.local), pelo protocolo mDNS (o mesmo usado por
  * impressoras e AirPlay), para os aparelhos acharem o Cube4Notes mesmo quando o roteador troca o IP.
  * Não depende do sistema: o Windows nem sempre responde por esse nome. Só responde perguntas do próprio
  * nome, só com endereços da rede local, e nunca sai da rede de casa (mDNS não atravessa roteadores).
@@ -17,14 +17,14 @@ sealed class Mdns : IDisposable
 {
     private static readonly IPAddress Group = IPAddress.Parse("224.0.0.251");
     private const int Port = 5353;
-    private readonly string name;          // ex.: "meu-pc.local"
+    private readonly string name;          // ex.: "meu-pc-notes.local"
     private readonly byte[] encodedName;
     private readonly CancellationTokenSource stop = new();
     private Socket? socket;
 
-    public Mdns(string machine)
+    public Mdns(string netName)
     {
-        name = machine + ".local";
+        name = netName;
         encodedName = Encode(name);
     }
 
