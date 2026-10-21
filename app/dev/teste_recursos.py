@@ -130,6 +130,33 @@ async def main():
             check("tipo não permitido é recusado com aviso", "não foi anexado" in toast, toast)
         await scenario(p, "2. Anexos offline", {"Viagem.md": "# Viagem\n\nfotos:\n", "anexos/.x.md": ""}, anexos)
 
+        # 3. Histórico de versões: cada gravação guarda o texto anterior; restaurar não perde o atual
+        async def historico(A, B, v):
+            await A.open("Plano")
+            for i in range(3):
+                await A.append(f"PASSO-{i}"); await A.sync()
+            vers = glob.glob(os.path.join(v, ".cube4notes", "historico", "Plano.md", "*.md"))
+            check("servidor guarda as versões anteriores", len(vers) >= 3, str(len(vers)))
+            await A.page.click(".history-btn"); await A.page.wait_for_selector(".hist-item")
+            n = await A.page.locator(".hist-item").count()
+            check("histórico lista as versões", n >= 3, str(n))
+            diff = await A.page.inner_text(".hist-view")
+            check("mostra a diferença para o texto atual", "PASSO-2" in diff, diff[:200])
+            await A.page.locator(".hist-item").last.click(); await A.page.wait_for_timeout(500)
+            await A.page.click(".hist-actions .btn.primary"); await A.page.click(".modal.small .btn.primary")
+            await A.page.wait_for_timeout(800); await A.sync()
+            d = read(v, "Plano.md")
+            check("restaurar volta o texto original", d == "# Plano\n\ninicio\n" or ("PASSO" not in d and "inicio" in d), d)
+            ultimo = sorted(glob.glob(os.path.join(v, ".cube4notes", "historico", "Plano.md", "*.md")))[-1]
+            check("texto de antes de restaurar continua no histórico", "PASSO-2" in open(ultimo, encoding="utf-8").read())
+            await A.rename("Plano 2026"); await A.sync()
+            check("histórico acompanha a renomeação", len(glob.glob(os.path.join(v, ".cube4notes", "historico", "Plano 2026.md", "*.md"))) >= 4)
+            await A.offline(); await A.page.click(".history-btn"); await A.page.wait_for_timeout(1500)
+            msg = await A.page.inner_text(".history")
+            check("sem servidor o histórico avisa", "servidor" in msg, msg)
+            await A.page.keyboard.press("Escape"); await A.offline(False)
+        await scenario(p, "3. Histórico de versões", {"Plano.md": "# Plano\n\ninicio\n"}, historico, extra=("--history-gap-ms", "0"))
+
     fails = [r for r in RESULTS if not r[1]]
     print(f"\n{len(RESULTS) - len(fails)} de {len(RESULTS)} verificações passaram.")
     return 1 if fails else 0

@@ -85,13 +85,13 @@ def check(name, ok, detail=""):
     print(f"  [{'OK ' if ok else 'FALHOU'}] {name}" + (f"\n         {detail}" if detail and not ok else ""))
 
 
-async def scenario(p, title, seed, fn):
+async def scenario(p, title, seed, fn, extra=()):
     vault = f"/tmp/c4n-sync-{len(RESULTS)}-{int(time.time()*1000)}"
     shutil.rmtree(vault, ignore_errors=True); os.makedirs(vault)
     for rel, txt in seed.items():
         os.makedirs(os.path.dirname(os.path.join(vault, rel)) or vault, exist_ok=True)
         open(os.path.join(vault, rel), "w", encoding="utf-8").write(txt)
-    srv = subprocess.Popen(["node", os.path.join(ROOT, "dev/mock-server.mjs"), "--notes", vault, "--port", str(PORT), "--www", os.path.join(ROOT, "wwwroot")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    srv = subprocess.Popen(["node", os.path.join(ROOT, "dev/mock-server.mjs"), "--notes", vault, "--port", str(PORT), "--www", os.path.join(ROOT, "wwwroot"), *extra], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(0.8)
     b = await p.chromium.launch()
     devs = []

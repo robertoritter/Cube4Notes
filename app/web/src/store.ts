@@ -388,6 +388,11 @@ async function prefetchImages() {
   } finally { prefetching = false; }
 }
 
+// ---------- histórico de versões (fica no servidor) ----------
+export interface VersionInfo { id: string; at: string; size: number; }
+export const listHistory = async (path: string) => (await json<{ versions: VersionInfo[] }>(vpath(cur, 'history?path=' + encodeURIComponent(path)))).versions;
+export const getVersion = async (path: string, id: string) => (await json<{ content: string }>(vpath(cur, 'history/version?path=' + encodeURIComponent(path) + '&id=' + encodeURIComponent(id)))).content;
+
 // ---------- assistente de primeira execução ----------
 export interface BrowseResult { path: string; exists: boolean; parent: string | null; entries: { name: string; path: string }[]; roots: string[]; suggested: string; }
 export const setupBrowse = (path: string, code: string) => json<BrowseResult>('/api/setup/browse?path=' + encodeURIComponent(path) + '&code=' + encodeURIComponent(code));

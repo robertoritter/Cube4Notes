@@ -147,6 +147,26 @@ function followRenames(rel) {
   }
   return cur === rel ? null : cur;
 }
+// Histórico de versões (.cube4notes/historico/<nota>/<data>.md), igual ao servidor .NET.
+const historyGap = Number(arg('--history-gap-ms', String(5 * 60000)));
+const histDir = rel => path.join(root, '.cube4notes', 'historico', ...rel.split('/'));
+const stampOf = d => d.toISOString().replace(/[-:T]/g, '').replace(/\.(\d{3})Z$/, '-$1').replace(/^(\d{8})(\d{6})/, '$1-$2');
+const atOf = id => new Date(`${id.slice(0, 4)}-${id.slice(4, 6)}-${id.slice(6, 8)}T${id.slice(9, 11)}:${id.slice(11, 13)}:${id.slice(13, 15)}.${id.slice(16, 19)}Z`);
+function versions(rel) {
+  const d = histDir(rel); if (!fs.existsSync(d)) return [];
+  return fs.readdirSync(d).filter(f => /^\d{8}-\d{6}-\d{3}\.md$/.test(f)).map(f => f.slice(0, -3)).sort().reverse();
+}
+function saveHistory(rel, previous) {
+  const list = versions(rel);
+  if (list.length && (Date.now() - atOf(list[0]).getTime() < historyGap || fs.readFileSync(path.join(histDir(rel), list[0] + '.md'), 'utf8') === previous)) return;
+  fs.mkdirSync(histDir(rel), { recursive: true });
+  let id = stampOf(new Date());
+  while (fs.existsSync(path.join(histDir(rel), id + '.md'))) id = stampOf(new Date(atOf(id).getTime() + 1));
+  fs.writeFileSync(path.join(histDir(rel), id + '.md'), previous);
+  const all = versions(rel);
+  all.forEach((v, i) => { if (i >= 10 && (i >= 100 || Date.now() - atOf(v).getTime() > 180 * 86400000)) fs.unlinkSync(path.join(histDir(rel), v + '.md')); });
+}
+const relOf = full => path.relative(root, full).split(path.sep).join('/');
 function applyOp(op, device) {
   const r = { id: op.id, status: 'applied' };
   const err = m => ({ ...r, status: 'error', message: m });
@@ -161,7 +181,7 @@ function applyOp(op, device) {
       if (mfull && fs.existsSync(mfull)) {
         const cur = fs.readFileSync(mfull, 'utf8');
         if (cur === content) return { ...r, version: sha(cur), movedTo: moved };
-        if (op.baseVersion === sha(cur)) { write(mfull, content); return { ...r, version: sha(content), movedTo: moved }; }
+        if (op.baseVersion === sha(cur)) { saveHistory(relOf(mfull), cur); write(mfull, content); return { ...r, version: sha(content), movedTo: moved }; }
         const cp = conflictPath(moved, device); write(resolve(cp, true), content);
         return { ...r, status: 'conflict', version: sha(cur), conflictPath: cp, conflictVersion: sha(content), movedTo: moved };
       }
@@ -169,7 +189,7 @@ function applyOp(op, device) {
     }
     const cur = fs.readFileSync(full, 'utf8');
     if (cur === content) return { ...r, version: sha(cur) };
-    if (op.baseVersion && op.baseVersion === sha(cur)) { write(full, content); return { ...r, version: sha(content) }; }
+    if (op.baseVersion && op.baseVersion === sha(cur)) { saveHistory(relOf(full), cur); write(full, content); return { ...r, version: sha(content) }; }
     const cp = conflictPath(op.path, device); write(resolve(cp, true), content);
     return { ...r, status: 'conflict', version: sha(cur), conflictPath: cp, conflictVersion: sha(content) };
   }
@@ -190,6 +210,8 @@ function applyOp(op, device) {
     if (!isMd && (b + path.sep).startsWith(a + path.sep)) return err('inside itself');
     fs.mkdirSync(path.dirname(b), { recursive: true }); fs.renameSync(a, b);
     recordRename(op.from, op.to, !isMd);
+    const ha = histDir(relOf(a)), hb = histDir(relOf(b));
+    if (fs.existsSync(ha) && !fs.existsSync(hb)) { fs.mkdirSync(path.dirname(hb), { recursive: true }); fs.renameSync(ha, hb); }
     return r;
   }
   return err('unknown op');
@@ -339,6 +361,15 @@ const handler = async (req, res) => {
       if ((b.ops || []).length > 500) return send(res, 400, { error: 'too many ops' });
       useVault(vault);
       return send(res, 200, { results: (b.ops || []).map(op => { try { return applyOp(op, dev.name); } catch (e) { console.log('  erro', e.message); return { id: op.id, status: 'error', message: 'server error' }; } }) });
+    }
+    if (action === 'history' || action === 'history/version') {
+      useVault(vault);
+      const f = resolve(u.searchParams.get('path') || '', true); if (!f) return send(res, 400, { error: 'invalid path' });
+      const rel = relOf(f);
+      if (action === 'history') return send(res, 200, { versions: versions(rel).map(id => ({ id, at: atOf(id).toISOString(), size: fs.statSync(path.join(histDir(rel), id + '.md')).size })) });
+      const id = u.searchParams.get('id') || '';
+      if (!/^\d{8}-\d{6}-\d{3}$/.test(id) || !fs.existsSync(path.join(histDir(rel), id + '.md'))) return send(res, 404);
+      return send(res, 200, { id, content: fs.readFileSync(path.join(histDir(rel), id + '.md'), 'utf8') });
     }
     if (action === 'raw') {
       useVault(vault);

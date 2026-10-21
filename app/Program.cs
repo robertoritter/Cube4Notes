@@ -418,6 +418,25 @@ async Task<int> RunAsync(AppConfig? config)
         return Results.Ok(new { results });
     });
 
+    // Histórico de versões de uma nota (mais recente primeiro) e o texto de uma versão.
+    app.MapGet("/api/v/{vault}/history", (HttpContext ctx, string? path) =>
+    {
+        var vault = (Vault)ctx.Items["vault"]!;
+        var full = NotePaths.Resolve(vault.Root, path, markdown: true);
+        if (full is null) return Results.BadRequest(new { error = "invalid path" });
+        var versions = vault.History.List(vault.Rel(full)).Select(v => new { id = v.Id, at = v.At, size = v.Size });
+        return Results.Ok(new { versions });
+    });
+
+    app.MapGet("/api/v/{vault}/history/version", (HttpContext ctx, string? path, string? id) =>
+    {
+        var vault = (Vault)ctx.Items["vault"]!;
+        var full = NotePaths.Resolve(vault.Root, path, markdown: true);
+        if (full is null || string.IsNullOrEmpty(id)) return Results.BadRequest(new { error = "invalid path" });
+        var content = vault.History.Read(vault.Rel(full), id);
+        return content is null ? Results.NotFound() : Results.Ok(new { id, content });
+    });
+
     // Anexo: "path" é o caminho escolhido pelo aparelho (anexo colado offline); "name" deixa o servidor escolher em anexos/.
     // Se já existe outro arquivo com o mesmo nome, este ganha um sufixo e o caminho final volta na resposta.
     app.MapPost("/api/v/{vault}/attachment", async (HttpContext ctx, string? name, string? path) =>

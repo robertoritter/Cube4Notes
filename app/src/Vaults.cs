@@ -6,7 +6,7 @@
  *
  * Vault: uma pasta de notas Markdown. Aplica as alterações enviadas pelos aparelhos (criar, editar, mover,
  * apagar) sem nunca descartar texto: conflito vira cópia, exclusão vai para a .lixeira e edição feita no
- * nome antigo de uma nota renomeada segue para o nome novo.
+ * nome antigo de uma nota renomeada segue para o nome novo. O texto substituído vai para o histórico de versões.
  */
 using System.Security.Cryptography;
 using System.Text;
@@ -17,6 +17,7 @@ sealed class Vault
     public string Name { get; }
     public string Root { get; }
     public RenameStore Renames { get; }
+    public History History { get; }
     public SemaphoreSlim Gate { get; } = new(1, 1);
 
     public Vault(VaultConfig config)
@@ -28,6 +29,7 @@ sealed class Vault
         var state = System.IO.Path.Combine(Root, ".cube4notes");
         Directory.CreateDirectory(state);
         Renames = new RenameStore(System.IO.Path.Combine(state, "renames.json"));
+        History = new History(state);
     }
 
     public static void WriteAtomic(string full, string content)
@@ -37,6 +39,9 @@ sealed class Vault
         File.WriteAllText(temp, content, new UTF8Encoding(false));
         File.Move(temp, full, overwrite: true);
     }
+
+    // Caminho relativo normalizado (com /) de um arquivo do vault.
+    public string Rel(string full) => System.IO.Path.GetRelativePath(Root, full).Replace('\\', '/');
 
     public static string Version(string content) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
 
@@ -61,6 +66,7 @@ sealed class Vault
                         if (movedCurrent == content) return new OpResult(op.Id, "applied", Version(movedCurrent), MovedTo: moved);
                         if (op.BaseVersion == Version(movedCurrent))
                         {
+                            History.Save(Rel(movedFull), movedCurrent);
                             WriteAtomic(movedFull, content);
                             return new OpResult(op.Id, "applied", Version(content), MovedTo: moved);
                         }
@@ -77,6 +83,7 @@ sealed class Vault
                 if (current == content) return new OpResult(op.Id, "applied", Version(current));
                 if (op.BaseVersion is not null && op.BaseVersion == Version(current))
                 {
+                    History.Save(Rel(full), current);
                     WriteAtomic(full, content);
                     return new OpResult(op.Id, "applied", Version(content));
                 }
@@ -131,6 +138,7 @@ sealed class Vault
                 else if (isMd) File.Move(a, b);
                 else Directory.Move(a, b);
                 Renames.Record(op.From!, op.To!, folder: !isMd);
+                History.Move(Rel(a), Rel(b));
                 return new OpResult(op.Id, "applied");
             }
             default:

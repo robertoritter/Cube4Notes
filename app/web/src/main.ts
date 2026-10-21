@@ -136,6 +136,7 @@ function shell() {
             h('button', { dataset: { mode: 'visual' }, onclick: () => setSource(false), title: `${t.visual}  (${mod}+/)` }, ic('Eye', 15), h('span', {}, t.visual)),
             h('button', { dataset: { mode: 'md' }, onclick: () => setSource(true), title: `${t.markdown}  (${mod}+/)` }, ic('Code', 15), h('span', {}, t.markdown)),
           ),
+          iconBtn('FileClock', t.history, () => openHistory(), 'history-btn'),
           iconBtn('PanelRight', t.cmdTogglePanel, () => togglePanel(), 'panel-toggle'),
         ),
       ),
@@ -257,6 +258,7 @@ function rowMenu(n: TNode, x: number, y: number) {
     { icon: 'FolderPlus', label: t.newFolderHere, run: () => newFolder(target) },
     null,
     { icon: 'Pencil', label: t.rename, run: () => renameInline(n), hint: 'F2' },
+    ...(n.folder ? [] : [{ icon: 'FileClock' as IconName, label: t.history, run: () => openHistory(n.path) }]),
     { icon: 'Trash2', label: t.delete, run: () => confirmDelete(n), danger: true },
   ]);
 }
@@ -704,6 +706,63 @@ function compare(orig: string, copy: string) {
     h('pre', {}, ...rows.map(r => h('div', { class: 'dl ' + (r.k === '-' ? 'del' : r.k === '+' ? 'add' : '') }, h('span', { class: 'dk' }, r.k), r.l || ' ')))), 'wide');
 }
 
+// ---------------------------------------------------------------- histórico de versões (no servidor)
+const fmtDate = (iso: string) => new Date(iso).toLocaleString(lang, { dateStyle: 'short', timeStyle: 'short' });
+function relTime(iso: string) {
+  const s = (new Date(iso).getTime() - Date.now()) / 1000, rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
+  for (const [u, n] of [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60]] as const) if (Math.abs(s) >= n) return rtf.format(Math.round(s / n), u);
+  return rtf.format(Math.round(s), 'second');
+}
+// Diferença com só 3 linhas de contexto em volta de cada mudança.
+function diffView(rows: { k: string; l: string }[]) {
+  const keep = new Set<number>();
+  rows.forEach((r, i) => { if (r.k !== ' ') for (let j = i - 3; j <= i + 3; j++) keep.add(j); });
+  const out: HTMLElement[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    if (keep.has(i)) { const r = rows[i]; out.push(h('div', { class: 'dl ' + (r.k === '-' ? 'del' : r.k === '+' ? 'add' : '') }, h('span', { class: 'dk' }, r.k), r.l || ' ')); continue; }
+    let j = i; while (j < rows.length && !keep.has(j)) j++;
+    if (j - i < 3) { for (let k = i; k < j; k++) keep.add(k); i--; continue; }
+    out.push(h('div', { class: 'dl gap' }, h('span', { class: 'dk' }, '⋯'), t.sameLines(j - i)));
+    i = j - 1;
+  }
+  return h('pre', {}, ...out);
+}
+async function openHistory(path = ui.active) {
+  if (!path || !S.notes.has(path)) return;
+  flushWrite();
+  const list = h('div', { class: 'hist-list' }, h('p', { class: 'muted pad' }, '…'));
+  const view = h('div', { class: 'hist-view' });
+  const close = modal(t.historyTitle(baseName(path)), h('div', { class: 'history' }, list, view), 'wide history-modal');
+  let versions: S.VersionInfo[];
+  try { versions = await S.listHistory(path); } catch { list.replaceChildren(h('p', { class: 'muted pad' }, t.historyOffline)); return; }
+  if (!versions.length) { list.replaceChildren(h('p', { class: 'muted pad' }, t.historyEmpty)); return; }
+  const show = async (v: S.VersionInfo, btn: HTMLElement) => {
+    list.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === btn));
+    view.replaceChildren(h('p', { class: 'muted pad' }, '…'));
+    let old: string;
+    try { old = await S.getVersion(path, v.id); } catch { view.replaceChildren(h('p', { class: 'muted pad' }, t.historyOffline)); return; }
+    const rows = diffLines(old.split('\n'), (S.notes.get(path)?.content ?? '').split('\n'));
+    const changed = rows.some(r => r.k !== ' ');
+    view.replaceChildren(
+      h('div', { class: 'hist-actions' },
+        h('b', {}, fmtDate(v.at)), h('span', { class: 'grow' }),
+        h('button', { class: 'btn small', onclick: () => { navigator.clipboard?.writeText(old).then(() => toast(t.copied)).catch(() => {}); } }, ic('Copy', 14), t.copyText),
+        h('button', { class: 'btn small primary', disabled: !changed, onclick: () => dialog(t.restoreQ, t.restoreHint, t.restore, async () => {
+          await S.writeNote(path, old); close();
+          if (ui.active === path) await renderDoc(true);
+          renderPanel(); toast(t.restored);
+        }) }, ic('RotateCcw', 14), t.restore)),
+      h('div', { class: 'diff' },
+        h('div', { class: 'diff-legend' }, h('span', { class: 'lg del' }, '− ' + t.historyThen), h('span', { class: 'lg add' }, '+ ' + t.historyNow)),
+        changed ? diffView(rows) : h('p', { class: 'muted pad' }, t.historySame)));
+  };
+  list.replaceChildren(...versions.map(v => {
+    const b: HTMLElement = h('button', { class: 'hist-item', onclick: () => show(v, b) }, h('b', {}, relTime(v.at)), h('small', {}, fmtDate(v.at) + ' · ' + (v.size < 1024 ? v.size + ' B' : Math.round(v.size / 1024) + ' KB')));
+    return b;
+  }));
+  show(versions[0], list.querySelector('button')!);
+}
+
 // ---------------------------------------------------------------- right panel
 let headingEls: HTMLElement[] = [];
 function renderPanel() {
@@ -814,6 +873,7 @@ function modal(title: string, body: HTMLElement, cls = '') {
     h('div', { class: 'modal-head' }, h('h2', {}, title), h('button', { class: 'icon-btn', 'aria-label': t.cancel, onclick: () => close() }, ic('X', 17))), body);
   close = overlay(box);
   (box.querySelector('button') as HTMLElement).focus();
+  return () => close();
 }
 function dialog(title: string, text: string, okLabel: string, ok: () => void, danger = false) {
   let close = () => {};
@@ -870,6 +930,7 @@ function openPalette(initial = '') {
     { label: t.cmdTogglePanel, icon: 'PanelRight' as IconName, run: () => togglePanel() },
     { label: t.cmdTheme, icon: 'Settings' as IconName, run: () => { const order = ['light', 'dark', 'sepia', 'system']; ui.theme = order[(order.indexOf(ui.theme) + 1) % 4]; ui.term = ''; setPref('term', ''); setPref('theme', ui.theme); applyTheme(); toast(`${t.theme}: ${({ light: t.themeLight, dark: t.themeDark, sepia: t.themeSepia, system: t.themeSystem } as any)[ui.theme]}`); } },
     { label: t.cmdSync, icon: 'RefreshCw' as IconName, run: () => S.sync() },
+    { label: t.history, icon: 'FileClock' as IconName, run: () => openHistory() },
     ...termThemes.map(th => ({ label: `${t.termTheme.split(' (')[0]}: ${th.name} (${th.kind === 'dark' ? t.termDark : t.termLight})`, icon: 'Settings' as IconName, run: () => { ui.term = th.id; setPref('term', th.id); applyTheme(); } })),
   ];
   const update = () => {
