@@ -23,6 +23,7 @@ import '@milkdown/crepe/theme/common/placeholder.css';
 import '@milkdown/crepe/theme/common/toolbar.css';
 import '@milkdown/crepe/theme/common/table.css';
 import '@milkdown/crepe/theme/common/top-bar.css';
+import { EditorState } from '@codemirror/state';
 import { t, lang } from './i18n';
 import { rawUrl, addAttachment, ATTACHMENT_TYPES } from './store';
 
@@ -48,6 +49,7 @@ export async function mountEditor(el: HTMLElement, markdown: string, opts: { top
     try { return relative(await addAttachment(file)); }
     catch (e: any) { opts.onAttachmentError?.(e?.code === 'size' ? 'size' : 'type', file.name); return ''; }
   };
+  if (pt) translateLanguageButton(el);
   const crepe = new Crepe({
     root: el,
     defaultValue: markdown,
@@ -60,7 +62,7 @@ export async function mountEditor(el: HTMLElement, markdown: string, opts: { top
         ...(pt ? { inlineUploadButton: 'Enviar', inlineUploadPlaceholderText: 'ou cole o link', blockUploadButton: 'Enviar arquivo', blockUploadPlaceholderText: 'ou cole o link da imagem', blockCaptionPlaceholderText: 'Legenda', blockConfirmButton: 'OK', inlineConfirmButton: 'OK' } : {}),
       },
       [Crepe.Feature.LinkTooltip]: pt ? { inputPlaceholder: 'Cole ou digite um link…' } : {},
-      [Crepe.Feature.CodeMirror]: pt ? { searchPlaceholder: 'Buscar linguagem', noResultText: 'Nenhuma linguagem', copyText: 'Copiar', previewToggleText: (p: boolean) => (p ? 'Editar' : 'Ocultar') } as any : {},
+      [Crepe.Feature.CodeMirror]: pt ? { searchPlaceholder: 'Buscar linguagem', noResultText: 'Nenhuma linguagem', copyText: 'Copiar', previewToggleText: (p: boolean) => (p ? 'Editar' : 'Ocultar'), extensions: [EditorState.phrases.of(CODE_PT)] } as any : {},
       [Crepe.Feature.Toolbar]: pt ? { boldLabel: 'Negrito', italicLabel: 'Itálico', strikethroughLabel: 'Tachado', codeLabel: 'Código', linkLabel: 'Link' } as any : {},
       [Crepe.Feature.TopBar]: pt ? { headingOptions: [{ label: 'Parágrafo', level: null }, { label: 'Título 1', level: 1 }, { label: 'Título 2', level: 2 }, { label: 'Título 3', level: 3 }, { label: 'Título 4', level: 4 }] } : {},
       [Crepe.Feature.BlockEdit]: pt ? {
@@ -106,4 +108,22 @@ export async function mountEditor(el: HTMLElement, markdown: string, opts: { top
     focus: () => { try { crepe.editor.action(ctx => ctx.get(editorViewCtx).focus()); } catch {} },
     view: () => { let v: any; crepe.editor.action(ctx => { v = ctx.get(editorViewCtx); }); return v; },
   };
+}
+
+// Textos do editor de código (CodeMirror) em português: dobrar linhas, busca dentro do bloco, ir para linha.
+const CODE_PT: Record<string, string> = {
+  'Fold line': 'Recolher linhas', 'Unfold line': 'Expandir linhas', 'Folded lines': 'Linhas recolhidas', 'Unfolded lines': 'Linhas expandidas',
+  'folded code': 'código recolhido', 'unfold': 'expandir', 'to': 'até',
+  'Find': 'Buscar', 'Replace': 'Substituir', 'next': 'próximo', 'previous': 'anterior', 'all': 'todos', 'match case': 'maiúsculas',
+  'regexp': 'expressão regular', 'by word': 'palavra inteira', 'replace': 'substituir', 'replace all': 'substituir todos', 'close': 'fechar',
+  'current match': 'ocorrência atual', 'on line': 'na linha', 'replaced match on line $': 'ocorrência substituída na linha $',
+  'replaced $ matches': '$ ocorrências substituídas', 'Go to line': 'Ir para a linha', 'go': 'ir', 'Completions': 'Sugestões',
+  'Control character': 'Caractere de controle', 'Selection deleted': 'Seleção apagada',
+};
+// O botão de linguagem do bloco de código mostra "Text" quando não há linguagem; em português, "Texto".
+function translateLanguageButton(root: HTMLElement) {
+  const fix = () => root.querySelectorAll('.language-button').forEach(b => {
+    const n = b.firstChild; if (n && n.nodeType === 3 && n.textContent === 'Text') n.textContent = 'Texto';
+  });
+  new MutationObserver(fix).observe(root, { childList: true, subtree: true, characterData: true });
 }

@@ -76,7 +76,7 @@ while (true)
         return result == 0 ? 0 : 1;
     }
     openBrowser = false;
-    Console.WriteLine("\n  Reiniciando com a nova configuração...\n");
+    Console.WriteLine(Idioma.T("\n  Reiniciando com a nova configuração...\n", "\n  Restarting with the new settings...\n"));
 }
 
 void StartWindow(string url)
@@ -98,7 +98,7 @@ void StartWindow(string url)
         {
             if (tray is null || trayHinted) return;
             trayHinted = true;
-            tray.Notify("Cube4Notes continua rodando", "Os outros aparelhos seguem sincronizando. Clique no ícone para abrir ou encerrar.");
+            tray.Notify(Idioma.T("Cube4Notes continua rodando", "Cube4Notes is still running"), Idioma.T("Os outros aparelhos seguem sincronizando. Clique no ícone para abrir ou encerrar.", "Your other devices keep syncing. Click the icon to open or quit."));
         }
     };
 }
@@ -110,11 +110,11 @@ void AllowFirewall(bool manual)
     if (currentPersonal || string.IsNullOrEmpty(currentUrl)) return;
     if (!manual && (Firewall.HasRule() || Firewall.RecentlyDeclined())) return;
     var port = new Uri(currentUrl).Port;
-    Console.WriteLine("  O Windows vai pedir confirmação para liberar o Cube4Notes na rede local (portas " + (port - 1) + " e " + port + ").");
+    Console.WriteLine(Idioma.T("  O Windows vai pedir confirmação para liberar o Cube4Notes na rede local (portas " + (port - 1) + " e " + port + ").", "  Windows will ask to allow Cube4Notes on the local network (ports " + (port - 1) + " and " + port + ")."));
     var ok = Firewall.Allow(port);
-    Console.WriteLine(ok ? "  Firewall liberado para a rede local." : "  Firewall não foi liberado; celular e outros aparelhos podem não conectar.");
-    if (tray is not null) tray.Notify(ok ? "Rede local liberada" : "Firewall não liberado",
-        ok ? "Celular e outros aparelhos da casa já podem conectar." : "Se o celular não conectar, use o menu do ícone: Liberar no firewall.");
+    Console.WriteLine(ok ? Idioma.T("  Firewall liberado para a rede local.", "  Firewall allowed for the local network.") : Idioma.T("  Firewall não foi liberado; celular e outros aparelhos podem não conectar.", "  Firewall was not changed; phones and other devices may not connect."));
+    if (tray is not null) tray.Notify(ok ? Idioma.T("Rede local liberada", "Local network allowed") : Idioma.T("Firewall não liberado", "Firewall not changed"),
+        ok ? Idioma.T("Celular e outros aparelhos da casa já podem conectar.", "Phones and other devices at home can connect now.") : Idioma.T("Se o celular não conectar, use o menu do ícone: Liberar no firewall.", "If a phone cannot connect, use the icon menu: Allow through firewall."));
 }
 
 void Quit()
@@ -184,7 +184,7 @@ async Task<int> RunAsync(AppConfig? config)
         }
         if (!Security.HostAllowed(context.Request.Host.Host))
         {
-            Security.Log($"Host recusado: {context.Request.Host.Host} de {Lan.Normalize(remote)}");
+            Security.Log(Idioma.T($"Host recusado: {context.Request.Host.Host} de {Lan.Normalize(remote)}", $"Host refused: {context.Request.Host.Host} from {Lan.Normalize(remote)}"));
             context.Response.StatusCode = StatusCodes.Status421MisdirectedRequest;
             return;
         }
@@ -205,7 +205,7 @@ async Task<int> RunAsync(AppConfig? config)
         }
         if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method) && !Security.SameOrigin(context.Request))
         {
-            Security.Log($"Origem recusada: {context.Request.Headers.Origin} de {Lan.Normalize(remote)}");
+            Security.Log(Idioma.T($"Origem recusada: {context.Request.Headers.Origin} de {Lan.Normalize(remote)}", $"Origin refused: {context.Request.Headers.Origin} from {Lan.Normalize(remote)}"));
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;
         }
@@ -283,7 +283,7 @@ async Task<int> RunAsync(AppConfig? config)
         if (device is null)
         {
             ctx.Response.Headers.WWWAuthenticate = "Bearer";
-            return Results.Json(new { error = "Use o token do agente no cabeçalho Authorization: Bearer <token>." }, statusCode: StatusCodes.Status401Unauthorized);
+            return Results.Json(new { error = "Send the agent token in the header Authorization: Bearer <token>." }, statusCode: StatusCodes.Status401Unauthorized);
         }
         return await Mcp.Handle(ctx, device, registry);
     });
@@ -322,11 +322,11 @@ async Task<int> RunAsync(AppConfig? config)
             if (transfer?.DeviceId is null || target is null)
             {
                 throttle.Fail(ip);
-                Security.Log($"Transferência inválida de {ip}");
+                Security.Log(Idioma.T($"Transferência inválida de {ip}", $"Invalid transfer from {ip}"));
                 return Results.Json(new { error = "invite" }, statusCode: StatusCodes.Status403Forbidden);
             }
             var extra = devices.AddToken(target.Id)!;
-            Console.WriteLine($"  Aparelho passou a usar o endereço {ctx.Request.Host.Host}: {target.Name} ({ip})");
+            Console.WriteLine(Idioma.T($"  Aparelho passou a usar o endereço {ctx.Request.Host.Host}: {target.Name} ({ip})", $"  Device moved to the address {ctx.Request.Host.Host}: {target.Name} ({ip})"));
             return Results.Ok(new { token = extra, deviceId = target.Id, deviceName = target.Name, transferred = true });
         }
         if (!loopback)
@@ -336,7 +336,7 @@ async Task<int> RunAsync(AppConfig? config)
             if (invite is null)
             {
                 throttle.Fail(ip);
-                Security.Log($"Convite inválido de {ip}");
+                Security.Log(Idioma.T($"Convite inválido de {ip}", $"Invalid invite from {ip}"));
                 return Results.Json(new { error = "invite" }, statusCode: StatusCodes.Status403Forbidden);
             }
             if (invite.DeviceId is not null)
@@ -353,12 +353,12 @@ async Task<int> RunAsync(AppConfig? config)
         if (existing is not null)
         {
             var updated = loopback ? existing : devices.Update(existing.Id, admin, admin ? null : vaults)!;
-            Console.WriteLine($"  Acesso atualizado por convite: {updated.Name} ({ip})");
+            Console.WriteLine(Idioma.T($"  Acesso atualizado por convite: {updated.Name} ({ip})", $"  Access updated by invite: {updated.Name} ({ip})"));
             return Results.Ok(new { token = (string?)null, deviceId = updated.Id, deviceName = updated.Name, updated = true });
         }
         var name = ConfigStore.CleanName(body.DeviceName, "Aparelho");
         var (token, device) = devices.Add(name, admin, vaults);
-        Console.WriteLine($"  Aparelho conectado: {device.Name} ({ip})");
+        Console.WriteLine(Idioma.T($"  Aparelho conectado: {device.Name} ({ip})", $"  Device connected: {device.Name} ({ip})"));
         return Results.Ok(new { token, deviceId = device.Id, deviceName = device.Name });
     });
 
@@ -380,8 +380,8 @@ async Task<int> RunAsync(AppConfig? config)
 
     app.MapPost("/api/setup", (HttpContext ctx, SetupRequest body) =>
     {
-        if (!setup) return Results.Conflict(new { error = "Já configurado." });
-        if (!SetupAllowed(ctx, body.Code)) return Results.Json(new { error = "Código incorreto." }, statusCode: StatusCodes.Status403Forbidden);
+        if (!setup) return Results.Conflict(new { error = "already-set-up" });
+        if (!SetupAllowed(ctx, body.Code)) return Results.Json(new { error = "wrong-code" }, statusCode: StatusCodes.Status403Forbidden);
         var fresh = new AppConfig
         {
             Name = ConfigStore.CleanName(body.ServerName, Environment.MachineName),
@@ -390,13 +390,13 @@ async Task<int> RunAsync(AppConfig? config)
         };
         var problem = ConfigStore.ValidateVaultPath(body.VaultPath, fresh);
         if (problem is not null) return Results.BadRequest(new { error = problem });
-        var vaultName = ConfigStore.CleanName(body.VaultName, "Notas");
+        var vaultName = ConfigStore.CleanName(body.VaultName, ConfigStore.DefaultVaultName);
         var id = ConfigStore.NewVaultId(vaultName, []);
         fresh.Vaults.Add(new VaultConfig(id, vaultName, Path.GetFullPath(body.VaultPath!)));
         Directory.CreateDirectory(fresh.Vaults[0].Path);
         ConfigStore.Save(fresh);
         var (token, device) = devices.Add(ConfigStore.CleanName(body.DeviceName, "Administrador"), true, []);
-        Console.WriteLine($"  Configuração concluída. Administrador: {device.Name}");
+        Console.WriteLine(Idioma.T($"  Configuração concluída. Administrador: {device.Name}", $"  Setup complete. Administrator: {device.Name}"));
         var host = IsLoopback(ctx) ? "localhost" : ctx.Request.Host.Host;
         var nextUrl = fresh.Mode == "pessoal" ? $"http://localhost:{port}/" : $"https://{host}:{port}/";
         restart = true;
@@ -465,7 +465,7 @@ async Task<int> RunAsync(AppConfig? config)
                 try { results.Add(vault.Apply(op, device.Name)); }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"  Erro ao aplicar {op.Type} {op.Path ?? op.From} em {vault.Name}: {ex.Message}");
+                    Console.WriteLine(Idioma.T($"  Erro ao aplicar {op.Type} {op.Path ?? op.From} em {vault.Name}: {ex.Message}", $"  Error applying {op.Type} {op.Path ?? op.From} in {vault.Name}: {ex.Message}"));
                     results.Add(new OpResult(op.Id, "error", Message: "server error"));
                 }
             }
@@ -560,7 +560,7 @@ async Task<int> RunAsync(AppConfig? config)
         var current = ConfigStore.Load()!;
         var problem = ConfigStore.ValidateVaultPath(body.Path, current);
         if (problem is not null) return Results.BadRequest(new { error = problem });
-        var name = ConfigStore.CleanName(body.Name, "Notas");
+        var name = ConfigStore.CleanName(body.Name, ConfigStore.DefaultVaultName);
         var id = ConfigStore.NewVaultId(name, current.Vaults.Select(v => v.Id));
         var full = Path.GetFullPath(body.Path!);
         Directory.CreateDirectory(full);
@@ -568,7 +568,7 @@ async Task<int> RunAsync(AppConfig? config)
         ConfigStore.Save(current);
         config = current;
         registry.Load(current);
-        Console.WriteLine($"  Vault criado: {name} ({full})");
+        Console.WriteLine(Idioma.T($"  Vault criado: {name} ({full})", $"  Vault created: {name} ({full})"));
         return Results.Ok(new { id, name, path = full });
     });
 
@@ -590,13 +590,13 @@ async Task<int> RunAsync(AppConfig? config)
         var current = ConfigStore.Load()!;
         var vault = current.Vaults.FirstOrDefault(v => v.Id == id);
         if (vault is null) return Results.NotFound();
-        if (current.Vaults.Count == 1) return Results.BadRequest(new { error = "É preciso ter pelo menos um vault." });
+        if (current.Vaults.Count == 1) return Results.BadRequest(new { error = "last-vault" });
         current.Vaults.Remove(vault);
         ConfigStore.Save(current);
         config = current;
         registry.Load(current);
         devices.ForgetVault(id);
-        Console.WriteLine($"  Vault removido da lista: {vault.Name} (a pasta {vault.Path} não foi apagada)");
+        Console.WriteLine(Idioma.T($"  Vault removido da lista: {vault.Name} (a pasta {vault.Path} não foi apagada)", $"  Vault removed from the list: {vault.Name} (the folder {vault.Path} was not deleted)"));
         return Results.Ok(new { removed = id });
     });
 
@@ -623,9 +623,9 @@ async Task<int> RunAsync(AppConfig? config)
     {
         var known = registry.All().Select(v => v.Id).ToHashSet();
         var vaults = (body.Vaults ?? []).Where(known.Contains).Distinct().ToList();
-        if (vaults.Count == 0) return Results.BadRequest(new { error = "Escolha pelo menos um vault." });
+        if (vaults.Count == 0) return Results.BadRequest(new { error = "pick-vault" });
         var (token, agent) = devices.Add(ConfigStore.CleanName(body.Name, "Agente"), false, vaults, readOnly: true);
-        Console.WriteLine($"  Agente criado: {agent.Name} (somente leitura: {string.Join(", ", vaults)})");
+        Console.WriteLine(Idioma.T($"  Agente criado: {agent.Name} (somente leitura: {string.Join(", ", vaults)})", $"  Agent created: {agent.Name} (read only: {string.Join(", ", vaults)})"));
         var addresses = Lan.Addresses().Where(a => a.Primary).Select(a => $"{scheme}://{a.Address}:{port}/mcp").ToList();
         return Results.Ok(new { id = agent.Id, name = agent.Name, token, local = $"http://localhost:{(useHttps ? port - 1 : port)}/mcp", network = personal ? new List<string>() : addresses, https = useHttps });
     });
@@ -641,7 +641,7 @@ async Task<int> RunAsync(AppConfig? config)
     {
         var removed = devices.Remove(id);
         if (removed is null) return Results.NotFound();
-        Console.WriteLine($"  Aparelho removido: {removed.Name}");
+        Console.WriteLine(Idioma.T($"  Aparelho removido: {removed.Name}", $"  Device removed: {removed.Name}"));
         return Results.Ok(new { removed = removed.Id });
     });
 
@@ -649,7 +649,7 @@ async Task<int> RunAsync(AppConfig? config)
     app.MapPost("/api/admin/quit", (HttpContext ctx) =>
     {
         if (!IsLoopback(ctx)) return Results.StatusCode(StatusCodes.Status403Forbidden);
-        Console.WriteLine("  Encerrado pela interface.");
+        Console.WriteLine(Idioma.T("  Encerrado pela interface.", "  Closed from the interface."));
         _ = Task.Run(async () => { await Task.Delay(400); app.Lifetime.StopApplication(); });
         return Results.Ok(new { quitting = true });
     });
@@ -678,7 +678,7 @@ async Task<int> RunAsync(AppConfig? config)
     PrintBanner(config, setup, setupCode, personal, scheme, port, httpPort, useHttps);
     // Rede de casa: responde pelo nome do computador (<nome>.local), que continua valendo quando o IP muda.
     using var mdns = !personal && !setup && Tls.NetName.Length > 0 && !args.Contains("--sem-nome-na-rede") ? new Mdns(Tls.NetName) : null;
-    if (mdns is not null && mdns.Start()) Console.WriteLine($"  Pelo nome:        {scheme}://{mdns.Name}:{port}");
+    if (mdns is not null && mdns.Start()) Console.WriteLine(Idioma.T($"  Pelo nome:        {scheme}://{mdns.Name}:{port}", $"  By name:          {scheme}://{mdns.Name}:{port}"));
     void OnNetworkChange(object? s, EventArgs e) { Lan.OnAddressesChanged(() => PrintAddresses(personal, scheme, port)); mdns?.Refresh(); }
     NetworkChange.NetworkAddressChanged += OnNetworkChange;
     if (useHttps && OperatingSystem.IsWindows() && !args.Contains("--sem-instalar-certificado")) Tls.TrustOnWindows();
@@ -696,7 +696,7 @@ async Task<int> RunAsync(AppConfig? config)
     }
     catch (IOException ex) when (ex.InnerException is SocketException || ex.Message.Contains("address", StringComparison.OrdinalIgnoreCase))
     {
-        Console.WriteLine($"\nA porta {port} já está em uso. Feche a outra janela do Cube4Notes ou use --port 43200.");
+        Console.WriteLine(Idioma.T($"\nA porta {port} já está em uso. Feche a outra janela do Cube4Notes ou use --port 43200.", $"\nPort {port} is already in use. Close the other Cube4Notes window or use --port 43200."));
         return -1;
     }
     finally
@@ -712,7 +712,7 @@ async Task<int> RunAsync(AppConfig? config)
         if (throttle.Blocked(ip)) return false;
         var ok = !string.IsNullOrEmpty(code) && code.Length < 32
             && CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(new string(code.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant()), Encoding.ASCII.GetBytes(setupCode));
-        if (!ok) { throttle.Fail(ip); Security.Log($"Código de configuração inválido de {ip}"); }
+        if (!ok) { throttle.Fail(ip); Security.Log(Idioma.T($"Código de configuração inválido de {ip}", $"Invalid setup code from {ip}")); }
         return ok;
     }
 }
@@ -753,7 +753,7 @@ static IResult Browse(string? path)
     var suggested = Path.Combine(string.IsNullOrEmpty(docs) ? home : docs, "Cube4Notes");
     string dir;
     try { dir = string.IsNullOrWhiteSpace(path) ? home : Path.GetFullPath(path); }
-    catch (Exception) { return Results.BadRequest(new { error = "Caminho inválido." }); }
+    catch (Exception) { return Results.BadRequest(new { error = "bad-path" }); }
     if (!Directory.Exists(dir)) return Results.Ok(new { path = dir, exists = false, parent = Path.GetDirectoryName(dir), entries = Array.Empty<object>(), roots, suggested });
     List<object> entries;
     try
@@ -792,39 +792,39 @@ static void PrintBanner(AppConfig? config, bool setup, string setupCode, bool pe
     Console.WriteLine();
     if (setup)
     {
-        Console.WriteLine("  Cube4Notes: primeira execução.");
-        Console.WriteLine($"  Neste computador, abra {scheme}://localhost:{port} para configurar.");
+        Console.WriteLine(Idioma.T("  Cube4Notes: primeira execução.", "  Cube4Notes: first run."));
+        Console.WriteLine(Idioma.T($"  Neste computador, abra {scheme}://localhost:{port} para configurar.", $"  On this computer, open {scheme}://localhost:{port} to set it up."));
         if (!personal)
         {
-            Console.WriteLine("  De outro aparelho da rede (útil em servidor sem tela):");
+            Console.WriteLine(Idioma.T("  De outro aparelho da rede (útil em servidor sem tela):", "  From another device on the network (useful on a server without a screen):"));
             PrintAddresses(personal, scheme, port);
-            Console.WriteLine($"  e digite o código de configuração: {setupCode}");
+            Console.WriteLine(Idioma.T($"  e digite o código de configuração: {setupCode}", $"  and type the setup code: {setupCode}"));
         }
         Console.WriteLine();
         return;
     }
-    Console.WriteLine($"  {config!.Name}: Cube4Notes está rodando.");
+    Console.WriteLine(Idioma.T($"  {config!.Name}: Cube4Notes está rodando.", $"  {config!.Name}: Cube4Notes is running."));
     foreach (var v in config.Vaults) Console.WriteLine($"  Vault \"{v.Name}\": {v.Path}");
-    Console.WriteLine($"  Configuração: {ConfigStore.Dir}");
-    Console.WriteLine($"  Neste computador: {scheme}://localhost:{port}");
+    Console.WriteLine(Idioma.T($"  Configuração: {ConfigStore.Dir}", $"  Settings: {ConfigStore.Dir}"));
+    Console.WriteLine(Idioma.T($"  Neste computador: {scheme}://localhost:{port}", $"  On this computer: {scheme}://localhost:{port}"));
     if (personal)
     {
-        Console.WriteLine("  Modo pessoal: só este computador acessa (nada fica exposto na rede).");
+        Console.WriteLine(Idioma.T("  Modo pessoal: só este computador acessa (nada fica exposto na rede).", "  Personal mode: only this computer has access (nothing is exposed on the network)."));
     }
     else
     {
         PrintAddresses(personal, scheme, port);
         Console.WriteLine();
-        Console.WriteLine("  Para conectar celular, iPad ou outro computador: abra o Cube4Notes num aparelho administrador,");
-        Console.WriteLine("  Preferências > Conectar aparelho, e aponte a câmera para o QR code.");
+        Console.WriteLine(Idioma.T("  Para conectar celular, iPad ou outro computador: abra o Cube4Notes num aparelho administrador,", "  To connect a phone, iPad or another computer: open Cube4Notes on an administrator device,"));
+        Console.WriteLine(Idioma.T("  Preferências > Conectar aparelho, e aponte a câmera para o QR code.", "  Settings > Connect device, and point the camera at the QR code."));
         if (useHttps)
         {
-            Console.WriteLine($"  Conexão protegida por HTTPS com certificado próprio do Cube4Notes (impressão digital {Tls.CaThumbprint[..16]}...).");
-            Console.WriteLine($"  Certificado para instalar nos aparelhos: http://<endereço>:{httpPort}{Tls.CertPath}");
+            Console.WriteLine(Idioma.T($"  Conexão protegida por HTTPS com certificado próprio do Cube4Notes (impressão digital {Tls.CaThumbprint[..16]}...).", $"  Connection protected by HTTPS with Cube4Notes' own certificate (fingerprint {Tls.CaThumbprint[..16]}...)."));
+            Console.WriteLine(Idioma.T($"  Certificado para instalar nos aparelhos: http://<endereço>:{httpPort}{Tls.CertPath}", $"  Certificate to install on devices: http://<address>:{httpPort}{Tls.CertPath}"));
         }
-        Console.WriteLine("  Acesso restrito à rede local.");
+        Console.WriteLine(Idioma.T("  Acesso restrito à rede local.", "  Access limited to the local network."));
     }
-    Console.WriteLine("  Feche esta janela ou use Ctrl+C para encerrar.");
+    Console.WriteLine(Idioma.T("  Feche esta janela ou use Ctrl+C para encerrar.", "  Close this window or press Ctrl+C to stop."));
     Console.WriteLine();
 }
 
@@ -832,10 +832,10 @@ static void PrintAddresses(bool personal, string scheme, int port)
 {
     if (personal) return;
     var addresses = Lan.Addresses().ToList();
-    if (addresses.Count == 0) Console.WriteLine("  Nenhuma rede local ativa encontrada.");
-    foreach (var a in addresses.Where(a => a.Primary)) Console.WriteLine($"  Na rede local:    {scheme}://{a.Address}:{port}   ({a.Interface})");
+    if (addresses.Count == 0) Console.WriteLine(Idioma.T("  Nenhuma rede local ativa encontrada.", "  No active local network found."));
+    foreach (var a in addresses.Where(a => a.Primary)) Console.WriteLine(Idioma.T($"  Na rede local:    {scheme}://{a.Address}:{port}   ({a.Interface})", $"  On the network:   {scheme}://{a.Address}:{port}   ({a.Interface})"));
     var others = addresses.Where(a => !a.Primary).Select(a => a.Address.ToString()).ToList();
-    if (others.Count > 0) Console.WriteLine($"  Também responde em (VPN/placas virtuais): {string.Join(", ", others)}");
+    if (others.Count > 0) Console.WriteLine(Idioma.T($"  Também responde em (VPN/placas virtuais): {string.Join(", ", others)}", $"  Also answers on (VPN/virtual adapters): {string.Join(", ", others)}"));
 }
 
 static void OpenBrowser(string url)

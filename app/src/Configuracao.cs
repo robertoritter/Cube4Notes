@@ -28,6 +28,7 @@ static class ConfigStore
     private static readonly object Sync = new();
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
+    public static string DefaultVaultName => Idioma.T("Notas", "Notes");
     public static string Dir { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cube4Notes");
     public static string FilePath => Path.Combine(Dir, "config.json");
 
@@ -42,7 +43,7 @@ static class ConfigStore
                 // Arquivo corrompido: guarda uma cópia e recomeça pelo assistente (as notas não são tocadas).
                 var bad = FilePath + ".invalido-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
                 File.Copy(FilePath, bad, true);
-                Console.WriteLine($"  config.json inválido ({ex.Message}). Cópia salva em {bad}.");
+                Console.WriteLine(Idioma.T($"  config.json inválido ({ex.Message}). Cópia salva em {bad}.", $"  Invalid config.json ({ex.Message}). Copy saved as {bad}."));
                 return null;
             }
         }
@@ -69,7 +70,7 @@ static class ConfigStore
         var root = Path.GetFullPath(legacy).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         Directory.CreateDirectory(root);
         var config = new AppConfig { LegacyVault = "notas" };
-        config.Vaults.Add(new VaultConfig("notas", "Notas", root));
+        config.Vaults.Add(new VaultConfig("notas", DefaultVaultName, root));
         var oldDevices = Path.Combine(root, ".cube4notes", "devices.json");
         var newDevices = Path.Combine(Dir, "devices.json");
         if (File.Exists(oldDevices) && !File.Exists(newDevices))
@@ -78,7 +79,7 @@ static class ConfigStore
             File.Copy(oldDevices, newDevices);
         }
         Save(config);
-        Console.WriteLine($"  Configuração criada a partir da pasta {root} (vault \"Notas\").");
+        Console.WriteLine(Idioma.T($"  Configuração criada a partir da pasta {root} (vault \"{ConfigStore.DefaultVaultName}\").", $"  Settings created from the folder {root} (vault \"{ConfigStore.DefaultVaultName}\")."));
         return config;
     }
 
@@ -105,29 +106,29 @@ static class ConfigStore
         return clean.Length > 60 ? clean[..60] : clean;
     }
 
-    // Devolve null se a pasta pode ser um vault; senão, o motivo em português.
+    // Devolve null se a pasta pode ser um vault; senão, o código do motivo (a interface traduz).
     public static string? ValidateVaultPath(string? path, AppConfig config, string? exceptId = null)
     {
-        if (string.IsNullOrWhiteSpace(path)) return "Escolha uma pasta.";
-        if (!Path.IsPathFullyQualified(path)) return "Use o caminho completo da pasta.";
+        if (string.IsNullOrWhiteSpace(path)) return "pick-folder";
+        if (!Path.IsPathFullyQualified(path)) return "full-path";
         string full;
         try { full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
-        catch (Exception) { return "Caminho inválido."; }
+        catch (Exception) { return "bad-path"; }
         if (full.Length == 0 || Path.GetPathRoot(full) is { } r && r.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) == full)
-            return "Não use a raiz do disco como vault; escolha ou crie uma pasta.";
+            return "disk-root";
         var cmp = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         bool Inside(string a, string b) => string.Equals(a, b, cmp) || a.StartsWith(b + Path.DirectorySeparatorChar, cmp);
         var dirFull = Path.GetFullPath(Dir).TrimEnd(Path.DirectorySeparatorChar);
-        if (Inside(full, dirFull) || Inside(dirFull, full)) return "Essa pasta guarda a configuração do Cube4Notes.";
+        if (Inside(full, dirFull) || Inside(dirFull, full)) return "config-folder";
         foreach (var sys in SystemFolders())
-            if (Inside(full, sys) || string.Equals(full, sys, cmp)) return "Pasta do sistema não pode ser um vault.";
+            if (Inside(full, sys) || string.Equals(full, sys, cmp)) return "system-folder";
         foreach (var v in config.Vaults)
         {
             if (v.Id == exceptId) continue;
             var other = Path.GetFullPath(v.Path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            if (Inside(full, other) || Inside(other, full)) return $"Essa pasta já faz parte do vault \"{v.Name}\".";
+            if (Inside(full, other) || Inside(other, full)) return "in-vault:" + v.Name;
         }
-        if (File.Exists(full)) return "Esse caminho é um arquivo, não uma pasta.";
+        if (File.Exists(full)) return "is-file";
         return null;
     }
 

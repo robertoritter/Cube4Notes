@@ -228,8 +228,8 @@ const pt = {
   addKitButton: 'Adicionar ao vault',
   kitInstalled: 'Já está no vault',
   kitAlready: 'Esses modelos já estavam no vault',
-  kitAdded: (k: string, n: number) => `${k}: ${n} modelos adicionados em modelos/`,
-  kitHelp: 'Cada conjunto cria modelos comuns na pasta modelos/ deste vault. Depois eles são seus: mude campos, crie tipos novos, apague o que não usar. Dá para juntar vários conjuntos.',
+  kitAdded: (k: string, n: number, d: string) => `${k}: ${n} modelos adicionados em ${d}/`,
+  kitHelp: (d: string) => `Cada conjunto cria modelos comuns na pasta ${d}/ deste vault. Depois eles são seus: mude campos, crie tipos novos, apague o que não usar. Dá para juntar vários conjuntos.`,
   startWithKit: 'Começar com modelos prontos',
   linkCreateAs: (n: string, tpl: string) => `Criar “${n}” como ${tpl}`,
   todayNote: 'Nota de hoje',
@@ -308,7 +308,21 @@ const pt = {
   linksUpdated: (n: number) => (n === 1 ? 'Links atualizados em 1 nota' : `Links atualizados em ${n} notas`),
   attachmentUnavailable: 'Este anexo ainda não está neste aparelho. Ele chega na próxima sincronização com o servidor.',
   scLink: 'Link para outra nota',
-  offlineHelp: 'Sem contato com o servidor. Confira se o Cube4Notes está aberto no computador e se este aparelho está no Wi-Fi de casa. Se continuar, no computador clique com o botão direito no ícone do Cube4Notes (perto do relógio) e escolha Liberar no firewall.',
+  offlineHelp: 'Sem contato com o servidor. Confira se o Cube4Notes está aberto no computador e se este aparelho está no Wi-Fi de casa. Se continuar, no computador clique com o botão direito no ícone do Cube4Notes (perto do relógio) e escolha Liberar no firewall (no Windows em inglês: Allow through firewall).',
+  srvErr: {
+    'pick-folder': 'Escolha uma pasta.',
+    'full-path': 'Use o caminho completo da pasta.',
+    'bad-path': 'Caminho inválido.',
+    'disk-root': 'Não use a raiz do disco como vault; escolha ou crie uma pasta.',
+    'config-folder': 'Essa pasta guarda a configuração do Cube4Notes.',
+    'system-folder': 'Pasta do sistema não pode ser um vault.',
+    'is-file': 'Esse caminho é um arquivo, não uma pasta.',
+    'already-set-up': 'O Cube4Notes já está configurado.',
+    'wrong-code': 'Código incorreto.',
+    'last-vault': 'É preciso ter pelo menos um vault.',
+    'pick-vault': 'Escolha pelo menos um vault.',
+  } as Record<string, string>,
+  srvErrInVault: (n: string) => `Essa pasta já faz parte do vault “${n}”.`,
 };
 export type Dict = typeof pt;
 const en: Dict = {
@@ -533,8 +547,8 @@ const en: Dict = {
   addKitButton: 'Add to vault',
   kitInstalled: 'Already in the vault',
   kitAlready: 'Those templates were already in the vault',
-  kitAdded: (k: string, n: number) => `${k}: ${n} templates added to modelos/`,
-  kitHelp: 'Each set creates ordinary templates in this vault’s modelos/ folder. They are yours afterwards: change fields, add new types, delete what you do not use. Sets can be combined.',
+  kitAdded: (k: string, n: number, d: string) => `${k}: ${n} templates added to ${d}/`,
+  kitHelp: (d: string) => `Each set creates ordinary templates in this vault’s ${d}/ folder. They are yours afterwards: change fields, add new types, delete what you do not use. Sets can be combined.`,
   startWithKit: 'Start with ready-made templates',
   linkCreateAs: (n: string, tpl: string) => `Create “${n}” as ${tpl}`,
   todayNote: 'Today’s note',
@@ -613,7 +627,21 @@ const en: Dict = {
   linksUpdated: (n: number) => (n === 1 ? 'Links updated in 1 note' : `Links updated in ${n} notes`),
   attachmentUnavailable: 'This attachment is not on this device yet. It arrives on the next sync with the server.',
   scLink: 'Link to another note',
-  offlineHelp: 'Cannot reach the server. Check that Cube4Notes is open on the computer and that this device is on the home Wi-Fi. If it persists, on the computer right-click the Cube4Notes icon (next to the clock) and choose “Liberar no firewall” (allow through the firewall).',
+  offlineHelp: 'Cannot reach the server. Check that Cube4Notes is open on the computer and that this device is on the home Wi-Fi. If it persists, on the computer right-click the Cube4Notes icon (next to the clock) and choose “Allow through firewall” (on Windows in Portuguese: “Liberar no firewall”).',
+  srvErr: {
+    'pick-folder': 'Choose a folder.',
+    'full-path': 'Use the full path of the folder.',
+    'bad-path': 'Invalid path.',
+    'disk-root': 'Do not use the root of a drive as a vault; choose or create a folder.',
+    'config-folder': 'That folder holds the Cube4Notes settings.',
+    'system-folder': 'A system folder cannot be a vault.',
+    'is-file': 'That path is a file, not a folder.',
+    'already-set-up': 'Cube4Notes is already set up.',
+    'wrong-code': 'Wrong code.',
+    'last-vault': 'There must be at least one vault.',
+    'pick-vault': 'Choose at least one vault.',
+  } as Record<string, string>,
+  srvErrInVault: (n: string) => `That folder is already part of the vault “${n}”.`,
 };
 export type Lang = 'pt-BR' | 'en';
 const dicts: Record<Lang, Dict> = { 'pt-BR': pt, en };
@@ -624,3 +652,9 @@ function initial(): Lang {
 export let lang: Lang = initial();
 export let t: Dict = dicts[lang];
 export function setLang(l: Lang) { lang = l; t = dicts[l]; try { localStorage.setItem('c4n-lang', l); } catch {} document.documentElement.lang = l; }
+// Mensagem de erro do servidor (código estável) na língua da interface.
+export function serverError(e: any, fallback: string): string {
+  const m = typeof e === 'string' ? e : e?.message || '';
+  if (m.startsWith('in-vault:')) return t.srvErrInVault(m.slice(9));
+  return t.srvErr[m] || fallback;
+}

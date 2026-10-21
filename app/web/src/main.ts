@@ -11,7 +11,7 @@
 import './fonts.css';
 import './styles.css';
 import * as S from './store';
-import { t, lang, setLang, type Lang } from './i18n';
+import { t, lang, setLang, serverError, type Lang } from './i18n';
 import { ic, type IconName } from './icons';
 import { mountEditor, type EditorHandle } from './editor';
 import qrcode from 'qrcode-generator';
@@ -20,7 +20,7 @@ import { resolveRef, noteLink, rewriteLinks, mover, isExternal } from './links';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { parseProps, serializeProps, noteTags, parseQuery, matches, noteProps, type Prop } from './props';
 import { kits, kitNotes } from './conjuntos';
-import { info, typeLabel, nameIndex, outgoing, incoming, bodyTargets, templates, fromTemplate, today, isTemplate, type Template } from './tipos';
+import { info, typeLabel, nameIndex, outgoing, incoming, bodyTargets, templates, fromTemplate, today, isTemplate, templateDir, TEMPLATE_DIRS, type Template } from './tipos';
 
 // ---------------------------------------------------------------- helpers
 type Attrs = Record<string, any>;
@@ -806,7 +806,7 @@ function templateBanner(path: string): HTMLElement | null {
   if (!isTemplate(path)) return null;
   const tpl = templates(S.notes).find(x => x.path === path);
   // modelo de um conjunto pronto: dá para voltar ao texto original
-  const original = (['pt-BR', 'en'] as const).flatMap(l => kits(l).flatMap(k => kitNotes(k, l))).find(n => n.path === path)?.content;
+  const original = (['pt-BR', 'en'] as const).flatMap(l => TEMPLATE_DIRS.flatMap(d => kits(l).flatMap(k => kitNotes(k, l, d)))).find(n => n.path === path)?.content;
   const isLocked = locked(path);
   return h('div', { class: 'banner template-banner', role: 'note' }, ic('LayoutTemplate', 18),
     h('div', { class: 'banner-text' }, h('strong', {}, isLocked ? t.tplLockedTitle : t.tplBannerTitle), h('p', {}, isLocked ? t.tplLockedBody : t.tplBannerBody)),
@@ -1170,12 +1170,13 @@ function createSheet(folder: string, preset: Template | null = null) {
     h('div', { class: 'modal-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => close() }, t.cancel), h('button', { class: 'btn primary', type: 'submit' }, ic('Plus', 15), t.create)));
   close = overlay(form, 'sheet'); name.focus();
 }
-// Conjuntos prontos de modelos: criam notas comuns em modelos/ (as que já existem não são tocadas).
+// Conjuntos prontos de modelos: criam notas comuns em modelos/ ou templates/ (as que já existem não são tocadas).
 function openKits() {
   if (!S.activeVault) return;
   const existing = (p: string) => S.notes.has(p);
+  const dir = templateDir(S.notes.keys(), lang);
   const cards = kits(lang).map(k => {
-    const notes = kitNotes(k, lang);
+    const notes = kitNotes(k, lang, dir);
     const missing = notes.filter(n => !existing(n.path));
     return h('div', { class: 'kit-card' },
       h('div', { class: 'kit-head' }, ic(k.icon as IconName, 18), h('b', {}, k.name)),
@@ -1184,11 +1185,11 @@ function openKits() {
       h('button', { class: 'btn small' + (missing.length ? ' primary' : ''), onclick: async (e: MouseEvent) => {
         const b = e.currentTarget as HTMLButtonElement; b.disabled = true;
         for (const n of missing) await S.createNote(n.path, n.content);
-        toast(missing.length ? t.kitAdded(k.name, missing.length) : t.kitAlready);
+        toast(missing.length ? t.kitAdded(k.name, missing.length, dir) : t.kitAlready);
         close();
       } }, missing.length ? t.addKitButton : t.kitInstalled));
   });
-  const close = modal(t.addKit, h('div', { class: 'kits' }, h('p', { class: 'muted small-note' }, t.kitHelp), h('div', { class: 'kit-grid' }, ...cards)), 'wide');
+  const close = modal(t.addKit, h('div', { class: 'kits' }, h('p', { class: 'muted small-note' }, t.kitHelp(dir)), h('div', { class: 'kit-grid' }, ...cards)), 'wide');
 }
 // Nota de hoje: Diário/2026-10-21.md, a partir do modelo "Diário" se existir.
 async function openToday() {
@@ -1611,7 +1612,7 @@ async function openDevices() {
       e.preventDefault(); err.textContent = '';
       if (!sel.size) { err.textContent = t.pickOneVault; return; }
       try { const r = await S.createAgent(name.value.trim(), [...sel]); showAgent(r); }
-      catch (e: any) { err.textContent = e.message || t.setupFailed; }
+      catch (e: any) { err.textContent = serverError(e, t.setupFailed); }
     } },
       h('label', { class: 'label' }, t.agentName), name, h('span', { class: 'label' }, t.agentVaults), checks, err,
       h('div', { class: 'modal-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => loadDevices() }, t.cancel), h('button', { class: 'btn primary', type: 'submit' }, ic('KeyRound', 15), t.createToken)));
@@ -1709,10 +1710,10 @@ async function openVaultsAdmin() {
       ic('Library', 16),
       h('div', { class: 'vault-info' }, h('b', {}, v.name), h('small', {}, v.path || '')),
       h('button', { class: 'btn small ghost', onclick: () => prompt(t.vaultName, t.save, async name => {
-        try { await S.renameVault(v.id, name); toast(t.nameSaved); drawVaults(); renderVaultSwitch(); } catch (e: any) { toast(e.message || t.setupFailed, 'warn'); }
+        try { await S.renameVault(v.id, name); toast(t.nameSaved); drawVaults(); renderVaultSwitch(); } catch (e: any) { toast(serverError(e, t.setupFailed), 'warn'); }
       }, v.name) }, ic('Pencil', 14), t.rename),
       S.vaults.length > 1 ? h('button', { class: 'btn small ghost danger-text', onclick: () => dialog(t.removeVaultQ(v.name), t.removeVaultHint, t.removeFromList, async () => {
-        try { await S.removeVault(v.id); toast(t.vaultRemoved); drawVaults(); renderVaultSwitch(); } catch (e: any) { toast(e.message || t.setupFailed, 'warn'); }
+        try { await S.removeVault(v.id); toast(t.vaultRemoved); drawVaults(); renderVaultSwitch(); } catch (e: any) { toast(serverError(e, t.setupFailed), 'warn'); }
       }, true) }, ic('Trash2', 14), t.remove) : null)));
   };
   drawVaults();
@@ -1730,7 +1731,7 @@ async function openVaultsAdmin() {
       toast(t.vaultAdded); name.value = ''; addForm.hidden = true; openAdd.hidden = false;
       drawVaults(); renderVaultSwitch(); S.scheduleSync(0);
       if (v?.id) { await changeVault(v.id); document.querySelectorAll('.overlay').forEach(o => o.remove()); openKits(); }
-    } catch (e: any) { err.textContent = e.message || t.setupFailed; }
+    } catch (e: any) { err.textContent = serverError(e, t.setupFailed); }
     addBtn.removeAttribute('disabled');
   } },
     h('label', { class: 'label' }, t.vaultName), name,
@@ -1745,7 +1746,7 @@ async function openVaultsAdmin() {
     .map(([v, l, hint, icon]) => h('button', { type: 'button', class: 'mode-card' + (v === mode ? ' on' : ''), onclick: () => {
       if (v === mode) return;
       dialog(t.modeChangeQ, t.modeChangeHint, t.change, async () => {
-        try { const r = await S.updateServer({ mode: v }); if (r.restart) waitRestart(r.next); } catch (e: any) { toast(e.message || t.setupFailed, 'warn'); }
+        try { const r = await S.updateServer({ mode: v }); if (r.restart) waitRestart(r.next); } catch (e: any) { toast(serverError(e, t.setupFailed), 'warn'); }
       });
     } }, ic(icon, 18), h('b', {}, l), h('small', {}, hint))));
   S.serverInfo().then(si => { srvName.value = si.name; mode = si.mode; drawMode(); }).catch(() => {});
@@ -1753,7 +1754,7 @@ async function openVaultsAdmin() {
   const body = h('div', { class: 'vaults-admin' },
     h('h3', {}, t.vaults), vlist, openAdd, addForm,
     h('h3', {}, t.server),
-    h('form', { class: 'srv-name', onsubmit: async (e: Event) => { e.preventDefault(); try { await S.updateServer({ name: srvName.value }); toast(t.nameSaved); } catch (e: any) { toast(e.message || t.setupFailed, 'warn'); } } },
+    h('form', { class: 'srv-name', onsubmit: async (e: Event) => { e.preventDefault(); try { await S.updateServer({ name: srvName.value }); toast(t.nameSaved); } catch (e: any) { toast(serverError(e, t.setupFailed), 'warn'); } } },
       h('label', { class: 'label' }, t.serverName), h('div', { class: 'inline' }, srvName, h('button', { class: 'btn', type: 'submit' }, t.save))),
     h('span', { class: 'label' }, t.mode), modeBox,
     ui.loopback ? h('button', { class: 'btn ghost danger-text quit-btn', onclick: () => dialog(t.quitQ, t.quitHint, t.quit, async () => {
@@ -1803,7 +1804,7 @@ function setupScreen(st: S.ServerStatus) {
         const next = await S.runSetup({ code: code?.value.trim() || '', mode, serverName: '', vaultName: vaultName.value.trim(), vaultPath: picker.value(), deviceName: device.value.trim() || guessDevice() });
         keepStorage(); waitRestart(next);
       } catch (err: any) {
-        msg.textContent = err.status === 403 ? t.setupWrongCode : err.message && err.message.length > 3 ? err.message : t.setupFailed;
+        msg.textContent = err.status === 403 ? t.setupWrongCode : serverError(err, t.setupFailed);
         btn.removeAttribute('disabled');
       }
     },

@@ -5,16 +5,23 @@
  * Copyright (c) 2026 Roberto Ritter
  *
  * Modelos, tipos e relações entre notas. Tudo vem do próprio Markdown: "tipo:" e campos nas propriedades,
- * modelos são notas comuns na pasta modelos/, e uma relação é um campo cujo valor é o nome de outra nota
+ * modelos são notas comuns na pasta modelos/ (ou templates/, em inglês), e uma relação é um campo cujo valor é o nome de outra nota
  * (empresa: Empresa Y) ou um link no texto. Calculado no aparelho, funciona offline.
  */
 import { parseProps, serializeProps, noteProps, noteTags, splitFrontmatter, type Prop } from './props';
 import { resolveRef } from './links';
 
-export const TEMPLATE_DIR = 'modelos';
+// Pasta dos modelos: modelos/ ou templates/ (as duas valem; um vault novo usa a da língua da interface).
+export const TEMPLATE_DIRS = ['modelos', 'templates'];
+export function templateDir(paths: Iterable<string>, lang: string): string {
+  const have = new Set<string>();
+  for (const p of paths) { const d = p.split('/')[0]; if (TEMPLATE_DIRS.includes(d) && p.includes('/')) have.add(d); }
+  const mine = lang === 'pt-BR' ? 'modelos' : 'templates';
+  return have.has(mine) ? mine : have.size ? [...have][0] : mine;
+}
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const baseName = (p: string) => p.split('/').pop()!.replace(/\.md$/i, '');
-export const isTemplate = (p: string) => p.startsWith(TEMPLATE_DIR + '/');
+export const isTemplate = (p: string) => TEMPLATE_DIRS.some(d => p.startsWith(d + '/'));
 // Palavras-chave dos modelos em português e em inglês
 export const TYPE_KEYS = ['tipo', 'type'], FOLDER_KEYS = ['destino', 'folder'];
 const RESERVED = new Set([...TYPE_KEYS, ...FOLDER_KEYS, 'tags', 'tag', 'aliases']);

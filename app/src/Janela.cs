@@ -71,7 +71,7 @@ static class Janela
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  Não foi possível abrir a janela ({ex.Message}); abrindo no navegador.");
+            Console.WriteLine(Idioma.T($"  Não foi possível abrir a janela ({ex.Message}); abrindo no navegador.", $"  Could not open the window ({ex.Message}); opening in the browser."));
             OpenBrowser(url);
             return null;
         }
@@ -102,7 +102,7 @@ static class Janela
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"  Janela indisponível ({ex.Message}); abrindo no navegador.");
+                Console.WriteLine(Idioma.T($"  Janela indisponível ({ex.Message}); abrindo no navegador.", $"  Window unavailable ({ex.Message}); opening in the browser."));
             }
         }
         if (OperatingSystem.IsWindows())
@@ -126,6 +126,6 @@ static class Janela
             else if (OperatingSystem.IsMacOS()) Process.Start("open", url);
             else Process.Start("xdg-open", url);
         }
-        catch (Exception) { Console.WriteLine($"  Abra no navegador: {url}"); }
+        catch (Exception) { Console.WriteLine(Idioma.T($"  Abra no navegador: {url}", $"  Open in the browser: {url}")); }
     }
 }

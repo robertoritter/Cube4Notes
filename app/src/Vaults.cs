@@ -72,7 +72,7 @@ sealed class Vault
                         }
                         var movedCopy = ConflictPath(moved, deviceName);
                         WriteAtomic(NotePaths.Resolve(Root, movedCopy, markdown: true)!, content);
-                        Console.WriteLine($"  Conflito em {moved}: cópia salva como {movedCopy}");
+                        Console.WriteLine(Idioma.T($"  Conflito em {moved}: cópia salva como {movedCopy}", $"  Conflict in {moved}: copy saved as {movedCopy}"));
                         return new OpResult(op.Id, "conflict", Version(movedCurrent), movedCopy, Version(content), MovedTo: moved);
                     }
                     // nova nota, ou nota apagada em outro lugar: a versão deste aparelho é mantida
@@ -90,7 +90,7 @@ sealed class Vault
                 // Mudou dos dois lados: o servidor fica com a sua versão e a do aparelho vira uma cópia ao lado.
                 var copy = ConflictPath(op.Path!, deviceName);
                 WriteAtomic(NotePaths.Resolve(Root, copy, markdown: true)!, content);
-                Console.WriteLine($"  Conflito em {op.Path}: cópia salva como {copy}");
+                Console.WriteLine(Idioma.T($"  Conflito em {op.Path}: cópia salva como {copy}", $"  Conflict in {op.Path}: copy saved as {copy}"));
                 return new OpResult(op.Id, "conflict", Version(current), copy, Version(content));
             }
             case "delete":
@@ -150,11 +150,12 @@ sealed class Vault
     {
         var stem = rel[..^3];
         var safe = new string(device.Where(c => char.IsLetterOrDigit(c) || c is ' ' or '-' or '_').ToArray()).Trim();
-        if (safe.Length == 0) safe = "aparelho";
+        if (safe.Length == 0) safe = Idioma.T("aparelho", "device");
         var stamp = DateTime.Now.ToString("yyyy-MM-dd HHmm");
-        var candidate = $"{stem} (conflito {safe} {stamp}).md";
+        var word = Idioma.T("conflito", "conflict");
+        var candidate = $"{stem} ({word} {safe} {stamp}).md";
         for (var i = 2; File.Exists(NotePaths.Resolve(Root, candidate, markdown: true)); i++)
-            candidate = $"{stem} (conflito {safe} {stamp} {i}).md";
+            candidate = $"{stem} ({word} {safe} {stamp} {i}).md";
         return candidate;
     }
 

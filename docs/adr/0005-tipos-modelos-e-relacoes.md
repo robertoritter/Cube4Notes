@@ -10,10 +10,10 @@ O proprietário quer registrar fichas ligadas entre si (empresas, pessoas, reuni
 ## Decisão
 
 - **Tipo** é a propriedade `tipo:` da nota (um por nota). **Tags** continuam sendo quantas a pessoa quiser.
-- **Modelos** são notas comuns na pasta `modelos/` do vault, com `tipo`, `tags`, campos vazios e `destino:` (pasta onde a nota nova é criada; não é copiado para a nota). `{{titulo}}`, `{{data}}` e `{{hora}}` são preenchidos na criação.
+- **Modelos** são notas comuns na pasta `modelos/` ou `templates/` do vault (as duas valem; um vault sem modelos recebe a pasta na língua da interface), com `tipo`, `tags`, campos vazios e `destino:` (pasta onde a nota nova é criada; não é copiado para a nota). `{{titulo}}`, `{{data}}` e `{{hora}}` são preenchidos na criação.
 - **Relação** é um campo cujo valor é o nome de outra nota (`empresa: Empresa Y`, também `[[Empresa Y]]` ou um link Markdown) ou um link no texto. Renomear a nota atualiza esses campos.
 - O painel de relações agrupa por tipo quem aponta para a nota; a lista por tipo mostra campos como colunas, contadores de relações e o último contato (a data mais recente das notas ligadas).
-- **Conjuntos** prontos (Trabalho, Pessoal, Leituras, Estudos, Software, Jogos) só criam modelos em `modelos/`; depois são do usuário.
+- **Conjuntos** prontos (Trabalho, Pessoal, Leituras, Estudos, Software, Jogos) só criam modelos na pasta de modelos que o vault já usa; depois são do usuário.
 - Tudo é calculado no aparelho a partir das notas. O servidor não muda.
 
 ## Alternativas

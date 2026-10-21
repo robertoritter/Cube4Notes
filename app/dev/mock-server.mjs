@@ -25,7 +25,7 @@ fs.mkdirSync(configDir, { recursive: true });
 const configFile = path.join(configDir, 'config.json');
 let config = fs.existsSync(configFile) ? JSON.parse(fs.readFileSync(configFile, 'utf8')) : null;
 const saveConfig = () => { fs.writeFileSync(configFile + '.tmp', JSON.stringify(config, null, 2)); fs.renameSync(configFile + '.tmp', configFile); };
-if (!config && arg('--notes')) { config = { name: 'Cube4Notes', mode: 'rede', vaults: [{ id: 'notas', name: 'Notas', path: path.resolve(arg('--notes')) }], legacyVault: 'notas' }; saveConfig(); }
+if (!config && arg('--notes')) { config = { name: 'Cube4Notes', mode: 'rede', vaults: [{ id: 'notas', name: (process.env.LANG || '').startsWith('pt') ? 'Notas' : 'Notes', path: path.resolve(arg('--notes')) }], legacyVault: 'notas' }; saveConfig(); }
 const setupCode = 'ABC234';
 const devicesFile = path.join(configDir, 'devices.json');
 let devices = fs.existsSync(devicesFile) ? JSON.parse(fs.readFileSync(devicesFile, 'utf8')) : [];
@@ -47,15 +47,15 @@ function useVault(v) {
 const slug = (name, taken) => { let b = name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'vault'; let id = b, i = 2; while (taken.includes(id)) id = `${b}-${i++}`; return id; };
 const cleanName = (n, d) => (String(n ?? '').replace(/[\x00-\x1f<>]/g, '').trim() || d).slice(0, 60);
 function validateVaultPath(p, exceptId) {
-  if (!p || typeof p !== 'string') return 'Escolha uma pasta.';
-  if (!path.isAbsolute(p)) return 'Use o caminho completo da pasta.';
+  if (!p || typeof p !== 'string') return 'pick-folder';
+  if (!path.isAbsolute(p)) return 'full-path';
   const full = path.resolve(p);
-  if (full === path.parse(full).root) return 'Não use a raiz do disco como vault; escolha ou crie uma pasta.';
+  if (full === path.parse(full).root) return 'disk-root';
   const inside = (a, b) => a === b || a.startsWith(b + path.sep);
-  if (inside(full, configDir) || inside(configDir, full)) return 'Essa pasta guarda a configuração do Cube4Notes.';
-  for (const s of ['/bin', '/boot', '/dev', '/etc', '/lib', '/proc', '/sbin', '/sys', '/usr']) if (inside(full, s)) return 'Pasta do sistema não pode ser um vault.';
-  for (const v of config?.vaults || []) if (v.id !== exceptId && (inside(full, path.resolve(v.path)) || inside(path.resolve(v.path), full))) return `Essa pasta já faz parte do vault "${v.name}".`;
-  if (fs.existsSync(full) && !fs.statSync(full).isDirectory()) return 'Esse caminho é um arquivo, não uma pasta.';
+  if (inside(full, configDir) || inside(configDir, full)) return 'config-folder';
+  for (const s of ['/bin', '/boot', '/dev', '/etc', '/lib', '/proc', '/sbin', '/sys', '/usr']) if (inside(full, s)) return 'system-folder';
+  for (const v of config?.vaults || []) if (v.id !== exceptId && (inside(full, path.resolve(v.path)) || inside(path.resolve(v.path), full))) return 'in-vault:' + v.name;
+  if (fs.existsSync(full) && !fs.statSync(full).isDirectory()) return 'is-file';
   return null;
 }
 function browse(p) {
@@ -71,7 +71,9 @@ function browse(p) {
 const sha = s => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 const norm = a => (a || '').replace(/^::ffff:/, '');
 const isLoopAddr = a => a === '127.0.0.1' || a === '::1';
-const isLoop = req => isLoopAddr(norm(req.socket.remoteAddress));
+// --como-rede: trata o próprio computador como outro aparelho da rede (testes de pareamento por convite)
+const asLan = process.argv.includes('--como-rede');
+const isLoop = req => !asLan && isLoopAddr(norm(req.socket.remoteAddress));
 // --lan-ip: só para testes em máquinas sem endereço privado (trata esse IP como rede local)
 const extraLan = arg('--lan-ip', '');
 const isPrivate = a => a === extraLan || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a);
@@ -254,9 +256,9 @@ const handler = async (req, res) => {
     if (u.pathname === '/api/status') return send(res, 200, { name: config?.name || 'Cube4Notes', setup, mode: config?.mode || 'rede', paired: !!dev, loopback: loop, admin: !!dev && !dev.readOnly && (dev.admin || loop), ui: (() => { try { return fs.statSync(path.join(www, 'index.html')).mtimeMs.toString(16); } catch { return ''; } })(), hostUrl: arg('--host-url', '') || null });
     if (setup && u.pathname === '/api/setup/browse') { if (!setupAllowed(u.searchParams.get('code'))) return send(res, 403); return send(res, 200, browse(u.searchParams.get('path') || '')); }
     if (u.pathname === '/api/setup' && req.method === 'POST') {
-      if (!setup) return send(res, 409, { error: 'Já configurado.' });
+      if (!setup) return send(res, 409, { error: 'already-set-up' });
       const b = await body(req, 64 * 1024);
-      if (!setupAllowed(b.code)) return send(res, 403, { error: 'Código incorreto.' });
+      if (!setupAllowed(b.code)) return send(res, 403, { error: 'wrong-code' });
       config = { name: cleanName(b.serverName, os.hostname()), mode: b.mode === 'pessoal' ? 'pessoal' : 'rede', vaults: [] };
       const problem = validateVaultPath(b.vaultPath); if (problem) { config = null; return send(res, 400, { error: problem }); }
       const name = cleanName(b.vaultName, 'Notas');
@@ -323,7 +325,7 @@ const handler = async (req, res) => {
         const id = decodeURIComponent(vm[1]); const v = config.vaults.find(x => x.id === id); if (!v) return send(res, 404);
         if (req.method === 'PATCH') { const b = await body(req, 64 * 1024); v.name = cleanName(b.name, v.name); saveConfig(); return send(res, 200, { id, name: v.name }); }
         if (req.method === 'DELETE') {
-          if (config.vaults.length === 1) return send(res, 400, { error: 'É preciso ter pelo menos um vault.' });
+          if (config.vaults.length === 1) return send(res, 400, { error: 'last-vault' });
           config.vaults = config.vaults.filter(x => x !== v); saveConfig();
           for (const d of devices) if (d.vaults) d.vaults = d.vaults.filter(x => x !== id); saveDevices();
           return send(res, 200, { removed: id });
@@ -343,7 +345,7 @@ const handler = async (req, res) => {
       if (sub === 'agents' && req.method === 'POST') {
         const b = await body(req, 64 * 1024); const known = config.vaults.map(v => v.id);
         const vaults = [...new Set((b.vaults || []).filter(x => known.includes(x)))];
-        if (!vaults.length) return send(res, 400, { error: 'Escolha pelo menos um vault.' });
+        if (!vaults.length) return send(res, 400, { error: 'pick-vault' });
         const { token, d } = addDevice(b.name || 'Agente', false, vaults, true);
         const sch = tlsCert ? 'https' : 'http';
         return send(res, 200, { id: d.id, name: d.name, token, local: `http://localhost:${tlsCert ? port - 1 : port}/mcp`, network: config.mode === 'pessoal' ? [] : lanAddrs().filter(a => a.primary).map(a => `${sch}://${a.address}:${port}/mcp`), https: !!tlsCert });
@@ -445,7 +447,7 @@ async function mcp(req, res, allowed) {
   if (!config) return send(res, 503);
   const auth = req.headers.authorization || '';
   const dev = auth.startsWith('Bearer ') ? findDevice(auth.slice(7)) : null;
-  if (!dev) { res.setHeader('WWW-Authenticate', 'Bearer'); return send(res, 401, { error: 'Use o token do agente no cabeçalho Authorization: Bearer <token>.' }); }
+  if (!dev) { res.setHeader('WWW-Authenticate', 'Bearer'); return send(res, 401, { error: 'Send the agent token in the header Authorization: Bearer <token>.' }); }
   if (req.method !== 'POST') return send(res, 405);
   const rpc = await body(req, 1024 * 1024);
   if (rpc.__bad) return send(res, 200, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });

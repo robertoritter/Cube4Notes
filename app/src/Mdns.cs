@@ -49,7 +49,7 @@ sealed class Mdns : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  Nome na rede ({name}) não ativado: {ex.Message}");
+            Console.WriteLine(Idioma.T($"  Nome na rede ({name}) não ativado: {ex.Message}", $"  Network name ({name}) not enabled: {ex.Message}"));
             return false;
         }
     }

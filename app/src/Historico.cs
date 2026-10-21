@@ -47,7 +47,7 @@ sealed class History
             File.WriteAllText(Path.Combine(dir, name + ".md"), previous, new UTF8Encoding(false));
             Prune(dir);
         }
-        catch (Exception ex) { Console.WriteLine($"  Histórico de {rel} não foi gravado: {ex.Message}"); }
+        catch (Exception ex) { Console.WriteLine(Idioma.T($"  Histórico de {rel} não foi gravado: {ex.Message}", $"  History of {rel} was not saved: {ex.Message}")); }
     }
 
     public List<(string Id, DateTime At, long Size)> List(string rel)
@@ -75,7 +75,7 @@ sealed class History
             Directory.CreateDirectory(Path.GetDirectoryName(b)!);
             Directory.Move(a, b);
         }
-        catch (Exception ex) { Console.WriteLine($"  Histórico de {from} não acompanhou a renomeação: {ex.Message}"); }
+        catch (Exception ex) { Console.WriteLine(Idioma.T($"  Histórico de {from} não acompanhou a renomeação: {ex.Message}", $"  History of {from} did not follow the rename: {ex.Message}")); }
     }
 
     private static List<(string Id, DateTime At, string File)> Versions(string dir) =>

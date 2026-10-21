@@ -127,10 +127,10 @@ sealed class Bandeja : IDisposable
     private void ShowMenu()
     {
         var menu = CreatePopupMenu();
-        AppendMenu(menu, 0, new IntPtr(CmdOpen), "Abrir Cube4Notes");
-        if (onFirewall is not null) AppendMenu(menu, 0, new IntPtr(CmdFirewall), "Liberar no firewall (celular não conecta)");
+        AppendMenu(menu, 0, new IntPtr(CmdOpen), Idioma.T("Abrir Cube4Notes", "Open Cube4Notes"));
+        if (onFirewall is not null) AppendMenu(menu, 0, new IntPtr(CmdFirewall), Idioma.T("Liberar no firewall (celular não conecta)", "Allow through firewall (phone cannot connect)"));
         AppendMenu(menu, 0x800, IntPtr.Zero, null);
-        AppendMenu(menu, 0, new IntPtr(CmdQuit), "Encerrar o Cube4Notes");
+        AppendMenu(menu, 0, new IntPtr(CmdQuit), Idioma.T("Encerrar o Cube4Notes", "Quit Cube4Notes"));
         GetCursorPos(out var p);
         SetForegroundWindow(hwnd);
         TrackPopupMenu(menu, 0x2, p.X, p.Y, 0, hwnd, IntPtr.Zero);
@@ -140,7 +140,7 @@ sealed class Bandeja : IDisposable
 
     private static void Safe(Action a)
     {
-        try { a(); } catch (Exception ex) { Console.WriteLine($"  Bandeja: {ex.Message}"); }
+        try { a(); } catch (Exception ex) { Console.WriteLine(Idioma.T($"  Bandeja: {ex.Message}", $"  Tray icon: {ex.Message}")); }
     }
 
     // ------------------------------------------------------------ API do Windows

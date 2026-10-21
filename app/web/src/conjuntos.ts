@@ -5,10 +5,9 @@
  * Copyright (c) 2026 Roberto Ritter
  *
  * Conjuntos prontos de modelos (Trabalho, Pessoal, Leituras, Estudos, Software, Jogos). Aplicar um conjunto
- * só cria notas comuns na pasta modelos/ do vault; depois elas são do usuário, para mudar como quiser.
+ * só cria notas comuns na pasta de modelos do vault (modelos/ ou templates/); depois elas são do usuário, para mudar como quiser.
  */
 import { serializeProps } from './props';
-import { TEMPLATE_DIR } from './tipos';
 
 interface Def { name: string; tipo: string; destino: string; tags?: string[]; fields: string[]; sections: string[]; date?: boolean; }
 interface Kit { id: string; icon: string; name: string; description: string; templates: Def[]; }
@@ -96,9 +95,9 @@ const en: Kit[] = [
 export function kits(lang: string): Kit[] { return lang === 'pt-BR' ? pt : en; }
 const words = (lang: string) => (lang === 'pt-BR' ? { type: 'tipo', folder: 'destino', date: 'data', dateVar: '{{data}}' } : { type: 'type', folder: 'folder', date: 'date', dateVar: '{{date}}' });
 
-// Notas de um conjunto: modelos/<Nome>.md com tipo, destino, tags, campos vazios e seções
+// Notas de um conjunto: <pasta de modelos>/<Nome>.md com tipo, destino, tags, campos vazios e seções
 // (palavras-chave na língua da interface: tipo/destino/data ou type/folder/date).
-export function kitNotes(kit: Kit, lang: string): { path: string; content: string }[] {
+export function kitNotes(kit: Kit, lang: string, dir: string): { path: string; content: string }[] {
   const w = words(lang);
   return kit.templates.map(d => {
     const props = [
@@ -110,6 +109,6 @@ export function kitNotes(kit: Kit, lang: string): { path: string; content: strin
     ];
     // sem título no corpo: o nome da nota já aparece no alto
     const body = d.sections.map(s => `## ${s}\n\n`).join('');
-    return { path: `${TEMPLATE_DIR}/${d.name}.md`, content: serializeProps(props) + body };
+    return { path: `${dir}/${d.name}.md`, content: serializeProps(props) + body };
   });
 }
