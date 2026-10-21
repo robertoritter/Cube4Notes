@@ -104,6 +104,7 @@ function walk(dir, rel, out) {
       const c = fs.readFileSync(full, 'utf8');
       out.files.push({ path: r, version: sha(c), modified: fs.statSync(full).mtime.toISOString() });
     }
+    else if (out.attachments && UPLOAD.has(path.extname(e.name).toLowerCase())) { const st = fs.statSync(full); out.attachments.push({ path: r, size: st.size, modified: st.mtime.toISOString() }); }
   }
   return out;
 }
@@ -323,7 +324,7 @@ const handler = async (req, res) => {
     const vault = config.vaults.find(v => v.id === decodeURIComponent(vmatch[1]));
     if (!vault || !can(vault.id)) return send(res, 404);
     const action = vmatch[2];
-    if (action === 'manifest') { useVault(vault); return send(res, 200, walk(root, '', { folders: [], files: [] })); }
+    if (action === 'manifest') { useVault(vault); return send(res, 200, walk(root, '', { folders: [], files: [], attachments: [] })); }
     if (action === 'fetch' && req.method === 'POST') {
       const b = await body(req);
       if (b.__bad) return send(res, 400);
@@ -349,15 +350,25 @@ const handler = async (req, res) => {
       return fs.createReadStream(f).pipe(res);
     }
     if (action === 'attachment' && req.method === 'POST') {
-      const name = safeName(u.searchParams.get('name') || 'imagem.png'); const ext = path.extname(name).toLowerCase();
+      // path: caminho escolhido pelo aparelho (anexo colado offline); name: o servidor escolhe em anexos/
+      useVault(vault);
+      const wanted = u.searchParams.get('path');
+      let folder, name;
+      if (wanted) { const full = resolve(wanted, false); if (!full || full === root) { req.resume(); return send(res, 400, { error: 'invalid path' }); } folder = path.relative(root, path.dirname(full)).split(path.sep).join('/'); name = path.basename(full); }
+      else { folder = 'anexos'; name = safeName(u.searchParams.get('name') || 'imagem.png'); }
+      const ext = path.extname(name).toLowerCase();
       if (!UPLOAD.has(ext)) { req.resume(); return send(res, 415); }
       if (Number(req.headers['content-length'] || 0) > MAX_UPLOAD) { req.resume(); return send(res, 413); }
       const chunks = []; let n = 0; for await (const c of req) { n += c.length; if (n <= MAX_UPLOAD) chunks.push(c); }
       if (n > MAX_UPLOAD) return send(res, 413); if (!n) return send(res, 400);
       useVault(vault);
-      const folder = 'anexos'; let rel = folder + '/' + name, i = 2;
-      while (fs.existsSync(path.join(root, rel))) rel = folder + '/' + name.replace(/(\.[^.]+)?$/, `-${i++}$1`);
-      fs.mkdirSync(path.join(root, folder), { recursive: true }); fs.writeFileSync(path.join(root, rel), Buffer.concat(chunks));
+      const data = Buffer.concat(chunks);
+      const at = f => (folder ? folder + '/' : '') + f;
+      let rel = at(name), i = 2;
+      if (!(fs.existsSync(path.join(root, rel)) && fs.readFileSync(path.join(root, rel)).equals(data))) {
+        while (fs.existsSync(path.join(root, rel))) rel = at(name.replace(/(\.[^.]+)?$/, `-${i++}$1`));
+        fs.mkdirSync(path.join(root, folder), { recursive: true }); fs.writeFileSync(path.join(root, rel), data);
+      }
       return send(res, 200, { path: rel });
     }
     return send(res, 404, { error: 'not found' });

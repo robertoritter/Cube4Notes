@@ -158,19 +158,22 @@ sealed class Vault
         if (File.Exists(full)) File.Move(full, target); else Directory.Move(full, target);
     }
 
-    public void Walk(string dir, string rel, List<string> folders, List<ManifestFile> files)
+    // Notas (com versão), pastas e anexos (imagens e PDFs, só nome, tamanho e data) do vault.
+    public void Walk(string dir, string rel, List<string> folders, List<ManifestFile> files, List<ManifestAttachment>? attachments = null)
     {
         foreach (var entry in new DirectoryInfo(dir).EnumerateFileSystemInfos())
         {
             if (entry.Name.StartsWith('.') || (entry.Attributes & FileAttributes.ReparsePoint) != 0) continue;
             var r = rel.Length == 0 ? entry.Name : rel + "/" + entry.Name;
-            if (entry is DirectoryInfo d) { folders.Add(r); Walk(d.FullName, r, folders, files); }
+            if (entry is DirectoryInfo d) { folders.Add(r); Walk(d.FullName, r, folders, files, attachments); }
             else if (entry.Name.EndsWith(".md", StringComparison.OrdinalIgnoreCase) && !entry.Name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
             {
                 string content;
                 try { content = File.ReadAllText(entry.FullName); } catch (IOException) { continue; }
                 files.Add(new ManifestFile(r, Version(content), entry.LastWriteTimeUtc));
             }
+            else if (attachments is not null && entry is FileInfo f && Security.UploadTypes.Contains(f.Extension.ToLowerInvariant()))
+                attachments.Add(new ManifestAttachment(r, f.Length, f.LastWriteTimeUtc));
         }
     }
 

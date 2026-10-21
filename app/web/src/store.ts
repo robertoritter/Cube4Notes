@@ -6,9 +6,11 @@
  *
  * Cópia local das notas de cada vault (IndexedDB), fila de alterações offline e sincronização com o servidor.
  * Todos os vaults liberados para o aparelho ficam disponíveis offline. Nenhuma alteração é descartada:
- * conflitos viram cópias no servidor. Também concentra as chamadas de API (pareamento e administração).
+ * conflitos viram cópias no servidor. Anexos (imagens, PDF) colados offline ficam guardados aqui e sobem depois;
+ * os do servidor ficam guardados quando vistos. Também concentra as chamadas de API (pareamento e administração).
  */
 import { openDB, type IDBPDatabase } from 'idb';
+import { rewriteLinks, mover } from './links';
 
 export interface Note { path: string; content: string; baseVersion: string | null; modified: number; }
 export type Op =
@@ -16,7 +18,10 @@ export type Op =
   | { seq?: number; type: 'delete'; path: string; baseVersion: string | null }
   | { seq?: number; type: 'mkdir'; path: string }
   | { seq?: number; type: 'rmdir'; path: string }
-  | { seq?: number; type: 'move'; from: string; to: string };
+  | { seq?: number; type: 'move'; from: string; to: string }
+  | { seq?: number; type: 'upload'; path: string };
+interface FileRec { path: string; blob: Blob; pending: boolean; size: number; }
+export interface AttachmentInfo { size: number; modified: string; }
 export interface Conflict { path: string; copy: string; at: number; }
 export interface VaultInfo { id: string; name: string; legacy?: boolean; path?: string | null; }
 export type SyncState = 'idle' | 'syncing' | 'offline' | 'unauthorized';
@@ -30,15 +35,22 @@ class VaultState {
   conflicts: Conflict[] = [];
   inflight = new Set<string>();          // notas enviadas no lote em andamento
   renamedInFlight = new Map<string, string>();
+  attachments = new Map<string, AttachmentInfo>(); // anexos que o servidor tem
+  files = new Map<string, { size: number; pending: boolean }>(); // anexos guardados neste aparelho
   constructor(public id: string) {}
   async open() {
-    this.db = await openDB('c4n-vault-' + this.id, 1, {
-      upgrade(d) {
-        d.createObjectStore('notes', { keyPath: 'path' });
-        d.createObjectStore('outbox', { keyPath: 'seq', autoIncrement: true });
-        d.createObjectStore('meta');
+    this.db = await openDB('c4n-vault-' + this.id, 2, {
+      upgrade(d, old) {
+        if (old < 1) {
+          d.createObjectStore('notes', { keyPath: 'path' });
+          d.createObjectStore('outbox', { keyPath: 'seq', autoIncrement: true });
+          d.createObjectStore('meta');
+        }
+        if (old < 2) d.createObjectStore('files', { keyPath: 'path' });
       },
     });
+    for (const f of await this.db.getAll('files') as FileRec[]) this.files.set(f.path, { size: f.size, pending: f.pending });
+    this.attachments = new Map(Object.entries((await this.db.get('meta', 'attachments')) || {}));
     for (const n of await this.db.getAll('notes')) this.notes.set(n.path, n);
     this.outbox = await this.db.getAll('outbox');
     for (const f of (await this.db.get('meta', 'folders')) || []) this.folders.add(f);
@@ -292,20 +304,88 @@ export async function pair(invite: string, name: string): Promise<'ok' | 'wrong'
 }
 export async function forgetToken() { token = ''; await meta.delete('meta', 'token'); }
 
-// Imagens são buscadas com o token no cabeçalho (nunca na URL) e exibidas como blob local.
+// Anexos: primeiro a cópia deste aparelho; senão busca no servidor (token no cabeçalho, nunca na URL),
+// guarda para usar offline e mostra como blob local.
 const rawCache = new Map<string, Promise<string>>();
+function dropRaw(st: VaultState, path: string) {
+  const key = st.id + '|' + path;
+  rawCache.get(key)?.then(u => URL.revokeObjectURL(u)).catch(() => {});
+  rawCache.delete(key);
+}
+async function localBlob(st: VaultState, path: string): Promise<Blob | null> {
+  if (!st.files.has(path)) return null;
+  return ((await st.db.get('files', path)) as FileRec | undefined)?.blob ?? null;
+}
+async function fetchAttachment(st: VaultState, path: string): Promise<Blob> {
+  const r = await api(vpath(st, 'raw?path=' + encodeURIComponent(path)), {}, 60000);
+  if (!r.ok) throw new Error(String(r.status));
+  const blob = await r.blob();
+  // guarda para abrir sem servidor (até 25 MB por arquivo)
+  if (blob.size <= MAX_ATTACHMENT) {
+    try { await st.db.put('files', { path, blob, pending: false, size: blob.size } as FileRec); st.files.set(path, { size: blob.size, pending: false }); } catch {}
+  }
+  return blob;
+}
 export function rawUrl(path: string): Promise<string> {
   const st = cur, key = st.id + '|' + path;
-  if (!rawCache.has(key)) rawCache.set(key, api(vpath(st, 'raw?path=' + encodeURIComponent(path)), {}, 30000)
-    .then(r => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
-    .then(b => URL.createObjectURL(b))
+  if (!rawCache.has(key)) rawCache.set(key, (async () => URL.createObjectURL((await localBlob(st, path)) ?? (await fetchAttachment(st, path))))()
     .catch(e => { rawCache.delete(key); throw e; }));
   return rawCache.get(key)!;
 }
-export async function uploadAttachment(file: File): Promise<string> {
-  const r = await api(vpath(cur, 'attachment?name=' + encodeURIComponent(file.name || 'imagem.png')), { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream' } }, 30000);
-  if (!r.ok) throw new Error('upload ' + r.status);
-  return (await r.json()).path;
+export const MAX_ATTACHMENT = 25 * 1024 * 1024;
+export const ATTACHMENT_TYPES = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.pdf'];
+const extOf = (n: string) => (/\.[^./]+$/.exec(n)?.[0] || '').toLowerCase();
+// Nome do arquivo como o servidor aceita; imagens coladas ("image.png") ganham data e hora no nome.
+function attachmentName(file: File): string {
+  const type = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+  let name = (file.name || '').split(/[\\/]/).pop()!.replace(/[<>:"|?*\x00-\x1f]/g, '-').trim().replace(/^\.+/, '').replace(/[. ]+$/, '');
+  if (!name || /^(image|imagem|blob|clipboard|pasted image)(\.[a-z0-9]+)?$/i.test(name)) {
+    const d = new Date(), z = (n: number) => String(n).padStart(2, '0');
+    name = `Imagem ${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}` + (extOf(name) || '.' + type);
+  }
+  if (name.length > 120) name = name.slice(-120);
+  return name;
+}
+// Guarda o anexo neste aparelho (funciona sem servidor) e põe na fila para subir. Devolve o caminho no vault.
+export async function addAttachment(file: File): Promise<string> {
+  const st = cur;
+  const name = attachmentName(file), ext = extOf(name);
+  if (!ATTACHMENT_TYPES.includes(ext)) throw Object.assign(new Error('type'), { code: 'type' });
+  if (file.size > MAX_ATTACHMENT) throw Object.assign(new Error('size'), { code: 'size' });
+  const stem = name.slice(0, name.length - ext.length);
+  const taken = (p: string) => st.files.has(p) || st.attachments.has(p) || st.notes.has(p);
+  let path = 'anexos/' + name;
+  for (let i = 2; taken(path); i++) path = `anexos/${stem}-${i}${ext}`;
+  await st.db.put('files', { path, blob: file, pending: true, size: file.size } as FileRec);
+  st.files.set(path, { size: file.size, pending: true });
+  ensureParents(st, path); await st.saveMeta();
+  await enqueue(st, { type: 'upload', path });
+  return path;
+}
+// Busca em segundo plano as imagens usadas nas notas, para aparecerem sem servidor.
+let prefetching = false;
+async function prefetchImages() {
+  if (prefetching) return;
+  prefetching = true;
+  try {
+    for (const st of [cur, ...[...states.values()].filter(s => s !== cur)]) {
+      if (!st.id) continue;
+      let budget = 150 * 1024 * 1024 - [...st.files.values()].reduce((n, f) => n + f.size, 0);
+      const wanted = new Set<string>();
+      for (const n of st.notes.values()) for (const m of n.content.matchAll(/!\[[^\]\n]*\]\((<[^>\n]*>|[^)\s]+)/g)) {
+        let href = m[1].replace(/^<|>$/g, ''); if (/^([a-z][a-z0-9+.-]*:|\/\/|#|\/)/i.test(href)) continue;
+        try { href = decodeURIComponent(href); } catch {}
+        const out: string[] = [];
+        for (const s of (n.path.split('/').slice(0, -1).concat(href.split('/')))) { if (s === '..') out.pop(); else if (s && s !== '.') out.push(s); }
+        wanted.add(out.join('/'));
+      }
+      for (const p of wanted) {
+        const a = st.attachments.get(p);
+        if (!a || st.files.has(p) || a.size > 10 * 1024 * 1024 || a.size > budget) continue;
+        try { await fetchAttachment(st, p); budget -= a.size; } catch { return; }
+      }
+    }
+  } finally { prefetching = false; }
 }
 
 // ---------- assistente de primeira execução ----------
@@ -347,6 +427,7 @@ export async function sync() {
     for (const st of order) { await push(st); await pull(st); }
     lastSync = Date.now(); await meta.put('meta', lastSync, 'lastSync');
     setState('idle');
+    prefetchImages();
   } catch (e: any) {
     setState(e?.message === '401' ? 'unauthorized' : 'offline');
   } finally {
@@ -356,8 +437,9 @@ export async function sync() {
 }
 
 async function push(st: VaultState): Promise<void> {
-  if (!st.outbox.length) return;
-  const batch = st.outbox.slice(0, 200);
+  await pushUploads(st);
+  if (!st.outbox.some(o => o.type !== 'upload')) return;
+  const batch = st.outbox.filter(o => o.type !== 'upload').slice(0, 200);
   const sent = new Map<number, { op: Op; content?: string }>();
   const ops = batch.map(o => {
     if (o.type === 'put') {
@@ -402,7 +484,35 @@ async function push(st: VaultState): Promise<void> {
   }
   st.inflight.clear(); st.renamedInFlight.clear();
   emit(st, 'pending');
-  if (st.outbox.length) await push(st);
+  if (st.outbox.some(o => o.type !== 'upload')) await push(st);
+}
+
+// Anexos colados neste aparelho: sobem um a um antes das notas.
+async function pushUploads(st: VaultState) {
+  for (const o of st.outbox.filter(o => o.type === 'upload') as { seq: number; type: 'upload'; path: string }[]) {
+    const rec = await st.db.get('files', o.path) as FileRec | undefined;
+    const done = async () => { await st.db.delete('outbox', o.seq); st.outbox = st.outbox.filter(x => x.seq !== o.seq); emit(st, 'pending'); };
+    if (!rec) { await done(); continue; }
+    const r = await api(vpath(st, 'attachment?path=' + encodeURIComponent(o.path)), { method: 'POST', body: rec.blob, headers: { 'Content-Type': 'application/octet-stream' } }, 120000);
+    if (r.status === 401) throw new Error('401');
+    if (r.status === 404) return; // vault deixou de ser liberado: a fila fica guardada
+    if (r.status === 413 || r.status === 415 || r.status === 400) { await done(); emit(st, 'uploadRejected', o.path); continue; }
+    if (!r.ok) throw new Error(String(r.status));
+    const saved = (await r.json()).path as string;
+    rec.pending = false;
+    if (saved !== o.path) {
+      // já existia outro arquivo com esse nome no servidor: este ganhou outro nome
+      await st.db.delete('files', o.path); st.files.delete(o.path);
+      rec.path = saved;
+      for (const n of [...st.notes.values()]) {
+        const next = rewriteLinks(n.content, n.path, n.path, mover(o.path, saved));
+        if (next !== n.content) { await writeNote(n.path, next, st.id); emit(st, 'rewritten', n.path); }
+      }
+    }
+    await st.db.put('files', rec); st.files.set(rec.path, { size: rec.size, pending: false });
+    st.attachments.set(rec.path, { size: rec.size, modified: new Date().toISOString() });
+    await done();
+  }
 }
 
 async function pull(st: VaultState) {
@@ -410,7 +520,16 @@ async function pull(st: VaultState) {
   if (r.status === 401) throw new Error('401');
   if (r.status === 404) return;
   if (!r.ok) throw new Error(String(r.status));
-  const m = await r.json() as { folders: string[]; files: { path: string; version: string }[] };
+  const m = await r.json() as { folders: string[]; files: { path: string; version: string }[]; attachments?: { path: string; size: number; modified: string }[] };
+  if (m.attachments) {
+    st.attachments = new Map(m.attachments.map(a => [a.path, { size: a.size, modified: a.modified }]));
+    await st.db.put('meta', Object.fromEntries(st.attachments), 'attachments');
+    // cópia guardada de um anexo que mudou ou sumiu do servidor: descarta (o servidor manda a nova quando for vista)
+    for (const [p, f] of [...st.files]) {
+      const a = st.attachments.get(p);
+      if (!f.pending && (!a || a.size !== f.size)) { st.files.delete(p); await st.db.delete('files', p); dropRaw(st, p); }
+    }
+  }
   const server = new Map(m.files.map(f => [f.path, f.version]));
   const pendingDelete = new Set(st.outbox.filter(o => o.type === 'delete').map(o => (o as any).path));
   const need: string[] = [];

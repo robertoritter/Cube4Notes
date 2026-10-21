@@ -401,7 +401,7 @@ async function renderDoc(keepScroll = false) {
     ta.addEventListener('input', () => { grow(); scheduleWrite(); });
     host.append(ta); editorPath = path; editorVault = S.activeVault; requestAnimationFrame(grow);
   } else {
-    const ed = await mountEditor(host, body, { topBar: ui.topBar, notePath: path, onChange: () => scheduleWrite() });
+    const ed = await mountEditor(host, body, { topBar: ui.topBar, notePath: path, onChange: () => scheduleWrite(), onAttachmentError: (why, name) => toast(why === 'size' ? t.attachmentTooBig(name) : t.attachmentType(name), 'warn') });
     if (seq !== mountSeq) { ed.destroy(); return; }
     editor = ed; editorPath = path; editorVault = S.activeVault;
     baseline = ed.getMarkdown();
@@ -646,6 +646,34 @@ document.addEventListener('input', e => {
 }, true);
 document.addEventListener('compositionend', () => requestAnimationFrame(checkVisualLink), true);
 document.addEventListener('mousedown', e => { if (linkPop && !linkPop.el.contains(e.target as Node)) closeLinkPop(); }, true);
+
+// Modo Markdown: colar ou soltar imagens e PDFs também anexa (guardados no aparelho, sobem depois).
+async function attachToSource(ta: HTMLTextAreaElement, files: File[]) {
+  const me = ui.active; if (!me) return;
+  const parts: string[] = [];
+  for (const f of files) {
+    try {
+      const p = await S.addAttachment(f);
+      const href = noteLink(me, p);
+      parts.push(f.type.includes('image') ? `![](${href})` : `[${f.name.replace(/([[\]])/g, '\\$1')}](${href})`);
+    } catch (e: any) { toast(e?.code === 'size' ? t.attachmentTooBig(f.name) : t.attachmentType(f.name), 'warn'); }
+  }
+  if (!parts.length) return;
+  ta.setRangeText(parts.join('\n'), ta.selectionStart, ta.selectionEnd, 'end');
+  ta.dispatchEvent(new Event('input'));
+}
+document.addEventListener('paste', e => {
+  const ta = e.target as HTMLTextAreaElement;
+  if (ta?.id !== 'source') return;
+  const files = [...(e.clipboardData?.files || [])];
+  if (!files.length) return;
+  e.preventDefault(); attachToSource(ta, files);
+}, true);
+document.addEventListener('drop', e => {
+  const ta = e.target as HTMLTextAreaElement;
+  if (ta?.id !== 'source' || !e.dataTransfer?.files.length) return;
+  e.preventDefault(); attachToSource(ta, [...e.dataTransfer.files]);
+}, true);
 
 // ---------------------------------------------------------------- conflicts
 function conflictBanner(path: string): HTMLElement | null {
@@ -974,6 +1002,8 @@ S.on((what, detail) => {
   }
   if (what === 'removed') { if (ui.tabs.includes(detail)) closeTab(detail); }
   if (what === 'remote' && detail === ui.active && !S.hasPendingPut(detail) && !writeTimer) { renderDoc(true); }
+  if (what === 'rewritten' && detail === ui.active && !writeTimer) renderDoc(true);
+  if (what === 'uploadRejected') toast(t.attachmentRejected(baseName(detail)), 'warn');
   if (what === 'conflicts') { renderSide(); if (ui.active) renderDoc(true); toast(t.conflictTitle, 'warn'); }
   if (what === 'kept') toast(t.restoredTitle + ': ' + t.restoredBody, 'warn');
 });

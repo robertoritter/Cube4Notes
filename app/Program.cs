@@ -364,8 +364,9 @@ async Task<int> RunAsync(AppConfig? config)
         var vault = (Vault)ctx.Items["vault"]!;
         var folders = new List<string>();
         var files = new List<ManifestFile>();
-        vault.Walk(vault.Root, "", folders, files);
-        return Results.Ok(new { folders, files });
+        var attachments = new List<ManifestAttachment>();
+        vault.Walk(vault.Root, "", folders, files, attachments);
+        return Results.Ok(new { folders, files, attachments });
     });
 
     app.MapPost("/api/v/{vault}/fetch", (HttpContext ctx, FetchRequest body) =>
@@ -417,20 +418,32 @@ async Task<int> RunAsync(AppConfig? config)
         return Results.Ok(new { results });
     });
 
-    app.MapPost("/api/v/{vault}/attachment", async (HttpContext ctx, string? name) =>
+    // Anexo: "path" é o caminho escolhido pelo aparelho (anexo colado offline); "name" deixa o servidor escolher em anexos/.
+    // Se já existe outro arquivo com o mesmo nome, este ganha um sufixo e o caminho final volta na resposta.
+    app.MapPost("/api/v/{vault}/attachment", async (HttpContext ctx, string? name, string? path) =>
     {
         var vault = (Vault)ctx.Items["vault"]!;
         var request = ctx.Request;
-        var clean = NotePaths.SafeFileName(string.IsNullOrWhiteSpace(name) ? "imagem.png" : name);
+        string folder, clean;
+        if (!string.IsNullOrEmpty(path))
+        {
+            var full = NotePaths.Resolve(vault.Root, path, markdown: false);
+            if (full is null || NotePaths.Same(full, vault.Root)) return Results.BadRequest(new { error = "invalid path" });
+            folder = Path.GetDirectoryName(full)!;
+            clean = Path.GetFileName(full);
+        }
+        else
+        {
+            folder = Path.Combine(vault.Root, "anexos");
+            clean = NotePaths.SafeFileName(string.IsNullOrWhiteSpace(name) ? "imagem.png" : name);
+        }
         var ext = Path.GetExtension(clean).ToLowerInvariant();
         if (!Security.UploadTypes.Contains(ext)) return Results.StatusCode(StatusCodes.Status415UnsupportedMediaType);
         if (request.ContentLength is > Security.MaxUpload) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
-        var folder = Path.Combine(vault.Root, "anexos");
         Directory.CreateDirectory(folder);
         var stem = Path.GetFileNameWithoutExtension(clean);
         var target = Path.Combine(folder, clean);
-        for (var i = 2; File.Exists(target); i++) target = Path.Combine(folder, $"{stem}-{i}{ext}");
-        var temp = target + ".upload";
+        var temp = Path.Combine(folder, "." + Guid.NewGuid().ToString("N")[..8] + ".upload");
         long total = 0;
         await using (var file = File.Create(temp))
         {
@@ -448,8 +461,20 @@ async Task<int> RunAsync(AppConfig? config)
             File.Delete(temp);
             return Results.StatusCode(total == 0 ? StatusCodes.Status400BadRequest : StatusCodes.Status413PayloadTooLarge);
         }
-        File.Move(temp, target);
-        return Results.Ok(new { path = "anexos/" + Path.GetFileName(target) });
+        await vault.Gate.WaitAsync();
+        try
+        {
+            // mesmo arquivo enviado de novo (a resposta anterior se perdeu): não duplica
+            if (File.Exists(target) && SameBytes(temp, target)) { File.Delete(temp); }
+            else
+            {
+                for (var i = 2; File.Exists(target); i++) target = Path.Combine(folder, $"{stem}-{i}{ext}");
+                File.Move(temp, target);
+            }
+        }
+        finally { vault.Gate.Release(); }
+        var relative = Path.GetRelativePath(vault.Root, target).Replace('\\', '/');
+        return Results.Ok(new { path = relative });
     });
 
     // ------------------------------------------------------------ administração (aparelho administrador ou o próprio computador)
@@ -617,6 +642,14 @@ static string UiVersion()
     return File.Exists(index) ? File.GetLastWriteTimeUtc(index).Ticks.ToString("x") : "";
 }
 
+static bool SameBytes(string a, string b)
+{
+    if (new FileInfo(a).Length != new FileInfo(b).Length) return false;
+    using var fa = File.OpenRead(a);
+    using var fb = File.OpenRead(b);
+    return SHA256.HashData(fa).AsSpan().SequenceEqual(SHA256.HashData(fb));
+}
+
 static bool IsLoopback(HttpContext ctx) => ctx.Connection.RemoteIpAddress is { } ip && IPAddress.IsLoopback(Lan.Normalize(ip));
 
 // Lista só subpastas (nunca arquivos) para escolher a pasta de um vault.
@@ -738,4 +771,5 @@ record SyncRequest(List<SyncOp>? Ops);
 record SyncOp(long? Id, string? Type, string? Path, string? Content, string? BaseVersion, string? From, string? To);
 record OpResult(long? Id, string Status, string? Version = null, string? ConflictPath = null, string? ConflictVersion = null, string? Message = null, string? MovedTo = null);
 record ManifestFile(string Path, string Version, DateTime Modified);
+record ManifestAttachment(string Path, long Size, DateTime Modified);
 record FileContent(string Path, string Content, string Version);
