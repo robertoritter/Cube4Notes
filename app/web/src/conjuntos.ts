@@ -94,18 +94,22 @@ const en: Kit[] = [
 ];
 
 export function kits(lang: string): Kit[] { return lang === 'pt-BR' ? pt : en; }
+const words = (lang: string) => (lang === 'pt-BR' ? { type: 'tipo', folder: 'destino', date: 'data', dateVar: '{{data}}' } : { type: 'type', folder: 'folder', date: 'date', dateVar: '{{date}}' });
 
-// Notas de um conjunto: modelos/<Nome>.md com tipo, destino, tags, campos vazios e seções.
-export function kitNotes(kit: Kit): { path: string; content: string }[] {
+// Notas de um conjunto: modelos/<Nome>.md com tipo, destino, tags, campos vazios e seções
+// (palavras-chave na língua da interface: tipo/destino/data ou type/folder/date).
+export function kitNotes(kit: Kit, lang: string): { path: string; content: string }[] {
+  const w = words(lang);
   return kit.templates.map(d => {
     const props = [
-      { key: 'tipo', value: d.tipo },
-      { key: 'destino', value: d.destino },
+      { key: w.type, value: d.tipo },
+      { key: w.folder, value: d.destino },
       ...(d.tags?.length ? [{ key: 'tags', value: d.tags }] : []),
-      ...(d.date ? [{ key: 'data', value: '{{data}}' }] : []),
+      ...(d.date ? [{ key: w.date, value: w.dateVar }] : []),
       ...d.fields.map(f => ({ key: f, value: '' })),
     ];
-    const body = `# {{titulo}}\n\n` + d.sections.map(s => `## ${s}\n\n`).join('');
+    // sem título no corpo: o nome da nota já aparece no alto
+    const body = d.sections.map(s => `## ${s}\n\n`).join('');
     return { path: `${TEMPLATE_DIR}/${d.name}.md`, content: serializeProps(props) + body };
   });
 }

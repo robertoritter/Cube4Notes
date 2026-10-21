@@ -15,7 +15,9 @@ export const TEMPLATE_DIR = 'modelos';
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const baseName = (p: string) => p.split('/').pop()!.replace(/\.md$/i, '');
 export const isTemplate = (p: string) => p.startsWith(TEMPLATE_DIR + '/');
-const RESERVED = new Set(['tipo', 'tags', 'tag', 'aliases', 'destino']);
+// Palavras-chave dos modelos em português e em inglês
+export const TYPE_KEYS = ['tipo', 'type'], FOLDER_KEYS = ['destino', 'folder'];
+const RESERVED = new Set([...TYPE_KEYS, ...FOLDER_KEYS, 'tags', 'tag', 'aliases']);
 
 // ---------------------------------------------------------------- informações de cada nota (com cache)
 export interface NoteInfo { path: string; name: string; tipo: string; tags: string[]; props: Prop[]; date: string; }
@@ -25,7 +27,7 @@ export function info(path: string, content: string): NoteInfo {
   if (c && c.content === content) return c.info;
   const props = noteProps(content);
   const get = (k: string) => props.find(p => fold(p.key) === k)?.value;
-  const tipo = get('tipo');
+  const tipo = get('tipo') ?? get('type');
   if (typeof tipo === 'string' && tipo.trim() && !labels.has(fold(tipo))) labels.set(fold(tipo), tipo.trim());
   const date = get('data') ?? get('date');
   const i: NoteInfo = { path, name: baseName(path), tipo: typeof tipo === 'string' ? fold(tipo) : '', tags: noteTags(content), props, date: typeof date === 'string' ? date : '' };
@@ -100,21 +102,21 @@ export function templates(notes: Map<string, { content: string }>): Template[] {
   for (const [p, n] of notes) {
     if (!isTemplate(p)) continue;
     const i = info(p, n.content);
-    const destino = i.props.find(x => fold(x.key) === 'destino')?.value;
+    const destino = i.props.find(x => FOLDER_KEYS.includes(fold(x.key)))?.value;
     out.push({ path: p, name: i.name, tipo: i.tipo, destino: typeof destino === 'string' ? destino.replace(/^\/+|\/+$/g, '') : '', tags: i.tags });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 const z = (n: number) => String(n).padStart(2, '0');
 export const today = (d = new Date()) => `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
-// Texto da nota nova a partir do modelo: preenche {{titulo}}, {{data}}, {{hora}}, tira "destino" e soma as tags escolhidas.
+// Texto da nota nova a partir do modelo: preenche {{titulo}}, {{data}}, {{hora}}, tira "destino"/"folder" e soma as tags escolhidas.
 export function fromTemplate(tpl: string, title: string, tags: string[]): string {
   const d = new Date();
   const fill = (s: string) => s.replace(/\{\{\s*(titulo|título|title)\s*\}\}/gi, title).replace(/\{\{\s*(data|date)\s*\}\}/gi, today(d)).replace(/\{\{\s*(hora|time)\s*\}\}/gi, `${z(d.getHours())}:${z(d.getMinutes())}`);
   const [fm, body] = splitFrontmatter(tpl);
   const props = fm ? parseProps(fm) : [];
   if (!props) return fill(tpl); // YAML elaborado: só preenche os campos
-  const kept = props.filter(p => fold(p.key) !== 'destino').map(p => ({ ...p, value: Array.isArray(p.value) ? p.value.map(fill) : fill(p.value) }));
+  const kept = props.filter(p => !FOLDER_KEYS.includes(fold(p.key))).map(p => ({ ...p, value: Array.isArray(p.value) ? p.value.map(fill) : fill(p.value) }));
   if (tags.length) {
     const t = kept.find(p => fold(p.key) === 'tags');
     const cur = t ? (Array.isArray(t.value) ? t.value : t.value ? t.value.split(/[,\s]+/) : []) : [];

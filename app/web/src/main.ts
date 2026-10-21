@@ -887,7 +887,7 @@ function notesOfType(tipo: string) {
   if (!tipo) return [];
   return [...S.notes.values()].filter(n => !isTemplate(n.path) && info(n.path, n.content).tipo === tipo).map(n => n.path);
 }
-const RESERVED_KEYS = ['tipo', 'tags', 'tag', 'aliases', 'destino', 'data', 'date'];
+const RESERVED_KEYS = ['tipo', 'type', 'tags', 'tag', 'aliases', 'destino', 'folder', 'data', 'date'];
 // Resumo curto de uma ficha: os primeiros campos preenchidos (cargo, e-mail...).
 function summary(path: string, skip: string[] = []) {
   const n = S.notes.get(path); if (!n) return '';
@@ -1148,7 +1148,7 @@ function openKits() {
   if (!S.activeVault) return;
   const existing = (p: string) => S.notes.has(p);
   const cards = kits(lang).map(k => {
-    const notes = kitNotes(k);
+    const notes = kitNotes(k, lang);
     const missing = notes.filter(n => !existing(n.path));
     return h('div', { class: 'kit-card' },
       h('div', { class: 'kit-head' }, ic(k.icon as IconName, 18), h('b', {}, k.name)),

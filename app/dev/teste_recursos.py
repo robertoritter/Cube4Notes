@@ -274,7 +274,7 @@ async def main():
             await nova("Empresa Y", "Empresa", ["cliente"])
             await A.sync()
             d = read(v, "Empresas/Empresa Y.md")
-            check("nota criada do modelo, na pasta do modelo, com tags", d.startswith("---\ntipo: empresa\ntags: [empresa, cliente]\nramo:\nsite:\n---\n# Empresa Y") and "## O que faz" in d and "destino" not in d, d)
+            check("nota criada do modelo, na pasta do modelo, com tags", d.startswith("---\ntipo: empresa\ntags: [empresa, cliente]\nramo:\nsite:\n---\n## O que faz") and "{{" not in d and "destino" not in d, d)
             await nova("Ana Souza", "Pessoa")
             await pg.fill(".prop-row:has(.prop-key[value='empresa']) .prop-val", "Empresa Y")
             await pg.fill(".prop-row:has(.prop-key[value='cargo']) .prop-val", "diretora")
