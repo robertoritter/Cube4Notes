@@ -204,6 +204,13 @@ const pt = {
   quitQ: 'Encerrar o Cube4Notes?',
   quitHint: 'O servidor para neste computador e os outros aparelhos deixam de sincronizar até ele ser aberto de novo. As notas de cada aparelho continuam guardadas.',
   quitDone: 'O Cube4Notes foi encerrado. Pode fechar esta janela.',
+  linkMissingQ: (n: string) => `A nota “${n}” ainda não existe. Criar agora?`,
+  linkMissingHint: 'Ela é criada no lugar para onde o link aponta.',
+  linkCreate: (n: string) => `Criar a nota “${n}” e linkar`,
+  linkHint: 'Escolha a nota  ↑ ↓  Enter',
+  linksUpdated: (n: number) => (n === 1 ? 'Links atualizados em 1 nota' : `Links atualizados em ${n} notas`),
+  attachmentUnavailable: 'Este anexo ainda não está neste aparelho. Ele chega na próxima sincronização com o servidor.',
+  scLink: 'Link para outra nota',
   offlineHelp: 'Sem contato com o servidor. Confira se o Cube4Notes está aberto no computador e se este aparelho está no Wi-Fi de casa. Se continuar, no computador clique com o botão direito no ícone do Cube4Notes (perto do relógio) e escolha Liberar no firewall.',
 };
 export type Dict = typeof pt;
@@ -405,6 +412,13 @@ const en: Dict = {
   quitQ: 'Quit Cube4Notes?',
   quitHint: 'The server stops on this computer and other devices stop syncing until it is opened again. Each device keeps its notes.',
   quitDone: 'Cube4Notes has quit. You can close this window.',
+  linkMissingQ: (n: string) => `The note “${n}” does not exist yet. Create it now?`,
+  linkMissingHint: 'It is created where the link points to.',
+  linkCreate: (n: string) => `Create note “${n}” and link it`,
+  linkHint: 'Pick a note  ↑ ↓  Enter',
+  linksUpdated: (n: number) => (n === 1 ? 'Links updated in 1 note' : `Links updated in ${n} notes`),
+  attachmentUnavailable: 'This attachment is not on this device yet. It arrives on the next sync with the server.',
+  scLink: 'Link to another note',
   offlineHelp: 'Cannot reach the server. Check that Cube4Notes is open on the computer and that this device is on the home Wi-Fi. If it persists, on the computer right-click the Cube4Notes icon (next to the clock) and choose “Liberar no firewall” (allow through the firewall).',
 };
 export type Lang = 'pt-BR' | 'en';

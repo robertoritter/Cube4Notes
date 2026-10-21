@@ -16,6 +16,8 @@ import { ic, type IconName } from './icons';
 import { mountEditor, type EditorHandle } from './editor';
 import qrcode from 'qrcode-generator';
 import { termThemes, findTheme, applyTermTheme, swatches } from './termtheme';
+import { resolveRef, noteLink, rewriteLinks, mover, isExternal } from './links';
+import { TextSelection } from '@milkdown/kit/prose/state';
 
 // ---------------------------------------------------------------- helpers
 type Attrs = Record<string, any>;
@@ -243,7 +245,9 @@ async function dropInto(folder: string) {
   const from = dragPath; dragPath = null; if (!from || !canDrop(from, folder)) return;
   const to = join(folder, from.split('/').pop()!);
   if (S.notes.has(to) || S.folders.has(to)) return toast(t.renameExists, 'warn');
+  flushWrite();
   await S.move(from, to); if (folder) ui.expanded.add(folder); persistUi(); toast(t.moved);
+  await updateLinksAfterMove(from, to);
 }
 function toggleFolder(p: string) { ui.expanded.has(p) ? ui.expanded.delete(p) : ui.expanded.add(p); persistUi(); renderSide(); }
 function rowMenu(n: TNode, x: number, y: number) {
@@ -269,7 +273,9 @@ function renameInline(n: TNode) {
     if (badName(v)) { toast(t.invalidName, 'warn'); return renderSide(); }
     const to = join(dirOf(n.path), n.folder ? v : v + '.md');
     if (S.notes.has(to) || S.folders.has(to)) { toast(t.renameExists, 'warn'); return renderSide(); }
+    flushWrite();
     await S.move(n.path, to);
+    await updateLinksAfterMove(n.path, to);
   };
   input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); });
   input.addEventListener('blur', () => finish(true));
@@ -412,6 +418,23 @@ async function renameActive(v: string) {
   if (S.notes.has(to)) { toast(t.renameExists, 'warn'); ($('#title') as HTMLInputElement).value = baseName(path); return; }
   flushWrite();
   await S.move(path, to);
+  await updateLinksAfterMove(path, to);
+}
+// Depois de renomear ou mover (neste aparelho): os links das outras notas, e os da própria nota, acompanham.
+async function updateLinksAfterMove(from: string, to: string) {
+  const remap = mover(from, to), back = mover(to, from);
+  const renamed = /\.md$/i.test(from) ? { from, to } : undefined;
+  let count = 0, activeChanged = false;
+  for (const n of [...S.notes.values()]) {
+    const oldSelf = back(n.path) ?? n.path;
+    const next = rewriteLinks(n.content, oldSelf, n.path, remap, renamed);
+    if (next === n.content) continue;
+    await S.writeNote(n.path, next);
+    if (n.path !== to && !n.path.startsWith(to + '/')) count++;
+    if (n.path === ui.active) activeChanged = true;
+  }
+  if (activeChanged) await renderDoc(true);
+  if (count) toast(t.linksUpdated(count));
 }
 function emptyState() {
   const sc = (k: string, l: string) => h('div', { class: 'sc' }, h('kbd', {}, k), h('span', {}, l));
@@ -423,7 +446,7 @@ function emptyState() {
       h('button', { class: 'btn primary', onclick: () => newNote(ui.selectedFolder) }, ic('FilePlus', 16), t.newNote),
       h('button', { class: 'btn', onclick: () => openPalette() }, ic('Search', 16), t.scQuick)),
     h('div', { class: 'shortcuts' },
-      sc(mod + ' K', t.scQuick), sc(mod + ' Shift F', t.scSearch), sc('Alt N', t.scNew), sc(mod + ' /', t.scSource), sc('/', t.scSlash)),
+      sc(mod + ' K', t.scQuick), sc(mod + ' Shift F', t.scSearch), sc('Alt N', t.scNew), sc(mod + ' /', t.scSource), sc('/', t.scSlash), sc('[[', t.scLink)),
   );
 }
 function setSource(on: boolean) { if (ui.source === on) return; flushWrite(); ui.source = on; renderTabs(); renderDoc(true); }
@@ -446,19 +469,34 @@ function findInEditor(q: string) {
   }, 60);
 }
 
-// links: Ctrl/⌘+clique abre; links relativos para .md abrem a nota
+// links: Ctrl/⌘+clique abre (na tela de toque, um toque abre links para notas e anexos)
 document.addEventListener('click', e => {
   const a = (e.target as HTMLElement).closest('#editor-host a') as HTMLAnchorElement | null;
   if (!a) return;
   const href = a.getAttribute('href') || '';
-  if (!(e.ctrlKey || e.metaKey)) return;
+  const touch = matchMedia('(hover: none)').matches;
+  if (!(e.ctrlKey || e.metaKey) && !(touch && !isExternal(href))) return;
   e.preventDefault();
   // só abre esquemas seguros; javascript:, data:, file: etc. são ignorados
   if (/^(https?:|mailto:)/i.test(href)) { window.open(href, '_blank', 'noopener,noreferrer'); return; }
-  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return;
-  const target = resolveLink(ui.active || '', href);
-  if (target && S.notes.has(target)) openNote(target);
+  if (isExternal(href)) return;
+  openRef(href);
 }, true);
+// Link relativo: nota (abre, ou oferece criar se ainda não existe) ou anexo (abre a cópia deste aparelho).
+async function openRef(href: string) {
+  const from = ui.active || '';
+  const target = resolveRef(from, href); if (!target) return;
+  const isNote = /\.md$/i.test(target) || !/\.[a-z0-9]{1,5}$/i.test(target);
+  if (isNote) {
+    const p = /\.md$/i.test(target) ? target : target + '.md';
+    if (S.notes.has(p)) return openNote(p);
+    if (badName(baseName(p))) return;
+    dialog(t.linkMissingQ(baseName(p)), t.linkMissingHint, t.create, async () => { await S.createNote(p, ''); await openNote(p); });
+    return;
+  }
+  try { const url = await S.rawUrl(target); window.open(url, '_blank', 'noopener'); }
+  catch { toast(t.attachmentUnavailable, 'warn'); }
+}
 function resolveLink(from: string, href: string): string | null {
   let h0 = href.split('#')[0]; try { h0 = decodeURIComponent(h0); } catch {}
   if (!h0) return null;
@@ -467,6 +505,147 @@ function resolveLink(from: string, href: string): string | null {
   let p = out.join('/'); if (!/\.md$/i.test(p)) p += '.md';
   return p;
 }
+
+// ---------------------------------------------------------------- [[ : escolher a nota e inserir um link Markdown padrão
+type LinkItem = { label: string; sub: string; target: string; create: boolean };
+let linkPop: { el: HTMLElement; items: LinkItem[]; sel: number; apply: (it: LinkItem) => void } | null = null;
+function closeLinkPop() { linkPop?.el.remove(); linkPop = null; }
+function linkItems(q: string): LinkItem[] {
+  const me = ui.active || '';
+  const paths = [...S.notes.keys()].filter(p => p !== me);
+  const query = q.split('|')[0].trim();
+  const ranked = query
+    ? paths.map(p => { const a = fuzzy(query, baseName(p)); return { p, s: a >= 0 ? a + 50 : fuzzy(query, p) }; }).filter(x => x.s >= 0).sort((a, b) => b.s - a.s)
+    : paths.map(p => ({ p, s: S.notes.get(p)!.modified })).sort((a, b) => b.s - a.s);
+  const items: LinkItem[] = ranked.slice(0, 8).map(({ p }) => ({ label: baseName(p), sub: dirOf(p), target: p, create: false }));
+  if (query && !badName(query) && !paths.some(p => fold(baseName(p)) === fold(query))) {
+    items.push({ label: t.linkCreate(query), sub: dirOf(me), target: join(dirOf(me), query + '.md'), create: true });
+  }
+  return items;
+}
+function showLinkPop(at: { left: number; bottom: number }, q: string, apply: (it: LinkItem) => void) {
+  const items = linkItems(q);
+  if (!items.length) return closeLinkPop();
+  if (!linkPop) {
+    const el = h('div', { class: 'link-pop', role: 'listbox', 'aria-label': t.scLink });
+    el.addEventListener('mousedown', e => e.preventDefault()); // não tira o foco do editor
+    document.body.append(el);
+    linkPop = { el, items, sel: 0, apply };
+  }
+  linkPop.items = items; linkPop.apply = apply; linkPop.sel = Math.min(linkPop.sel, items.length - 1);
+  drawLinkPop();
+  const r = linkPop.el.getBoundingClientRect();
+  linkPop.el.style.left = Math.max(8, Math.min(at.left, innerWidth - r.width - 8)) + 'px';
+  linkPop.el.style.top = (at.bottom + 4 + r.height > innerHeight - 8 ? Math.max(8, at.bottom - r.height - 28) : at.bottom + 4) + 'px';
+}
+function drawLinkPop() {
+  if (!linkPop) return;
+  const lp = linkPop;
+  lp.el.replaceChildren(...lp.items.map((it, i) => h('button', {
+    class: 'pal-item' + (i === lp.sel ? ' on' : '') + (it.create ? ' create' : ''), role: 'option', 'aria-selected': String(i === lp.sel),
+    onclick: () => { const a = lp.apply; closeLinkPop(); a(it); },
+  }, ic(it.create ? 'FilePlus' : 'FileText', 14), h('span', { class: 'pal-label' }, it.label), it.sub ? h('span', { class: 'pal-sub' }, it.sub) : null)),
+  h('div', { class: 'link-pop-hint' }, t.linkHint));
+  lp.el.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
+}
+document.addEventListener('keydown', e => {
+  if (!linkPop) return;
+  const lp = linkPop;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { lp.sel = (lp.sel + (e.key === 'ArrowDown' ? 1 : -1) + lp.items.length) % lp.items.length; drawLinkPop(); }
+  else if (e.key === 'Enter' || e.key === 'Tab') { const it = lp.items[lp.sel]; const a = lp.apply; closeLinkPop(); if (it) a(it); }
+  else if (e.key === 'Escape') closeLinkPop();
+  else return;
+  e.preventDefault(); e.stopPropagation();
+}, true);
+addEventListener('resize', closeLinkPop);
+document.addEventListener('scroll', closeLinkPop, true);
+// O link escolhido: a nota nova (opção "Criar") só é criada depois do link entrar no texto.
+async function afterLinkChosen(it: LinkItem) { if (it.create && !S.notes.has(it.target)) await S.createNote(it.target, ''); }
+const linkLabel = (it: LinkItem, q: string) => (q.includes('|') && q.split('|')[1].trim() ? q.split('|')[1].trim() : it.create ? baseName(it.target) : it.label);
+// Nota com o mesmo nome, de preferência na mesma pasta (para [[Nome]] digitado por inteiro).
+function findByName(name: string): string | null {
+  const f = fold(name.trim()); const me = ui.active || '';
+  const all = [...S.notes.keys()].filter(p => fold(baseName(p)) === f);
+  return all.find(p => dirOf(p) === dirOf(me)) ?? all[0] ?? null;
+}
+
+// Editor visual
+function checkVisualLink() {
+  const view = editor?.view(); const me = ui.active;
+  if (!view || !me || ui.source) return closeLinkPop();
+  const { $from, empty } = view.state.selection;
+  if (!empty || $from.parent.type.spec.code) return closeLinkPop();
+  const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 120), $from.parentOffset, undefined, '￼');
+  const full = /\[\[([^[\]\n]+)\]\]$/.exec(before);
+  if (full) {
+    closeLinkPop();
+    const [name, alias] = full[1].split('|');
+    const target = findByName(name) ?? join(dirOf(me), name.trim() + '.md');
+    if (badName(baseName(target))) return;
+    insertVisualLink(view, $from.pos - full[0].length, $from.pos, (alias || name).trim(), target);
+    return;
+  }
+  const m = /\[\[([^[\]\n]{0,60})$/.exec(before);
+  if (!m) return closeLinkPop();
+  const from = $from.pos - m[0].length, to = $from.pos;
+  const c = view.coordsAtPos(to);
+  showLinkPop({ left: c.left, bottom: c.bottom }, m[1], it => { insertVisualLink(view, from, to, linkLabel(it, m[1]), it.target); afterLinkChosen(it); });
+}
+function insertVisualLink(view: any, from: number, to: number, label: string, target: string) {
+  const { state } = view; const link = state.schema.marks.link;
+  if (!link || !ui.active) return;
+  const linked = state.schema.text(label, [link.create({ href: noteLink(ui.active, target) })]);
+  let tr = state.tr.replaceWith(from, to, linked);
+  const end = from + label.length;
+  tr = tr.insert(end, state.schema.text(' '));
+  tr = tr.setSelection(TextSelection.create(tr.doc, end + 1)).removeStoredMark(link);
+  view.dispatch(tr); view.focus();
+}
+
+// Modo Markdown (caixa de texto)
+function checkSourceLink(ta: HTMLTextAreaElement) {
+  const me = ui.active; if (!me) return closeLinkPop();
+  const caret = ta.selectionStart; if (caret !== ta.selectionEnd) return closeLinkPop();
+  const before = ta.value.slice(Math.max(0, caret - 120), caret);
+  const write = (start: number, label: string, target: string) => {
+    const md = `[${label.replace(/([[\]])/g, '\\$1')}](${noteLink(me, target)})`;
+    ta.setRangeText(md, start, caret, 'end');
+    ta.dispatchEvent(new Event('input'));
+    ta.focus();
+  };
+  const full = /\[\[([^[\]\n]+)\]\]$/.exec(before);
+  if (full) {
+    closeLinkPop();
+    const [name, alias] = full[1].split('|');
+    const target = findByName(name) ?? join(dirOf(me), name.trim() + '.md');
+    if (!badName(baseName(target))) write(caret - full[0].length, (alias || name).trim(), target);
+    return;
+  }
+  const m = /\[\[([^[\]\n]{0,60})$/.exec(before);
+  if (!m) return closeLinkPop();
+  const start = caret - m[0].length;
+  showLinkPop(caretPoint(ta, caret), m[1], it => { write(start, linkLabel(it, m[1]), it.target); afterLinkChosen(it); });
+}
+// Posição do cursor numa caixa de texto (cópia invisível com o mesmo estilo).
+function caretPoint(ta: HTMLTextAreaElement, pos: number) {
+  const cs = getComputedStyle(ta);
+  const mirror = h('div', {});
+  for (const k of ['font', 'letterSpacing', 'lineHeight', 'padding', 'border', 'boxSizing', 'whiteSpace', 'wordWrap', 'overflowWrap', 'tabSize'] as const) (mirror.style as any)[k] = (cs as any)[k];
+  Object.assign(mirror.style, { position: 'fixed', visibility: 'hidden', whiteSpace: 'pre-wrap', width: ta.clientWidth + 'px', left: '0', top: '0' });
+  mirror.textContent = ta.value.slice(0, pos);
+  const mark = h('span', {}, '​'); mirror.append(mark);
+  document.body.append(mirror);
+  const m = mark.getBoundingClientRect(), r = ta.getBoundingClientRect();
+  mirror.remove();
+  return { left: r.left + m.left, bottom: r.top + m.bottom - ta.scrollTop };
+}
+document.addEventListener('input', e => {
+  const target = e.target as HTMLElement;
+  if (target.id === 'source') checkSourceLink(target as HTMLTextAreaElement);
+  else if (target.closest?.('#editor-host')) requestAnimationFrame(checkVisualLink);
+}, true);
+document.addEventListener('compositionend', () => requestAnimationFrame(checkVisualLink), true);
+document.addEventListener('mousedown', e => { if (linkPop && !linkPop.el.contains(e.target as Node)) closeLinkPop(); }, true);
 
 // ---------------------------------------------------------------- conflicts
 function conflictBanner(path: string): HTMLElement | null {

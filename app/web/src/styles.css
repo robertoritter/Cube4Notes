@@ -526,3 +526,9 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
 .milkdown .milkdown-link-preview > .link-preview > .link-display { color: var(--md-link, var(--accent)); font: 13.5px var(--ui); max-width: min(340px, 60vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .milkdown .milkdown-link-edit, .milkdown .milkdown-link-preview { margin: 4px 0; }
 .milkdown .milkdown-link-edit > .link-edit { width: max-content; max-width: calc(100vw - 32px); }
+
+/* [[ : escolher nota para linkar */
+.link-pop { position: fixed; z-index: 60; width: min(360px, calc(100vw - 16px)); max-height: 320px; overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 11px; box-shadow: var(--shadow); padding: 5px; animation: pop .1s ease-out; }
+.link-pop .pal-item { height: 34px; font-size: 14px; }
+.link-pop .pal-item.create .pal-label { font-weight: 500; color: var(--accent); }
+.link-pop-hint { padding: 6px 10px 3px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); margin-top: 4px; }
