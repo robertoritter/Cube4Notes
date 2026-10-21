@@ -19,6 +19,8 @@ import { termThemes, findTheme, applyTermTheme, swatches } from './termtheme';
 import { resolveRef, noteLink, rewriteLinks, mover, isExternal } from './links';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { parseProps, serializeProps, noteTags, parseQuery, matches, noteProps, type Prop } from './props';
+import { kits, kitNotes } from './conjuntos';
+import { info, typeLabel, nameIndex, outgoing, incoming, bodyTargets, templates, fromTemplate, today, isTemplate, type Template } from './tipos';
 
 // ---------------------------------------------------------------- helpers
 type Attrs = Record<string, any>;
@@ -62,6 +64,7 @@ const ui = {
   term: pref('term', ''),
   topBar: pref('topbar', '1') === '1',
   selectedFolder: '',
+  list: null as string | null, // tipo mostrado em lista no lugar da nota
   admin: false,
   loopback: false,
 };
@@ -116,6 +119,7 @@ function shell() {
       h('div', { class: 'side-tabs', role: 'tablist' },
         sideTab('files', 'Folder', t.files), sideTab('search', 'Search', t.search), sideTab('tags', 'Tag', t.tags),
         h('span', { class: 'grow' }),
+        iconBtn('CalendarDays', t.todayNote + '  (Alt+D)', () => openToday()),
         iconBtn('FilePlus', t.newNote + '  (Alt+N)', () => newNote(ui.selectedFolder)),
         iconBtn('FolderPlus', t.newFolder, () => newFolder(ui.selectedFolder)),
       ),
@@ -191,7 +195,8 @@ function renderSide() {
   if (!S.activeVault) {
     if (S.syncState !== 'syncing') list.append(h('div', { class: 'tree-empty' }, h('p', {}, S.syncState === 'idle' ? t.noAccess : t.pairUnreachable)));
   } else if (!tree.kids.length) {
-    list.append(h('div', { class: 'tree-empty' }, h('p', {}, t.emptyVault), h('button', { class: 'btn primary', onclick: () => newNote('') }, ic('Plus', 15), t.newNote)));
+    list.append(h('div', { class: 'tree-empty' }, h('p', {}, t.emptyVault), h('button', { class: 'btn primary', onclick: () => newNote('') }, ic('Plus', 15), t.newNote),
+      h('button', { class: 'btn', onclick: () => openKits() }, ic('LayoutTemplate', 15), t.startWithKit)));
   }
   const walk = (n: TNode, depth: number) => {
     for (const k of n.kids) {
@@ -341,13 +346,17 @@ function propKeys() {
 }
 function tagCounts() {
   const counts = new Map<string, number>();
-  for (const n of S.notes.values()) for (const tg of noteTags(n.content)) counts.set(tg, (counts.get(tg) || 0) + 1);
+  for (const n of S.notes.values()) if (!isTemplate(n.path)) for (const tg of noteTags(n.content)) counts.set(tg, (counts.get(tg) || 0) + 1);
   return counts;
 }
 function searchTag(tag: string) { searchQuery = '#' + tag; toggleSidebar(true); setView('search'); }
 function renderTags(body: HTMLElement) {
   const counts = [...tagCounts()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], lang, { sensitivity: 'base' }));
+  const types = typeCounts();
   body.replaceChildren(h('div', { class: 'tags-view' },
+    types.length ? h('div', { class: 'tag-list' }, h('div', { class: 'side-label' }, t.types),
+      ...types.map(([tp, n]) => h('button', { class: 'tag-row' + (ui.list === tp ? ' on' : ''), onclick: () => { openTypeList(tp); if (mobile()) toggleSidebar(false); } }, ic('Table2', 14), h('span', { class: 'name' }, listTitle(tp)), h('small', {}, String(n))))) : '',
+    counts.length ? h('div', { class: 'side-label' }, t.tags) : '',
     counts.length
       ? h('div', { class: 'tag-list' }, ...counts.map(([tg, n]) => h('button', { class: 'tag-row', onclick: () => searchTag(tg) }, ic('Hash', 14), h('span', { class: 'name' }, tg), h('small', {}, String(n)))))
       : h('p', { class: 'muted pad' }, t.noTags)));
@@ -356,8 +365,11 @@ function renderTags(body: HTMLElement) {
 // ---------------------------------------------------------------- tabs
 function renderTabs() {
   const el = $('#tabs'); if (!el) return;
-  el.replaceChildren(...ui.tabs.map(p => h('div', {
-    class: 'tab' + (p === ui.active ? ' active' : ''), role: 'tab', 'aria-selected': String(p === ui.active), title: p,
+  const listTab = ui.list ? [h('div', { class: 'tab active list-tab', role: 'tab', 'aria-selected': 'true' },
+    ic('Table2', 13), h('span', { class: 'tab-name' }, listTitle(ui.list)),
+    h('button', { class: 'tab-x', 'aria-label': t.closeTab, onclick: (e: MouseEvent) => { e.stopPropagation(); ui.list = null; renderTabs(); renderDoc(); renderPanel(); } }, ic('X', 13)))] : [];
+  el.replaceChildren(...listTab, ...ui.tabs.map(p => h('div', {
+    class: 'tab' + (p === ui.active && !ui.list ? ' active' : ''), role: 'tab', 'aria-selected': String(p === ui.active), title: p,
     onclick: () => openNote(p), onauxclick: (e: MouseEvent) => { if (e.button === 1) closeTab(p); },
   },
     h('span', { class: 'tab-name' }, baseName(p)),
@@ -382,6 +394,8 @@ function splitFrontmatter(src: string): [string, string] {
 async function openNote(path: string, highlight?: string) {
   if (!S.notes.has(path)) return;
   flushWrite();
+  ui.list = null;
+  if (mobile()) { if (ui.sidebar) toggleSidebar(false); if (ui.panel) togglePanel(false); } // celular: a nota ocupa a tela
   if (!ui.tabs.includes(path)) { const i = ui.active ? ui.tabs.indexOf(ui.active) + 1 : ui.tabs.length; ui.tabs.splice(i, 0, path); }
   ui.active = path; persistUi();
   // garante que as pastas da nota fiquem abertas na árvore
@@ -405,6 +419,8 @@ async function renderDoc(keepScroll = false) {
   const seq = ++mountSeq;
   const scroller = $('#scroller'); const top = keepScroll ? scroller.scrollTop : 0;
   editor?.destroy(); editor = null; editorPath = null;
+  app.classList.toggle('listing', !!ui.list);
+  if (ui.list) { doc.className = 'doc list'; renderTypeList(doc); scroller.scrollTop = top; renderStatus(); return; }
   const path = ui.active;
   if (!path || !S.notes.has(path)) { ui.active = null; doc.replaceChildren(emptyState()); doc.className = 'doc empty'; renderStatus(); return; }
   doc.className = 'doc';
@@ -420,7 +436,7 @@ async function renderDoc(keepScroll = false) {
   const host = h('div', { class: 'editor-host', id: 'editor-host' });
   const parts: (Node | null)[] = [conflictBanner(path), crumbs, title];
   if ((fm || propsOpen === path) && !ui.source) parts.push(propsEditor(path, fm));
-  parts.push(host);
+  parts.push(host, h('div', { class: 'relations-inline', id: 'relations-inline' }));
   doc.replaceChildren(...parts.filter(Boolean) as Node[]);
   if (ui.source) {
     const ta = h('textarea', { id: 'source', class: 'source', spellcheck: 'false', 'aria-label': t.markdown }, note.content);
@@ -457,17 +473,22 @@ function propsEditor(path: string, fm: string): HTMLElement {
   const props: Prop[] = parsed.map(p => ({ ...p }));
   const save = () => { setFrontmatter(serializeProps(props)); summary.querySelector('.props-keys')!.textContent = keysOf(props); };
   const draw = () => {
+    const lists: HTMLElement[] = [];
     area.replaceChildren(
       ...props.map((p, i) => {
         const key = h('input', { class: 'prop-key', value: p.key, 'aria-label': t.propName, spellcheck: 'false' });
         const val = h('input', { class: 'prop-val', value: Array.isArray(p.value) ? p.value.join(', ') : p.value, 'aria-label': t.propValue, placeholder: Array.isArray(p.value) ? t.propListHint : '' });
-        key.addEventListener('input', () => { p.key = key.value.replace(/[^\w -]/g, ''); save(); });
+        // campo com nome de um tipo (empresa:) sugere as notas desse tipo
+        const options = notesOfType(fold(p.key));
+        if (options.length) { const id = 'dl-' + i; val.setAttribute('list', id); lists.push(h('datalist', { id }, ...options.map(o => h('option', { value: baseName(o) })))); }
+        key.addEventListener('input', () => { p.key = key.value.replace(/[^\p{L}\p{N}_ -]/gu, ''); save(); });
         val.addEventListener('input', () => { p.value = Array.isArray(p.value) || /^tags?$|^aliases$/i.test(p.key) ? val.value.split(',').map(x => x.trim()).filter(Boolean) : val.value; save(); });
         return h('div', { class: 'prop-row' }, key, val, h('button', { class: 'icon-btn', title: t.remove, 'aria-label': t.remove, onclick: () => { props.splice(i, 1); save(); draw(); } }, ic('X', 14)));
       }),
       h('div', { class: 'prop-actions' },
         h('button', { class: 'btn small ghost', onclick: () => { props.push({ key: props.some(p => /^tags$/i.test(p.key)) ? '' : 'tags', value: props.some(p => /^tags$/i.test(p.key)) ? '' : [] }); draw(); const rows = area.querySelectorAll('.prop-row'); (rows[rows.length - 1]?.querySelectorAll<HTMLInputElement>('input')[props[props.length - 1].key ? 1 : 0])?.focus(); } }, ic('Plus', 14), t.addProp),
         h('button', { class: 'btn small ghost', onclick: () => { propsRaw = true; renderDoc(true); } }, t.propsYaml)));
+    area.append(...lists);
   };
   draw();
   return box;
@@ -576,7 +597,7 @@ function resolveLink(from: string, href: string): string | null {
 }
 
 // ---------------------------------------------------------------- [[ : escolher a nota e inserir um link Markdown padrão
-type LinkItem = { label: string; sub: string; target: string; create: boolean };
+type LinkItem = { label: string; sub: string; target: string; create: boolean; tpl?: Template; icon?: IconName };
 let linkPop: { el: HTMLElement; items: LinkItem[]; sel: number; apply: (it: LinkItem) => void } | null = null;
 function closeLinkPop() { linkPop?.el.remove(); linkPop = null; }
 function linkItems(q: string): LinkItem[] {
@@ -589,11 +610,16 @@ function linkItems(q: string): LinkItem[] {
   const items: LinkItem[] = ranked.slice(0, 8).map(({ p }) => ({ label: baseName(p), sub: dirOf(p), target: p, create: false }));
   if (query && !badName(query) && !paths.some(p => fold(baseName(p)) === fold(query))) {
     items.push({ label: t.linkCreate(query), sub: dirOf(me), target: join(dirOf(me), query + '.md'), create: true });
+    // "Criar como Empresa", "como Pessoa"...: a ficha nasce do modelo, na pasta dele
+    for (const tpl of templates(S.notes).slice(0, 6)) {
+      const dir = tpl.destino || dirOf(me);
+      items.push({ label: t.linkCreateAs(query, tpl.name), sub: dir, target: join(dir, query + '.md'), create: true, tpl });
+    }
   }
   return items;
 }
-function showLinkPop(at: { left: number; bottom: number }, q: string, apply: (it: LinkItem) => void) {
-  const items = linkItems(q);
+function showLinkPop(at: { left: number; bottom: number }, q: string | LinkItem[], apply: (it: LinkItem) => void) {
+  const items = typeof q === 'string' ? linkItems(q) : q;
   if (!items.length) return closeLinkPop();
   if (!linkPop) {
     const el = h('div', { class: 'link-pop', role: 'listbox', 'aria-label': t.scLink });
@@ -613,7 +639,7 @@ function drawLinkPop() {
   lp.el.replaceChildren(...lp.items.map((it, i) => h('button', {
     class: 'pal-item' + (i === lp.sel ? ' on' : '') + (it.create ? ' create' : ''), role: 'option', 'aria-selected': String(i === lp.sel),
     onclick: () => { const a = lp.apply; closeLinkPop(); a(it); },
-  }, ic(it.create ? 'FilePlus' : 'FileText', 14), h('span', { class: 'pal-label' }, it.label), it.sub ? h('span', { class: 'pal-sub' }, it.sub) : null)),
+  }, ic(it.icon ?? (it.create ? 'FilePlus' : 'FileText'), 14), h('span', { class: 'pal-label' }, it.label), it.sub ? h('span', { class: 'pal-sub' }, it.sub) : null)),
   h('div', { class: 'link-pop-hint' }, t.linkHint));
   lp.el.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
 }
@@ -629,8 +655,24 @@ document.addEventListener('keydown', e => {
 addEventListener('resize', closeLinkPop);
 document.addEventListener('scroll', closeLinkPop, true);
 // O link escolhido: a nota nova (opção "Criar") só é criada depois do link entrar no texto.
-async function afterLinkChosen(it: LinkItem) { if (it.create && !S.notes.has(it.target)) await S.createNote(it.target, ''); }
+async function afterLinkChosen(it: LinkItem) {
+  if (!it.create || S.notes.has(it.target)) return;
+  const tpl = it.tpl ? S.notes.get(it.tpl.path)?.content : undefined;
+  await S.createNote(it.target, tpl !== undefined ? fromTemplate(tpl, baseName(it.target), []) : '');
+}
 const linkLabel = (it: LinkItem, q: string) => (q.includes('|') && q.split('|')[1].trim() ? q.split('|')[1].trim() : it.create ? baseName(it.target) : it.label);
+// #tag: sugere as tags que já existem (evita #reuniao e #reunião como duas tags)
+const TAG_TYPING = /(?:^|[\s(])#([\p{L}\p{N}_/-]{1,40})$/u;
+function tagSuggestions(q: string, exclude: string[] = []) {
+  const fq = fold(q);
+  return [...tagCounts()].filter(([tg]) => !exclude.includes(tg) && fold(tg) !== fq && fold(tg).includes(fq))
+    .sort((a, b) => Number(fold(b[0]).startsWith(fq)) - Number(fold(a[0]).startsWith(fq)) || b[1] - a[1]).slice(0, 8).map(([tg]) => tg);
+}
+function showTagPop(at: { left: number; bottom: number }, q: string, apply: (tag: string) => void) {
+  const tags = tagSuggestions(q);
+  if (!tags.length) return closeLinkPop();
+  showLinkPop(at, tags.map(tg => ({ label: '#' + tg, sub: '', target: tg, create: false, icon: 'Hash' as IconName })), it => apply(it.target));
+}
 // Nota com o mesmo nome, de preferência na mesma pasta (para [[Nome]] digitado por inteiro).
 function findByName(name: string): string | null {
   const f = fold(name.trim()); const me = ui.active || '';
@@ -644,7 +686,13 @@ function checkVisualLink() {
   if (!view || !me || ui.source) return closeLinkPop();
   const { $from, empty } = view.state.selection;
   if (!empty || $from.parent.type.spec.code) return closeLinkPop();
-  const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 120), $from.parentOffset, undefined, '￼');
+  const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 120), $from.parentOffset, undefined, '\ufffc');
+  const tg = TAG_TYPING.exec(before);
+  if (tg) {
+    const from = $from.pos - tg[1].length, to = $from.pos;
+    const c = view.coordsAtPos(to);
+    return showTagPop({ left: c.left, bottom: c.bottom }, tg[1], tag => { view.dispatch(view.state.tr.insertText(tag + ' ', from, to)); view.focus(); });
+  }
   const full = /\[\[([^[\]\n]+)\]\]$/.exec(before);
   if (full) {
     closeLinkPop();
@@ -682,6 +730,8 @@ function checkSourceLink(ta: HTMLTextAreaElement) {
     ta.dispatchEvent(new Event('input'));
     ta.focus();
   };
+  const tg = TAG_TYPING.exec(before);
+  if (tg) return showTagPop(caretPoint(ta, caret), tg[1], tag => { ta.setRangeText(tag + ' ', caret - tg[1].length, caret, 'end'); ta.dispatchEvent(new Event('input')); ta.focus(); });
   const full = /\[\[([^[\]\n]+)\]\]$/.exec(before);
   if (full) {
     closeLinkPop();
@@ -832,7 +882,135 @@ async function openHistory(path = ui.active) {
 
 // ---------------------------------------------------------------- right panel
 let headingEls: HTMLElement[] = [];
+// ---------------------------------------------------------------- relações e tipos
+function notesOfType(tipo: string) {
+  if (!tipo) return [];
+  return [...S.notes.values()].filter(n => !isTemplate(n.path) && info(n.path, n.content).tipo === tipo).map(n => n.path);
+}
+const RESERVED_KEYS = ['tipo', 'tags', 'tag', 'aliases', 'destino', 'data', 'date'];
+// Resumo curto de uma ficha: os primeiros campos preenchidos (cargo, e-mail...).
+function summary(path: string, skip: string[] = []) {
+  const n = S.notes.get(path); if (!n) return '';
+  return info(path, n.content).props.filter(p => !RESERVED_KEYS.includes(fold(p.key)) && !skip.includes(fold(p.key)) && (Array.isArray(p.value) ? p.value.length : p.value))
+    .slice(0, 2).map(p => (Array.isArray(p.value) ? p.value.join(', ') : p.value)).join(' · ');
+}
+const noteDate = (path: string) => { const n = S.notes.get(path); if (!n) return 0; const d = Date.parse(info(path, n.content).date); return isNaN(d) ? n.modified : d; };
+function relationsView(path: string): HTMLElement {
+  const idx = nameIndex(S.notes.keys());
+  const n = S.notes.get(path)!;
+  const out = outgoing(path, n.content, idx);
+  const inc = incoming(path, S.notes, idx);
+  const groups = new Map<string, typeof inc>();
+  for (const r of inc) { if (!groups.has(r.tipo)) groups.set(r.tipo, []); groups.get(r.tipo)!.push(r); }
+  const order = [...groups.keys()].sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || a.localeCompare(b));
+  const row = (target: string, sub: string) => h('button', { class: 'rel-row', onclick: () => openNote(target) },
+    h('span', { class: 'rel-name' }, baseName(target)), sub ? h('span', { class: 'rel-sub' }, sub) : null);
+  const box = h('section', { class: 'relations' }, h('h3', {}, ic('Link', 14), t.relations));
+  if (out.length) box.append(h('div', { class: 'rel-group' },
+    ...out.map(o => h('div', { class: 'rel-field' }, h('span', { class: 'rel-key' }, o.key), row(o.target, summary(o.target))))));
+  for (const tipo of order) {
+    const list = groups.get(tipo)!.sort((a, b) => noteDate(b.from) - noteDate(a.from));
+    const head = h('div', { class: 'rel-head' }, h('span', {}, tipo ? typeLabel(tipo) : t.otherNotes), h('small', {}, String(list.length)),
+      tipo ? h('button', { class: 'rel-all', title: t.seeList, 'aria-label': t.seeList, onclick: () => openTypeList(tipo) }, ic('Table2', 13)) : null);
+    box.append(h('details', { class: 'rel-group', open: true }, h('summary', {}, head),
+      ...list.map(r => row(r.from, r.via ? summary(r.from, [fold(r.via)]) || r.via : plain(r.line).replace(/\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, '$1').trim().slice(0, 110)))));
+  }
+  if (!out.length && !inc.length) box.append(h('p', { class: 'muted' }, t.noRelations));
+  return box;
+}
+
+// Título da lista: a pasta do modelo ("Empresas") ou o próprio tipo.
+const listTitle = (tipo: string) => templates(S.notes).find(x => x.tipo === tipo)?.destino.split('/').pop() || typeLabel(tipo);
+function typeCounts() {
+  const c = new Map<string, number>();
+  for (const n of S.notes.values()) { if (isTemplate(n.path)) continue; const tp = info(n.path, n.content).tipo; if (tp) c.set(tp, (c.get(tp) || 0) + 1); }
+  return [...c].sort((a, b) => a[0].localeCompare(b[0], lang));
+}
+function openTypeList(tipo: string) {
+  flushWrite();
+  if (ui.list !== tipo) listState = { tags: new Set(), q: '', sort: 'recent' };
+  ui.list = tipo;
+  renderTabs(); renderDoc(); renderPanel(); if (ui.view === 'tags') renderSide();
+}
+let listState = { tags: new Set<string>(), q: '', sort: 'recent' as 'recent' | 'name' | 'modified' };
+// Lista de um tipo: tabela no computador, cartões no celular. Contadores e último contato vêm das relações.
+function renderTypeList(doc: HTMLElement) {
+  const tipo = ui.list!;
+  const paths = notesOfType(tipo);
+  const idx = nameIndex(S.notes.keys());
+  const stats = new Map(paths.map(p => [p, { counts: new Map<string, number>(), last: noteDate(p) }]));
+  for (const n of S.notes.values()) {
+    if (isTemplate(n.path)) continue;
+    const targets = new Set([...outgoing(n.path, n.content, idx).map(o => o.target), ...bodyTargets(n.path, n.content, idx)]);
+    const tp = info(n.path, n.content).tipo || '';
+    for (const tg of targets) {
+      const st = stats.get(tg); if (!st || tg === n.path) continue;
+      st.counts.set(tp, (st.counts.get(tp) || 0) + 1);
+      st.last = Math.max(st.last, noteDate(n.path));
+    }
+  }
+  // colunas: campos mais usados neste tipo
+  const freq = new Map<string, number>();
+  const allTags = new Map<string, number>();
+  for (const p of paths) {
+    const i = info(p, S.notes.get(p)!.content);
+    for (const pr of i.props) if (!RESERVED_KEYS.includes(fold(pr.key))) freq.set(pr.key, (freq.get(pr.key) || 0) + 1);
+    for (const tg of i.tags) allTags.set(tg, (allTags.get(tg) || 0) + 1);
+  }
+  const cols = [...freq].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k);
+  const relTypes = [...new Set([...stats.values()].flatMap(s => [...s.counts.keys()]))].sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || a.localeCompare(b));
+  const val = (p: string, k: string) => { const v = info(p, S.notes.get(p)!.content).props.find(x => x.key === k)?.value; return Array.isArray(v) ? v.join(', ') : v || ''; };
+  const ago = (ms: number) => relTime(new Date(ms).toISOString());
+  const countText = (p: string) => relTypes.map(tp => { const c = stats.get(p)!.counts.get(tp) || 0; return c ? `${c} ${tp ? typeLabel(tp).toLowerCase() : t.citations}` : ''; }).filter(Boolean).join(' · ');
+  const draw = () => {
+    const q = fold(listState.q);
+    let rows = paths.filter(p => {
+      const i = info(p, S.notes.get(p)!.content);
+      if ([...listState.tags].some(tg => !i.tags.includes(tg))) return false;
+      return !q || fold(i.name).includes(q) || fold(i.props.map(x => (Array.isArray(x.value) ? x.value.join(' ') : x.value)).join(' ')).includes(q);
+    });
+    rows = rows.sort((a, b) => listState.sort === 'name' ? baseName(a).localeCompare(baseName(b), lang, { numeric: true }) : listState.sort === 'modified' ? S.notes.get(b)!.modified - S.notes.get(a)!.modified : stats.get(b)!.last - stats.get(a)!.last);
+    const wide = innerWidth > 820;
+    body.replaceChildren(rows.length ? (wide
+      ? h('table', { class: 'type-table' },
+        h('thead', {}, h('tr', {}, h('th', {}, t.name), ...cols.map(k => h('th', {}, k)), ...relTypes.map(tp => h('th', { class: 'num' }, tp ? typeLabel(tp) : t.citations)), h('th', {}, t.lastContact))),
+        h('tbody', {}, ...rows.map(p => h('tr', { onclick: () => openNote(p) },
+          h('td', { class: 'name' }, baseName(p), ...info(p, S.notes.get(p)!.content).tags.slice(0, 3).map(tg => h('span', { class: 'tag-chip mini' }, '#' + tg))),
+          ...cols.map(k => h('td', {}, val(p, k))),
+          ...relTypes.map(tp => h('td', { class: 'num' }, String(stats.get(p)!.counts.get(tp) || ''))),
+          h('td', { class: 'muted' }, ago(stats.get(p)!.last))))))
+      : h('div', { class: 'type-cards' }, ...rows.map(p => h('button', { class: 'type-card', onclick: () => openNote(p) },
+        h('b', {}, baseName(p)),
+        summary(p) ? h('span', { class: 'rel-sub' }, summary(p)) : null,
+        h('span', { class: 'rel-sub' }, [countText(p), ago(stats.get(p)!.last)].filter(Boolean).join(' · '))))))
+      : h('p', { class: 'muted pad' }, paths.length ? t.noResults : t.noTypeNotes(typeLabel(tipo))));
+  };
+  const search = h('input', { class: 'search-input', type: 'search', placeholder: t.filterList, value: listState.q, 'aria-label': t.filterList });
+  search.addEventListener('input', () => { listState.q = search.value; draw(); });
+  const sort = h('select', { class: 'field small-select', 'aria-label': t.sortBy },
+    ...([['recent', t.sortRecent], ['name', t.sortName], ['modified', t.sortModified]] as const).map(([v, l]) => h('option', { value: v, selected: listState.sort === v }, l)));
+  sort.addEventListener('change', () => { listState.sort = sort.value as any; draw(); });
+  const chips = h('div', { class: 'chips' }, ...[...allTags].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([tg]) => h('button', { class: 'tag-chip' + (listState.tags.has(tg) ? ' on' : ' ghost'), onclick: (e: MouseEvent) => {
+    listState.tags.has(tg) ? listState.tags.delete(tg) : listState.tags.add(tg);
+    (e.currentTarget as HTMLElement).className = 'tag-chip' + (listState.tags.has(tg) ? ' on' : ' ghost'); draw();
+  } }, '#' + tg)));
+  const tpl = templates(S.notes).find(x => x.tipo === tipo);
+  const body = h('div', { class: 'type-body' });
+  doc.replaceChildren(h('div', { class: 'type-list' },
+    h('div', { class: 'type-head' }, h('h1', {}, listTitle(tipo)), h('span', { class: 'muted' }, String(paths.length)), h('span', { class: 'grow' }),
+      tpl ? h('button', { class: 'btn small', onclick: () => createSheetWith(tpl) }, ic('Plus', 14), t.newOfType(tpl.name)) : null),
+    h('div', { class: 'type-tools' }, search, sort), allTags.size ? chips : '', body));
+  draw();
+}
+
+// Celular ou painel fechado: as relações aparecem abaixo da nota.
+const inlineRelations = () => !(ui.panel && innerWidth > 1180);
+function renderInlineRelations() {
+  const box = $('#relations-inline'); if (!box) return;
+  box.replaceChildren(...(inlineRelations() && ui.active && S.notes.has(ui.active) ? [relationsView(ui.active)] : []));
+}
 function renderPanel() {
+  renderInlineRelations();
   const el = $('#panel'); if (!el) return;
   if (!ui.panel || !ui.active || !S.notes.has(ui.active)) { el.replaceChildren(); return; }
   const content = S.notes.get(ui.active)!.content;
@@ -847,24 +1025,11 @@ function renderPanel() {
   const outline = heads.length
     ? h('ol', { class: 'outline' }, ...heads.map((x, i) => h('li', { style: `--lvl:${x.level - min}` }, h('button', { dataset: { i: String(i) }, onclick: () => jumpHeading(i) }, x.text))))
     : h('p', { class: 'muted' }, t.noHeadings);
-  const links: HTMLElement[] = [];
-  const me = ui.active, myName = fold(baseName(me));
-  for (const n of S.notes.values()) {
-    if (n.path === me) continue;
-    const lines = n.content.split('\n'); let hit = '';
-    for (const line of lines) {
-      let found = false;
-      for (const m of line.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) if (resolveLink(n.path, m[1]) === me) found = true;
-      for (const m of line.matchAll(/\[\[([^\]|#]+)/g)) if (fold(m[1].trim()) === myName) found = true;
-      if (found) { hit = line.trim(); break; }
-    }
-    if (hit) links.push(h('button', { class: 'backlink', onclick: () => openNote(n.path) }, h('span', { class: 'bl-name' }, ic('FileText', 13), baseName(n.path)), h('span', { class: 'bl-line' }, plain(hit).replace(/\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, '$1').trim().slice(0, 120))));
-  }
   const myTags = noteTags(content);
   el.replaceChildren(
     myTags.length ? h('section', {}, h('h3', {}, ic('Tag', 14), t.tags), h('div', { class: 'chips' }, ...myTags.map(tg => h('button', { class: 'tag-chip', onclick: () => searchTag(tg) }, '#' + tg)))) : '',
     h('section', {}, h('h3', {}, ic('ListTree', 14), t.outline), outline),
-    h('section', {}, h('h3', {}, ic('Link', 14), t.backlinks), links.length ? h('div', { class: 'backlinks' }, ...links) : h('p', { class: 'muted' }, t.noBacklinks)),
+    relationsView(ui.active),
   );
   headingEls = [];
   trackOutline();
@@ -910,12 +1075,106 @@ function uniquePath(folder: string, name: string, ext = '.md') {
   return p;
 }
 async function newNote(folder = '', name?: string) {
+  // com modelos no vault: escolher modelo e tags antes
+  if (!name && templates(S.notes).length) return createSheet(folder);
   const p = uniquePath(folder, name || t.untitled);
   await S.createNote(p, '');
   if (folder) ui.expanded.add(folder);
   await openNote(p);
   if (mobile()) toggleSidebar(false);
   if (!name) { const ti = $<HTMLInputElement>('#title'); ti?.focus(); ti?.select(); } else editor?.focus();
+}
+// Nota nova a partir de um modelo (ou vazia), com tags.
+async function createFrom(name: string, tpl: Template | null, tags: string[], folder: string) {
+  const dir = tpl?.destino || folder;
+  const p = uniquePath(dir, name.trim() || t.untitled);
+  const src = tpl ? S.notes.get(tpl.path)?.content : undefined;
+  const content = src !== undefined ? fromTemplate(src, baseName(p), tags) : tags.length ? serializeProps([{ key: 'tags', value: tags }]) : '';
+  await S.createNote(p, content);
+  if (dir) ui.expanded.add(dir);
+  if (content.startsWith('---')) { propsOpen = p; propsRaw = false; } // campos do modelo já abertos para preencher
+  await openNote(p);
+  if (mobile()) toggleSidebar(false);
+  if (!name.trim()) { const ti = $<HTMLInputElement>('#title'); ti?.focus(); ti?.select(); } else editor?.focus();
+}
+// Campo de tags em etiquetas, com sugestões das tags existentes.
+function tagInput(initial: string[], hidden: string[] = []) {
+  const tags = [...initial];
+  const input = h('input', { class: 'chip-input', placeholder: t.addTag, 'aria-label': t.tags, autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false' });
+  const chips = h('div', { class: 'chip-box', onclick: () => input.focus() });
+  const sugg = h('div', { class: 'chip-sugg' });
+  const add = (v: string) => { v = v.replace(/^#/, '').trim().replace(/\s+/g, '-'); if (v && !tags.includes(v)) tags.push(v); input.value = ''; draw(); input.focus(); };
+  const draw = () => {
+    chips.replaceChildren(...tags.map((tg, i) => h('span', { class: 'tag-chip' }, '#' + tg, h('button', { type: 'button', 'aria-label': t.remove, onclick: (e: Event) => { e.stopPropagation(); tags.splice(i, 1); draw(); } }, '×'))), input);
+    const q = input.value.replace(/^#/, '');
+    sugg.replaceChildren(...tagSuggestions(q, [...tags, ...hidden]).slice(0, q ? 6 : 8).map(tg => h('button', { type: 'button', class: 'tag-chip ghost', onclick: () => add(tg) }, '#' + tg)));
+  };
+  input.addEventListener('input', () => { if (/[,\s]$/.test(input.value)) add(input.value.slice(0, -1)); else draw(); });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && input.value.trim()) { e.preventDefault(); e.stopPropagation(); add(input.value); }
+    if (e.key === 'Backspace' && !input.value && tags.length) { tags.pop(); draw(); }
+  });
+  draw();
+  return { el: h('div', { class: 'tag-input' }, chips, sugg), tags: () => (input.value.trim() ? [...tags, input.value.replace(/^#/, '').trim()] : tags) };
+}
+function createSheetWith(tpl: Template) { createSheet(tpl.destino || '', tpl); }
+function createSheet(folder: string, preset: Template | null = null) {
+  const tpls = templates(S.notes);
+  let chosen: Template | null = tpls.find(x => x.path === preset?.path) ?? null;
+  const name = h('input', { class: 'field', placeholder: t.untitled, 'aria-label': t.noteName, autocomplete: 'off' });
+  const cards = h('div', { class: 'tpl-cards' });
+  const tagsBox = h('div', {});
+  let tagField = tagInput([], chosen?.tags);
+  const hint = h('p', { class: 'muted small-note' });
+  const drawCards = () => cards.replaceChildren(...[null, ...tpls].map(tp => h('button', { type: 'button', class: 'tpl-card' + (tp === chosen ? ' on' : ''), onclick: () => {
+    chosen = tp; drawCards();
+    tagField = tagInput([], tp?.tags); tagsBox.replaceChildren(tagField.el);
+    hint.textContent = tp?.tags.length ? t.tplTags(tp.tags.map(x => '#' + x).join(' ')) : '';
+    name.focus();
+  } }, ic(tp ? 'FileText' : 'File' as IconName, 15), h('span', {}, tp ? tp.name : t.emptyNote), tp?.destino ? h('small', {}, tp.destino) : null)));
+  drawCards(); tagsBox.append(tagField.el);
+  if (chosen?.tags.length) hint.textContent = t.tplTags(chosen.tags.map(x => '#' + x).join(' '));
+  let close = () => {};
+  const form = h('form', { class: 'modal create-sheet', onsubmit: async (e: Event) => { e.preventDefault(); close(); await createFrom(name.value, chosen, tagField.tags(), folder); } },
+    h('h2', {}, t.newNote),
+    h('label', { class: 'label' }, t.noteName), name,
+    h('span', { class: 'label' }, t.template), cards,
+    h('span', { class: 'label' }, t.tags), tagsBox, hint,
+    h('div', { class: 'modal-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => close() }, t.cancel), h('button', { class: 'btn primary', type: 'submit' }, ic('Plus', 15), t.create)));
+  close = overlay(form, 'sheet'); name.focus();
+}
+// Conjuntos prontos de modelos: criam notas comuns em modelos/ (as que já existem não são tocadas).
+function openKits() {
+  if (!S.activeVault) return;
+  const existing = (p: string) => S.notes.has(p);
+  const cards = kits(lang).map(k => {
+    const notes = kitNotes(k);
+    const missing = notes.filter(n => !existing(n.path));
+    return h('div', { class: 'kit-card' },
+      h('div', { class: 'kit-head' }, ic(k.icon as IconName, 18), h('b', {}, k.name)),
+      h('p', { class: 'muted small-note' }, k.description),
+      h('div', { class: 'chips' }, ...k.templates.map(d => h('span', { class: 'tag-chip ghost' }, d.name))),
+      h('button', { class: 'btn small' + (missing.length ? ' primary' : ''), onclick: async (e: MouseEvent) => {
+        const b = e.currentTarget as HTMLButtonElement; b.disabled = true;
+        for (const n of missing) await S.createNote(n.path, n.content);
+        toast(missing.length ? t.kitAdded(k.name, missing.length) : t.kitAlready);
+        close();
+      } }, missing.length ? t.addKitButton : t.kitInstalled));
+  });
+  const close = modal(t.addKit, h('div', { class: 'kits' }, h('p', { class: 'muted small-note' }, t.kitHelp), h('div', { class: 'kit-grid' }, ...cards)), 'wide');
+}
+// Nota de hoje: Diário/2026-10-21.md, a partir do modelo "Diário" se existir.
+async function openToday() {
+  const tpl = templates(S.notes).find(x => ['diario', 'diary', 'daily', 'dia', 'journal'].includes(fold(x.name)) || x.tipo === 'diario');
+  const dir = tpl?.destino || (lang === 'pt-BR' ? 'Diário' : 'Journal');
+  const p = join(dir, today() + '.md');
+  if (S.notes.has(p)) return openNote(p);
+  const src = tpl ? S.notes.get(tpl.path)?.content : undefined;
+  await S.createNote(p, src !== undefined ? fromTemplate(src, today(), []) : `# ${today()}\n\n`);
+  ui.expanded.add(dir);
+  await openNote(p);
+  if (mobile()) toggleSidebar(false);
+  editor?.focus();
 }
 function newFolder(parent = '') {
   prompt(t.folderName, t.create, async v => {
@@ -1001,6 +1260,9 @@ function openPalette(initial = '') {
     { label: t.cmdSync, icon: 'RefreshCw' as IconName, run: () => S.sync() },
     { label: t.history, icon: 'FileClock' as IconName, run: () => openHistory() },
     { label: t.addProps, icon: 'Hash' as IconName, run: () => addProperties() },
+    { label: t.todayNote, icon: 'CalendarDays' as IconName, run: () => openToday(), kbd: 'Alt D' },
+    { label: t.addKit, icon: 'LayoutTemplate' as IconName, run: () => openKits() },
+    ...typeCounts().map(([tp]) => ({ label: t.listOf(listTitle(tp)), icon: 'Table2' as IconName, run: () => openTypeList(tp) })),
     { label: t.tags, icon: 'Tag' as IconName, run: () => { toggleSidebar(true); setView('tags'); } },
     ...termThemes.map(th => ({ label: `${t.termTheme.split(' (')[0]}: ${th.name} (${th.kind === 'dark' ? t.termDark : t.termLight})`, icon: 'Settings' as IconName, run: () => { ui.term = th.id; setPref('term', th.id); applyTheme(); } })),
   ];
@@ -1086,6 +1348,7 @@ document.addEventListener('keydown', e => {
   else if (c && k === '\\') { e.preventDefault(); toggleSidebar(); }
   else if (c && k === 's') { e.preventDefault(); flushWrite(); S.scheduleSync(0); toast(t.saved); }
   else if (e.altKey && k === 'n') { e.preventDefault(); newNote(ui.active ? dirOf(ui.active) : ui.selectedFolder); }
+  else if (e.altKey && k === 'd') { e.preventDefault(); openToday(); }
   else if (e.key === 'F2' && ui.active && !(e.target as HTMLElement).closest('input, textarea, [contenteditable=true], .row')) {
     e.preventDefault(); const p = ui.active; renameInline({ name: baseName(p), path: p, folder: false, kids: [] });
   }
@@ -1435,7 +1698,7 @@ async function openVaultsAdmin() {
       const v: any = await S.createVault(name.value.trim(), picker.value());
       toast(t.vaultAdded); name.value = ''; addForm.hidden = true; openAdd.hidden = false;
       drawVaults(); renderVaultSwitch(); S.scheduleSync(0);
-      if (v?.id) changeVault(v.id);
+      if (v?.id) { await changeVault(v.id); document.querySelectorAll('.overlay').forEach(o => o.remove()); openKits(); }
     } catch (e: any) { err.textContent = e.message || t.setupFailed; }
     addBtn.removeAttribute('disabled');
   } },

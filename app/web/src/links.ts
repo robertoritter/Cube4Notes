@@ -47,7 +47,25 @@ export function rewriteLinks(content: string, oldSelf: string, newSelf: string, 
   let fence = false;
   const lines = content.split('\n');
   let changed = false;
+  // propriedades no topo: campo com o nome da nota renomeada (empresa: Empresa Y) passa a ter o nome novo
+  let fmEnd = -1;
+  if (lines[0]?.trim() === '---') for (let i = 1; i < lines.length; i++) if (lines[i].trim() === '---') { fmEnd = i; break; }
+  if (renamedNote && fmEnd > 0 && baseName(renamedNote.from) !== baseName(renamedNote.to)) {
+    const old = fold(baseName(renamedNote.from)), nu = baseName(renamedNote.to);
+    let key = '';
+    for (let i = 1; i < fmEnd; i++) {
+      const line = lines[i];
+      const km = /^([\p{L}_][\p{L}\p{N}_ -]*?)\s*:/u.exec(line); if (km) key = km[1].trim().toLowerCase();
+      if (['tipo', 'tags', 'tag', 'aliases', 'destino'].includes(key)) continue;
+      const swap = (v: string) => { const q = /^(["'])(.*)\1$/.exec(v.trim()); const raw = q ? q[2] : v.trim(); const w = /^\[\[(.+)\]\]$/.exec(raw); const name = w ? w[1] : raw; return fold(name) === old ? v.replace(name, nu) : v; };
+      let next = line.replace(/^(\s*[\p{L}_][\p{L}\p{N}_ -]*?\s*:\s+)(?!\[[^[])(.+?)\s*$/u, (_a, k: string, v: string) => k + swap(v))
+        .replace(/^(\s*-\s+)(.+?)\s*$/, (_a, k: string, v: string) => k + swap(v));
+      next = next.replace(/^(\s*[\p{L}_][\p{L}\p{N}_ -]*?\s*:\s*)\[([^[].*)\]\s*$/u, (_a, k: string, inner: string) => k + '[' + inner.split(',').map(x => { const lead = /^\s*/.exec(x)![0]; return lead + swap(x.trim()); }).join(',') + ']');
+      if (next !== line) { lines[i] = next; changed = true; }
+    }
+  }
   for (let i = 0; i < lines.length; i++) {
+    if (i <= fmEnd) continue;
     const line = lines[i];
     if (/^\s*(```|~~~)/.test(line)) { fence = !fence; continue; }
     if (fence) continue;

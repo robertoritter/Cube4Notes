@@ -48,7 +48,7 @@ export function parseProps(fm: string): Prop[] | null {
     const line = lines[i];
     if (!line.trim()) continue;
     if (/^\s*#/.test(line)) return null; // comentários: mantém o YAML como texto, sem reescrever
-    const m = /^([A-Za-z_][\w -]*?)\s*:(?:\s+(.*))?$/.exec(line);
+    const m = /^([\p{L}_][\p{L}\p{N}_ -]*?)\s*:(?:\s+(.*))?$/u.exec(line);
     if (!m) return null;
     const key = m[1], raw = (m[2] ?? '').trim();
     if (raw === '' ) {

@@ -4,6 +4,7 @@
 # Copyright (c) 2026 Roberto Ritter
 #
 # Testes dos recursos de edição: links entre notas, anexos offline, histórico de versões, tags e propriedades,
+# modelos, relações e listas por tipo,
 # e acesso somente leitura para agentes (MCP). Usa a interface real num navegador e o servidor de teste.
 # Uso: python dev/teste_recursos.py  (precisa de Node e Playwright)
 import asyncio, os, sys, json, glob, urllib.request
@@ -254,6 +255,80 @@ async def main():
             st, _ = call(token, "tools/list")
             check("remover o agente invalida o token na hora", st == 401, str(st))
         await scenario(p, "5. Agentes de IA (MCP)", {"trabalho/Reunião.md": "# Reunião\n\npauta secreta\n", "Lista.md": "leite\n"}, agentes)
+
+        # 6. Modelos, conjuntos, relações e listas por tipo
+        import datetime
+        async def relacoes(A, B, v):
+            pg = A.page
+            await pg.keyboard.press("Control+k"); await pg.keyboard.type(">conjunto"); await pg.keyboard.press("Enter")
+            await pg.wait_for_selector(".kit-card"); await pg.click(".kit-card:has-text('Trabalho') .btn"); await pg.wait_for_timeout(500); await A.sync()
+            check("conjunto Trabalho cria os modelos", all(os.path.exists(os.path.join(v, "modelos", f + ".md")) for f in ["Empresa", "Pessoa", "Reunião", "Projeto", "Decisão", "Diário"]), str(files(v)))
+            # nova nota pela janela: modelo Empresa + tag
+            async def nova(nome, modelo, tags=()):
+                await pg.keyboard.press("Escape"); await pg.keyboard.press("Alt+n"); await pg.wait_for_selector(".create-sheet")
+                await pg.fill(".create-sheet input.field", nome)
+                await pg.click(f".tpl-card:has-text('{modelo}')")
+                for tg in tags:
+                    await pg.fill(".chip-input", tg); await pg.press(".chip-input", "Enter")
+                await pg.click(".create-sheet .btn.primary"); await pg.wait_for_timeout(900)
+            await nova("Empresa Y", "Empresa", ["cliente"])
+            await A.sync()
+            d = read(v, "Empresas/Empresa Y.md")
+            check("nota criada do modelo, na pasta do modelo, com tags", d.startswith("---\ntipo: empresa\ntags: [empresa, cliente]\nramo:\nsite:\n---\n# Empresa Y") and "## O que faz" in d and "destino" not in d, d)
+            await nova("Ana Souza", "Pessoa")
+            await pg.fill(".prop-row:has(.prop-key[value='empresa']) .prop-val", "Empresa Y")
+            await pg.fill(".prop-row:has(.prop-key[value='cargo']) .prop-val", "diretora")
+            await pg.wait_for_timeout(700); await A.sync()
+            check("campo empresa liga a pessoa à empresa", "empresa: Empresa Y" in read(v, "Pessoas/Ana Souza.md"), read(v, "Pessoas/Ana Souza.md"))
+            await nova("Rodada X Y Z", "Reunião")
+            await pg.click(".ProseMirror h2:has-text('Anotações')"); await pg.keyboard.press("End"); await pg.keyboard.press("Enter")
+            await pg.keyboard.type("falamos com [[Empresa X", delay=20)
+            await pg.wait_for_selector(".link-pop .pal-item")
+            await pg.click(".link-pop .pal-item:has-text('como Empresa')"); await pg.wait_for_timeout(800)
+            await pg.keyboard.type("e [[Empresa Y]] sobre #cli", delay=20); await pg.wait_for_timeout(500)
+            sugg = await pg.locator(".link-pop .pal-label").all_inner_texts()
+            check("# sugere tags existentes", "#cliente" in sugg, str(sugg))
+            await pg.keyboard.press("Enter"); await pg.wait_for_timeout(700); await A.sync()
+            hoje = datetime.date.today().isoformat()
+            m = read(v, "Reuniões/Rodada X Y Z.md")
+            check("reunião com data preenchida e links", f'data: "{hoje}"' in m or f"data: {hoje}" in m, m[:120])
+            check("[[ cria a empresa X a partir do modelo, na pasta Empresas", os.path.exists(os.path.join(v, "Empresas/Empresa X.md")) and "tipo: empresa" in read(v, "Empresas/Empresa X.md") and "](../Empresas/Empresa%20X.md)" in m, m)
+            check("tag escolhida entra no texto", "#cliente " in m or m.rstrip().endswith("#cliente"), m[-80:])
+            # relações na ficha da empresa (computador: painel lateral)
+            await A.open("Empresa Y"); await pg.wait_for_timeout(700)
+            rel = await pg.inner_text("#panel .relations")
+            check("ficha mostra pessoas e reuniões agrupadas por tipo", "Pessoa" in rel and "Ana Souza" in rel and "diretora" in rel and "Reunião" in rel and "Rodada X Y Z" in rel, rel)
+            await A.open("Ana Souza"); await pg.wait_for_timeout(500)
+            rel = await pg.inner_text("#panel .relations")
+            check("ficha da pessoa mostra a empresa dela", "empresa" in rel and "Empresa Y" in rel, rel)
+            # lista por tipo
+            await A.open("Empresa Y"); await pg.wait_for_timeout(500)
+            await pg.click("#panel .rel-head:has-text('Pessoa') .rel-all"); await pg.wait_for_timeout(600)
+            await pg.keyboard.press("Escape")
+            await pg.click(".side-tab[data-view='tags']"); await pg.wait_for_timeout(300)
+            await pg.click(".tag-row:has-text('Empresa')"); await pg.wait_for_timeout(700)
+            rows = await pg.locator(".type-table tbody tr td.name").all_inner_texts()
+            check("lista de empresas em tabela", any("Empresa Y" in r for r in rows) and any("Empresa X" in r for r in rows), str(rows))
+            head = await pg.locator(".type-table thead").inner_text()
+            check("colunas dos campos e das relações", "ramo" in head and "Pessoa" in head and "Reunião" in head, head)
+            await pg.click(".type-list .tag-chip:has-text('#cliente')"); await pg.wait_for_timeout(300)
+            rows = await pg.locator(".type-table tbody tr td.name").all_inner_texts()
+            check("filtro por tag na lista", len(rows) == 1 and "Empresa Y" in rows[0], str(rows))
+            # nota do dia
+            await pg.keyboard.press("Alt+d"); await pg.wait_for_timeout(900); await A.sync()
+            check("nota de hoje criada do modelo Diário", os.path.exists(os.path.join(v, f"Diário/{hoje}.md")) and "## Hoje" in read(v, f"Diário/{hoje}.md"), str(files(v)))
+            # renomear empresa atualiza o campo da pessoa
+            await A.open("Empresa Y"); await A.rename("Empresa Ypsilon"); await A.sync()
+            check("renomear a empresa atualiza o campo empresa da pessoa", "empresa: Empresa Ypsilon" in read(v, "Pessoas/Ana Souza.md"), read(v, "Pessoas/Ana Souza.md"))
+            # celular: relações abaixo da nota e lista em cartões
+            await B.page.set_viewport_size({"width": 390, "height": 800}); await B.sync(); await B.page.reload(); await B.page.wait_for_timeout(2000)
+            await B.open("Empresa Ypsilon"); await B.page.wait_for_timeout(800)
+            inl = await B.page.inner_text("#relations-inline")
+            check("celular: relações aparecem abaixo da nota", "Ana Souza" in inl and "Rodada X Y Z" in inl, inl)
+            await B.page.click("#relations-inline .rel-head:has-text('Pessoa') .rel-all"); await B.page.wait_for_timeout(600)
+            n = await B.page.locator(".type-card").count()
+            check("celular: lista em cartões", n == 1, str(n))
+        await scenario(p, "6. Modelos, relações e listas", {"Inicio.md": "# Início\n"}, relacoes)
 
     fails = [r for r in RESULTS if not r[1]]
     print(f"\n{len(RESULTS) - len(fails)} de {len(RESULTS)} verificações passaram.")
