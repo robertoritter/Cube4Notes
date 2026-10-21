@@ -127,7 +127,8 @@ static class Lan
         {
             var text = (nic.Name + " " + nic.Description).ToLowerInvariant();
             var virtualNic = nic.NetworkInterfaceType is NetworkInterfaceType.Tunnel or NetworkInterfaceType.Ppp or NetworkInterfaceType.Loopback
-                || new[] { "virtual", "vmware", "virtualbox", "vbox", "hyper-v", "vethernet", "wireguard", "wg", "vpn", "tap", "tun", "docker", "wsl", "zerotier", "tailscale", "hamachi" }.Any(k => text.Contains(k));
+                || new[] { "virtual", "vmware", "virtualbox", "vbox", "hyper-v", "vethernet", "wireguard", "wg", "vpn", "tap", "tun", "docker", "wsl", "zerotier", "tailscale", "hamachi", "veth", "virbr", "lxc", "lxd", "podman", "cni", "flannel", "incus" }.Any(k => text.Contains(k))
+                || nic.Name.StartsWith("br-", StringComparison.OrdinalIgnoreCase); // redes do Docker no Linux
             foreach (var u in nic.GetIPProperties().UnicastAddresses)
                 if (u.Address.AddressFamily == AddressFamily.InterNetwork && IsPrivate(u.Address))
                     list.Add(new LanAddress(u.Address, nic.Name, !virtualNic));
