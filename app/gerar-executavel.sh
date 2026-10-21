@@ -19,6 +19,10 @@ if ! command -v dotnet >/dev/null 2>&1; then
   exit 1
 fi
 
+# O Cube4Notes não usa a biblioteca ICU (globalização invariante); o .NET SDK também não precisa dela para compilar.
+# Sem isso, o dotnet para logo no início em sistemas sem libicu (por exemplo um Debian mínimo).
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+
 rid="${1:-}"
 if [ -z "$rid" ]; then
   case "$(uname -s)-$(uname -m)" in
