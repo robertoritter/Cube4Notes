@@ -1859,9 +1859,10 @@ async function offerNameAddress(manual: boolean) {
   nameStatus = await S.status();
   const host = nameStatus?.hostUrl;
   if (!host || new URL(host).host === location.host) return;
-  if (!manual) { const last = Number(pref('nameoffer', '0')); if (Date.now() - last < 7 * 86400000) return; }
+  // oferta automática: no máximo uma vez por semana para o mesmo nome (nome novo, oferta nova)
+  if (!manual) { const [when, name] = pref('nameoffer', '0').split('|'); if (name === host && Date.now() - Number(when) < 7 * 86400000) return; }
   if (!(await probe(host))) { if (manual) toast(t.nameAddressFails, 'warn'); return; }
-  setPref('nameoffer', String(Date.now()));
+  setPref('nameoffer', Date.now() + '|' + host);
   const ios = /iPhone|iPad/.test(navigator.userAgent) || ((navigator as any).standalone === true);
   dialog(t.nameAddressQ(new URL(host).hostname), t.nameAddressBody(location.hostname, new URL(host).hostname) + (ios ? ' ' + t.nameAddressIos : ''), t.nameAddressGo, () => moveToName(host));
 }
