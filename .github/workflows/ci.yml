@@ -28,6 +28,7 @@ jobs:
           - { os: ubuntu-latest, rid: linux-x64, exe: Cube4Notes }
           - { os: macos-latest, rid: osx-arm64, exe: Cube4Notes }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -52,6 +53,7 @@ jobs:
   debian-minimo:
     name: Debian mínimo (como num servidor recém-instalado)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     container: debian:13
     steps:
       - name: Ferramentas básicas (sem libicu)
@@ -68,6 +70,7 @@ jobs:
   servico-linux:
     name: Serviço do systemd (install-service.sh)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -96,6 +99,7 @@ jobs:
   interface:
     name: Interface, sincronização e documentação
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
