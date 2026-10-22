@@ -1,6 +1,6 @@
 # Status and next steps
 
-Status as of October 2026: **working prototype, in daily use.** Formats and APIs may still change without notice.
+Status as of October 2026: **ready to use, in daily use** on Windows, a headless Linux server and iPhone. Every change is built and tested on Windows, Linux and macOS before it reaches anyone.
 
 ## Delivered
 

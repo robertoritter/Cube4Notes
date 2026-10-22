@@ -6,7 +6,7 @@ O Cube4Notes é um app de notas que guarda tudo como arquivos Markdown comuns nu
 
 ![Editor do Cube4Notes](docs/images/editor-light.png)
 
-> **Estado: protótipo funcionando.** O uso diário no Windows e no iPhone está em validação. Pode haver mudanças incompatíveis. English version: [README.md](README.md).
+> **Estado: pronto para usar.** Em uso diário no Windows, num servidor Linux sem tela e no iPhone, e compilado e testado no Windows, no Linux e no macOS a cada mudança. As notas são arquivos Markdown comuns, então nunca dependem do Cube4Notes. English version: [README.md](README.md).
 
 ## Não precisa de servidor
 
@@ -200,10 +200,10 @@ Só a *autoridade* precisa ser instalada. O certificado do próprio servidor é 
 
 | Plataforma | Estado |
 | --- | --- |
-| Windows | Funcionando, em validação diária |
-| iPhone / iPad (Safari, app na tela inicial) | Funcionando, em validação diária |
+| Windows | Funcionando, em uso diário |
+| iPhone / iPad (Safari, app na tela inicial) | Funcionando, em uso diário |
 | Android, outros navegadores de computador | Devem funcionar, ainda não validados |
-| Linux (servidor sem tela, x64 e ARM64) | Funcionando como serviço do systemd (Debian 13); x64 testado no CI, ARM64 compila com o mesmo script mas ainda não foi testado |
+| Linux (servidor sem tela, x64 e ARM64) | Funcionando, em uso diário como serviço do systemd (Debian 13); x64 testado no CI, ARM64 compila com o mesmo script mas ainda não foi testado |
 | macOS | Executável gerado e testado no CI; falta o pacote `.app` com janela |
 
 ## Princípios
@@ -238,7 +238,7 @@ A documentação técnica está em inglês.
 | --- | --- |
 | [docs/00-vision-and-scope.md](docs/00-vision-and-scope.md) | o problema, para quem é, o que o Cube4Notes é e não é |
 | [docs/01-architecture.md](docs/01-architecture.md) | como funciona por dentro: armazenamento, sincronização, rede, segurança, compilação |
-| [docs/02-status-and-roadmap.md](docs/02-status-and-roadmap.md) | o que está pronto, em validação e os próximos passos |
+| [docs/02-status-and-roadmap.md](docs/02-status-and-roadmap.md) | o que está pronto, o que ainda está sendo conferido e os próximos passos |
 | [docs/05-use-cases.md](docs/05-use-cases.md) | os cenários do dia a dia e como cada um funciona |
 | [docs/06-ai-agents.md](docs/06-ai-agents.md) | dar a agentes de IA acesso de leitura às notas (MCP) |
 | [docs/adr/](docs/adr/README.md) | as decisões de arquitetura, com contexto e alternativas |

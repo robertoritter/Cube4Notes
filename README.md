@@ -6,7 +6,7 @@ Cube4Notes is a notes app that keeps your notes as plain Markdown files on a com
 
 ![Cube4Notes editor](docs/images/editor-light.png)
 
-> **Status: working prototype.** Daily use on Windows and iPhone is being validated now. Expect breaking changes. Versão em português: [README.pt-BR.md](README.pt-BR.md).
+> **Status: ready to use.** In daily use on Windows, on a headless Linux server and on iPhone, and built and tested on Windows, Linux and macOS on every change. Your notes are plain Markdown files, so they never depend on Cube4Notes. Versão em português: [README.pt-BR.md](README.pt-BR.md).
 
 ## You do not need a server
 
@@ -198,10 +198,10 @@ Only the certificate *authority* needs installing. The server's own certificate 
 
 | Platform | Status |
 | --- | --- |
-| Windows | Working, in daily validation |
-| iPhone / iPad (Safari, home screen app) | Working, in daily validation |
+| Windows | Working, in daily use |
+| iPhone / iPad (Safari, home screen app) | Working, in daily use |
 | Android, other desktop browsers | Expected to work, not yet validated |
-| Linux (headless server, x64 and ARM64) | Working as a systemd service (Debian 13); x64 is tested in CI, ARM64 builds with the same script but is not yet tested |
+| Linux (headless server, x64 and ARM64) | Working, in daily use as a systemd service (Debian 13); x64 is tested in CI, ARM64 builds with the same script but is not yet tested |
 | macOS | Executable built and tested in CI; the `.app` bundle with a window is missing |
 
 ## Design principles
@@ -234,7 +234,7 @@ scripts/check_project.py    structure and documentation link checks
 | --- | --- |
 | [docs/00-vision-and-scope.md](docs/00-vision-and-scope.md) | the problem, who it is for, what Cube4Notes is and is not |
 | [docs/01-architecture.md](docs/01-architecture.md) | how it works inside: storage, sync, network, security, builds |
-| [docs/02-status-and-roadmap.md](docs/02-status-and-roadmap.md) | what is done, being validated, and next steps |
+| [docs/02-status-and-roadmap.md](docs/02-status-and-roadmap.md) | what is done, what is still being checked, and next steps |
 | [docs/05-use-cases.md](docs/05-use-cases.md) | everyday scenarios and how each one works |
 | [docs/06-ai-agents.md](docs/06-ai-agents.md) | giving AI agents read access to your notes (MCP) |
 | [docs/adr/](docs/adr/README.md) | architecture decisions, with context and alternatives |
