@@ -9,7 +9,9 @@
 # Só usa a biblioteca padrão do Python. Uso: python dev/test_executable.py <caminho do Cube4Notes>
 import json, os, re, shutil, socket, ssl, stat, subprocess, sys, tempfile, time, urllib.error, urllib.request
 
-PORT = int(os.environ.get("C4N_TEST_PORT", "43180"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testport import free_port  # noqa: E402
+PORT = free_port()
 CTX = ssl.create_default_context(); CTX.check_hostname = False; CTX.verify_mode = ssl.CERT_NONE
 RESULTS = []
 

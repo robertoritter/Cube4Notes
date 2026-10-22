@@ -10,7 +10,9 @@ import asyncio, os, shutil, subprocess, sys, time, glob
 from playwright.async_api import async_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 43190
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testport import free_port  # noqa: E402
+PORT = free_port()
 URL = f"http://localhost:{PORT}/"
 RESULTS = []
 

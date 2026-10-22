@@ -11,7 +11,9 @@ import asyncio, json, os, shutil, ssl, subprocess, sys, tempfile, time, urllib.r
 from playwright.async_api import async_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 43215
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testport import free_port  # noqa: E402
+PORT = free_port()
 R = []
 
 

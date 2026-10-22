@@ -17,6 +17,10 @@ on:
 permissions:
   contents: read
 
+# saída dos testes aparece na hora no log (sem isso, um teste travado não mostra onde parou)
+env:
+  PYTHONUNBUFFERED: '1'
+
 jobs:
   executavel:
     name: Executável (${{ matrix.rid }})
