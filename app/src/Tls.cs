@@ -74,7 +74,7 @@ static class Tls
         File.WriteAllBytes(pfx, bytes);
         ca = X509CertificateLoader.LoadPkcs12(bytes, null, X509KeyStorageFlags.Exportable);
         File.WriteAllBytes(Path.Combine(dir, "cube4notes-ca.cer"), CaDer);
-        Console.WriteLine(Idioma.T($"  Certificado do Cube4Notes criado em {dir}", $"  Cube4Notes certificate created in {dir}"));
+        Console.WriteLine(Lang.T($"  Certificado do Cube4Notes criado em {dir}", $"  Cube4Notes certificate created in {dir}"));
     }
 
     // Só vale para localhost, *.local, o nome deste computador e IPs privados (10/8, 172.16/12, 192.168/16, 127/8).
@@ -132,8 +132,10 @@ static class Tls
     {
         try
         {
-            var pfx = Path.Combine(dir, "servidor.pfx");
-            var ips = Path.Combine(dir, "servidor-enderecos.txt");
+            var pfx = Path.Combine(dir, "server.pfx");
+            var ips = Path.Combine(dir, "server-addresses.txt");
+            // nomes usados por versões anteriores do Cube4Notes
+            if (!File.Exists(pfx)) { pfx = Path.Combine(dir, "servidor.pfx"); ips = Path.Combine(dir, "servidor-enderecos.txt"); }
             if (!File.Exists(pfx) || !File.Exists(ips)) return (null, "");
             var cert = X509CertificateLoader.LoadPkcs12FromFile(pfx, null);
             // só vale se foi emitido pela autoridade atual (mesmo identificador de chave da autoridade)
@@ -149,10 +151,10 @@ static class Tls
     {
         try
         {
-            File.WriteAllBytes(Path.Combine(dir, "servidor.pfx"), pfx);
-            File.WriteAllText(Path.Combine(dir, "servidor-enderecos.txt"), key);
+            File.WriteAllBytes(Path.Combine(dir, "server.pfx"), pfx);
+            File.WriteAllText(Path.Combine(dir, "server-addresses.txt"), key);
         }
-        catch (Exception ex) { Console.WriteLine(Idioma.T($"  Certificado do servidor não foi guardado ({ex.Message}).", $"  Server certificate was not saved ({ex.Message}).")); }
+        catch (Exception ex) { Console.WriteLine(Lang.T($"  Certificado do servidor não foi guardado ({ex.Message}).", $"  Server certificate was not saved ({ex.Message}).")); }
     }
 
     // Devolve o certificado com a chave em PFX (recarregar de PFX evita o erro de chave efêmera do Windows/SChannel).
@@ -190,15 +192,15 @@ static class Tls
             using var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
             store.Open(OpenFlags.ReadWrite);
             if (store.Certificates.Find(X509FindType.FindByThumbprint, ca!.Thumbprint, false).Count > 0) return;
-            Console.WriteLine(Idioma.T("  O Windows vai pedir confirmação para confiar no certificado do Cube4Notes neste computador.", "  Windows will ask to trust the Cube4Notes certificate on this computer."));
-            Console.WriteLine(Idioma.T("  Ele só vale para endereços locais (localhost e rede de casa). Clique em Sim.", "  It is only valid for local addresses (localhost and the home network). Click Yes."));
+            Console.WriteLine(Lang.T("  O Windows vai pedir confirmação para confiar no certificado do Cube4Notes neste computador.", "  Windows will ask to trust the Cube4Notes certificate on this computer."));
+            Console.WriteLine(Lang.T("  Ele só vale para endereços locais (localhost e rede de casa). Clique em Sim.", "  It is only valid for local addresses (localhost and the home network). Click Yes."));
             using var publicOnly = X509CertificateLoader.LoadCertificate(CaDer);
             store.Add(publicOnly);
-            Console.WriteLine(Idioma.T("  Certificado instalado neste computador.", "  Certificate installed on this computer."));
+            Console.WriteLine(Lang.T("  Certificado instalado neste computador.", "  Certificate installed on this computer."));
         }
         catch (Exception ex)
         {
-            Console.WriteLine(Idioma.T($"  Certificado não instalado no Windows ({ex.Message}). O navegador vai mostrar um aviso; dá para continuar mesmo assim.", $"  Certificate not installed in Windows ({ex.Message}). The browser will show a warning; you can continue anyway."));
+            Console.WriteLine(Lang.T($"  Certificado não instalado no Windows ({ex.Message}). O navegador vai mostrar um aviso; dá para continuar mesmo assim.", $"  Certificate not installed in Windows ({ex.Message}). The browser will show a warning; you can continue anyway."));
         }
     }
 }

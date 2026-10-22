@@ -6,10 +6,10 @@
 # Testes dos recursos de edição: links entre notas, anexos offline, histórico de versões, tags e propriedades,
 # modelos, relações e listas por tipo,
 # e acesso somente leitura para agentes (MCP). Usa a interface real num navegador e o servidor de teste.
-# Uso: python dev/teste_recursos.py  (precisa de Node e Playwright)
+# Uso: python dev/test_features.py  (precisa de Node e Playwright)
 import asyncio, os, sys, json, glob, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from teste_sync import Device, check, scenario, RESULTS, files, PORT  # noqa: E402
+from test_sync import Device, check, scenario, RESULTS, files, PORT  # noqa: E402
 from playwright.async_api import async_playwright  # noqa: E402
 
 URL = f"http://localhost:{PORT}/"
@@ -131,12 +131,33 @@ async def main():
             check("tipo não permitido é recusado com aviso", "não foi anexado" in toast, toast)
         await scenario(p, "2. Anexos offline", {"Viagem.md": "# Viagem\n\nfotos:\n", "anexos/.x.md": ""}, anexos)
 
+        # 1b. Começar um parágrafo com espaço não deixa "&#x20;" no arquivo
+        async def espacos(A, B, v):
+            await A.open("Nota")
+            para = A.page.locator(".ProseMirror p").last
+            await para.click(); await A.page.keyboard.press("End"); await A.page.keyboard.press("Enter")
+            await A.page.keyboard.type(" começa com espaço", delay=10); await A.page.wait_for_timeout(800)
+            await A.sync()
+            d = read(v, "Nota.md")
+            check("parágrafo começado com espaço é gravado sem &#x20;", "&#x" not in d and "começa com espaço" in d, d)
+        await scenario(p, "1b. Espaço no começo do parágrafo", {"Nota.md": "# Nota\n\ntexto\n"}, espacos)
+
+        # 2b. Vault sem a pasta antiga anexos/: anexos vão para attachments/
+        async def attachments(A, B, v):
+            await A.open("Viagem"); p_ = A.page.locator(".ProseMirror p").last
+            await p_.click(); await A.page.keyboard.press("End")
+            await paste(A, "mapa.png")
+            await A.sync(); await A.page.wait_for_timeout(1200)
+            d = read(v, "Viagem.md")
+            check("vault novo guarda anexos em attachments/", "](attachments/mapa.png)" in d and os.path.exists(os.path.join(v, "attachments", "mapa.png")) and not os.path.exists(os.path.join(v, "anexos")), d)
+        await scenario(p, "2b. Pasta de anexos em vault novo", {"Viagem.md": "# Viagem\n\nfotos:\n"}, attachments)
+
         # 3. Histórico de versões: cada gravação guarda o texto anterior; restaurar não perde o atual
         async def historico(A, B, v):
             await A.open("Plano")
             for i in range(3):
                 await A.append(f"PASSO-{i}"); await A.sync()
-            vers = glob.glob(os.path.join(v, ".cube4notes", "historico", "Plano.md", "*.md"))
+            vers = glob.glob(os.path.join(v, ".cube4notes", "history", "Plano.md", "*.md"))
             check("servidor guarda as versões anteriores", len(vers) >= 3, str(len(vers)))
             await A.page.click(".history-btn"); await A.page.wait_for_selector(".hist-item")
             n = await A.page.locator(".hist-item").count()
@@ -148,10 +169,10 @@ async def main():
             await A.page.wait_for_timeout(800); await A.sync()
             d = read(v, "Plano.md")
             check("restaurar volta o texto original", d == "# Plano\n\ninicio\n" or ("PASSO" not in d and "inicio" in d), d)
-            ultimo = sorted(glob.glob(os.path.join(v, ".cube4notes", "historico", "Plano.md", "*.md")))[-1]
+            ultimo = sorted(glob.glob(os.path.join(v, ".cube4notes", "history", "Plano.md", "*.md")))[-1]
             check("texto de antes de restaurar continua no histórico", "PASSO-2" in open(ultimo, encoding="utf-8").read())
             await A.rename("Plano 2026"); await A.sync()
-            check("histórico acompanha a renomeação", len(glob.glob(os.path.join(v, ".cube4notes", "historico", "Plano 2026.md", "*.md"))) >= 4)
+            check("histórico acompanha a renomeação", len(glob.glob(os.path.join(v, ".cube4notes", "history", "Plano 2026.md", "*.md"))) >= 4)
             await A.offline(); await A.page.click(".history-btn"); await A.page.wait_for_timeout(1500)
             msg = await A.page.inner_text(".history")
             check("sem servidor o histórico avisa", "servidor" in msg, msg)

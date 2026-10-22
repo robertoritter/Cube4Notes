@@ -251,7 +251,7 @@ sealed class FailureThrottle
         {
             var now = DateTime.UtcNow;
             failures[ip] = failures.TryGetValue(ip, out var f) && now - f.Since < TimeSpan.FromMinutes(10) ? (f.Count + 1, f.Since) : (1, now);
-            if (failures[ip].Count == 10) Security.Log(Idioma.T($"Muitas tentativas de pareamento de {ip}; bloqueado por 10 minutos", $"Too many pairing attempts from {ip}; blocked for 10 minutes"));
+            if (failures[ip].Count == 10) Security.Log(Lang.T($"Muitas tentativas de pareamento de {ip}; bloqueado por 10 minutos", $"Too many pairing attempts from {ip}; blocked for 10 minutes"));
         }
     }
 }

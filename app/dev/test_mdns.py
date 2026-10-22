@@ -4,7 +4,7 @@
 # Copyright (c) 2026 Roberto Ritter
 #
 # Confere se o computador do Cube4Notes responde pelo nome na rede local (<nome>.local, mDNS).
-# Rode em outro computador da mesma rede (ou no próprio): python dev/teste_mdns.py <nome-do-computador>
+# Rode em outro computador da mesma rede (ou no próprio): python dev/test_mdns.py <nome-do-computador>
 # (pergunta por <nome-do-computador>-notes.local, o nome que o Cube4Notes usa na rede)
 import socket, struct, sys, time
 

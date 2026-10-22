@@ -1,35 +1,35 @@
-# Cenários de uso
+# Use cases
 
-Os cenários que o Cube4Notes precisa atender e como cada um funciona hoje.
+The scenarios Cube4Notes needs to support and how each one works today.
 
-## 1. Computador na rede de casa
+## 1. A computer on the home network
 
-O Cube4Notes roda no computador que guarda as notas (o do próprio usuário ou um servidor sempre ligado). Outro computador da casa abre `https://<ip-do-servidor>:43125` no navegador, conecta uma vez pelo QR code ou pelo código de 6 caracteres e edita com a mesma interface. Não precisa montar o disco do servidor nem instalar nada além do certificado.
+Cube4Notes runs on the computer that stores the notes (the user's own or an always-on server). Another computer in the house opens `https://<server-ip>:43125` in the browser, connects once with the QR code or the 6-character code and edits with the same interface. There is no need to mount the server's disk or install anything other than the certificate.
 
-## 2. Celular ou tablet em casa
+## 2. Phone or tablet at home
 
-O aparelho lê o QR code, instala o certificado uma vez e, se quiser, adiciona o Cube4Notes à tela inicial. A interface é pensada para toque: barra de formatação, menu de blocos com `/`, relações abaixo da nota e listas em cartões. Passo a passo: [Conectar um celular](../README.pt-BR.md#conectar-um-celular-passo-a-passo).
+The device scans the QR code, installs the certificate once and, if desired, adds Cube4Notes to the home screen. The interface is designed for touch: formatting toolbar, block menu with `/`, relations below the note and lists as cards. Step by step: [Connecting a phone](../README.md#connecting-a-phone-step-by-step).
 
-## 3. Celular ou tablet longe de casa
+## 3. Phone or tablet away from home
 
-O servidor não é alcançável de fora, por decisão. O aparelho continua com a cópia completa dos vaults liberados: abre, edita, cria e organiza notas e pastas, cola imagens e PDFs. Tudo fica guardado no aparelho e sobrevive a fechar e reabrir o app.
+The server cannot be reached from outside, by design. The device keeps the full copy of the vaults it is allowed to use: it opens, edits, creates and organizes notes and folders, and pastes images and PDFs. Everything is stored on the device and survives closing and reopening the app.
 
-## 4. Volta para casa
+## 4. Back home
 
-Ao alcançar o servidor, cada aparelho envia a sua fila de alterações e recebe as dos outros. Alterações em notas diferentes simplesmente se juntam. Se a mesma nota mudou no aparelho e no servidor, as duas versões ficam: a do servidor no lugar e a do aparelho como cópia de conflito, com aviso. Nada é descartado em silêncio. Detalhes: [arquitetura, sincronização](01-architecture.md#sincronização).
+When it reaches the server, each device sends its change queue and receives the others' changes. Changes to different notes simply merge. If the same note changed on the device and on the server, both versions are kept: the server's in place and the device's as a conflict copy, with a warning. Nothing is silently discarded. Details: [architecture, sync](01-architecture.md#sync).
 
-## 5. Servidor desligado ou sempre ligado
+## 5. Server off or always on
 
-Com o servidor desligado, cada aparelho trabalha na sua cópia; os aparelhos não sincronizam entre si. Com um servidor sempre ligado (por exemplo um Linux rodando o Cube4Notes como serviço), ele fica disponível o tempo todo dentro de casa. "Sempre ligado" não significa acessível pela internet.
+With the server off, each device works on its own copy; devices do not sync with each other. With an always-on server (for example a Linux machine running Cube4Notes as a service), it is available all the time inside the house. "Always on" does not mean reachable from the internet.
 
-## 6. O roteador troca o IP do computador
+## 6. The router changes the computer's IP
 
-Os aparelhos guardam o endereço do servidor. Se o roteador der outro IP ao computador, eles deixam de achá-lo. A solução recomendada é reservar o IP no roteador; como alternativa, o Cube4Notes responde pelo nome `<computador>-notes.local` e oferece a troca para esse endereço. Explicação completa: [Como os aparelhos acham o seu computador](../README.pt-BR.md#como-os-aparelhos-acham-o-seu-computador).
+Devices store the server's address. If the router gives the computer a different IP, they can no longer find it. The recommended fix is to reserve the IP on the router; as an alternative, Cube4Notes answers by the name `<computer>-notes.local` and offers to switch to that address. Full explanation: [How devices find your computer](../README.md#how-devices-find-your-computer).
 
-## 7. Agente de IA consultando as notas
+## 7. An AI agent reading the notes
 
-Um agente num computador da casa lê as notas pelo MCP, com um token que só lê e só alcança os vaults escolhidos. Ele nunca recebe acesso ao disco nem altera notas. Configuração: [06-ai-agents.md](06-ai-agents.md).
+An agent on a computer in the house reads the notes through MCP, with a token that is read-only and only reaches the chosen vaults. It never gets access to the disk and never changes notes. Setup: [06-ai-agents.md](06-ai-agents.md).
 
-## 8. Sem servidor em casa
+## 8. No server at home
 
-Quem tem um computador só usa o modo *Só este computador*: o mesmo executável, sem rede, sem certificado e sem firewall. Dá para mudar para *Rede de casa* depois, em Preferências, sem perder nada.
+Someone with a single computer uses *This computer only* mode: the same executable, with no network, no certificate and no firewall. It can be switched to *Home network* later, in Preferences, without losing anything.

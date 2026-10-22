@@ -23,7 +23,7 @@ Devices sync with your computer when they are on the same network as it. Away fr
 - **Plain Markdown on disk.** Notes are ordinary `.md` files in ordinary folders. No database, no proprietary format, nothing to export.
 - **Visual editor.** Markdown turns into formatting as you type: headings, task lists, tables, code blocks with syntax highlighting, images. Switch to raw Markdown with `Ctrl+/`. Edits produce small, clean diffs.
 - **Offline first.** Each device stores every note it has access to. Read, create, edit, rename, move and delete with no connection; changes queue up and sync later.
-- **No silent data loss.** If the same note changed in two places, one version stays and the other is saved as `Note (conflito Device date).md`, with a side-by-side compare view. Deletions go to a `.lixeira` (trash) folder. Edits made to a note that was renamed on another device follow it to the new name.
+- **No silent data loss.** If the same note changed in two places, one version stays and the other is saved as `Note (conflict Device date).md`, with a side-by-side compare view. Deletions go to a `.trash` folder. Edits made to a note that was renamed on another device follow it to the new name.
 - **Multiple vaults.** Any folder can be a vault. Each device gets access only to the vaults you choose.
 - **Pair a device with a QR code**, or a 6-character code. Invites are single-use and expire in 5 minutes. Scanning a new invite on a device that is already connected updates its access. Devices can be revoked instantly.
 - **Local HTTPS that just works.** In *Home network* mode Cube4Notes creates its own certificate authority, restricted to `localhost`, `*.local`, the computer name and private IP ranges, so it cannot be abused to impersonate internet sites.
@@ -37,15 +37,27 @@ Devices sync with your computer when they are on the same network as it. Away fr
 - **Fast navigation.** Tabs, folder tree with drag and drop, `Ctrl+K` quick open and command palette, full-text search, outline and backlinks panel.
 - **53 terminal color themes** (Dracula, Nord, Gruvbox, Solarized, Catppuccin, Tokyo Night...) plus light, dark and sepia, from [Cube4Themes](https://github.com/robertoritter/Cube4Themes). Portuguese and English interface (chosen per device in Preferences); the tray icon, Windows notices and console follow the system language, and template sets are created in the interface language.
 
-| Phone | Vaults | Terminal theme |
+### Screenshots
+
+| Relations between notes | Lists by type |
+| --- | --- |
+| ![A company with its meetings, people and project](docs/images/relations.png) | ![All companies with fields as columns and relation counts](docs/images/type-list.png) |
+| **New note from a template** | **Version history** |
+| ![New note: choose a template and tags](docs/images/new-note.png) | ![Compare and restore an earlier version](docs/images/history.png) |
+| **Connect a phone or tablet** | **Read-only access for AI agents** |
+| ![QR code, short code and connected devices](docs/images/connect-device.png) | ![Agent token and MCP addresses](docs/images/ai-agent.png) |
+| **Vaults** | **Terminal theme (Tokyo Night)** |
+| ![Vault switcher](docs/images/vaults.png) | ![Dark terminal theme](docs/images/editor-dark.png) |
+
+| Phone: editor | Phone: relations as cards | Phone: sidebar |
 | --- | --- | --- |
-| ![Phone](docs/images/mobile-editor.png) | ![Vault switcher](docs/images/vaults.png) ![Phone sidebar](docs/images/mobile-tree.png) | ![Tokyo Night theme](docs/images/editor-dark.png) |
+| ![Editor on a phone](docs/images/mobile-editor.png) | ![Relations below the note](docs/images/mobile-relations.png) | ![Notes and folders on a phone](docs/images/mobile-tree.png) |
 
 ## Getting started (Windows)
 
 Requirements: [.NET 10 SDK](https://dotnet.microsoft.com/download), or the standalone `Cube4Notes.exe` (see below), which needs nothing installed.
 
-1. Double-click `Cube4Notes.exe` (or, from source, `app/iniciar.cmd`).
+1. Double-click `Cube4Notes.exe` (or, from source, `app/run.cmd`).
 2. Cube4Notes opens in its own app window (no browser, no console). On the first run a setup wizard asks three things:
    - where you will use it: *This computer only* or *Home network*;
    - the folder for your first vault (any folder; it is created if missing, and existing `.md` files show up as notes);
@@ -60,7 +72,7 @@ Setting up a machine without a screen: start Cube4Notes there, open `https://<it
 
 ### Standalone executable
 
-`app/gerar-executavel.cmd` produces a self-contained `Cube4Notes.exe` in `app/dist/win-x64` that runs on any Windows PC without .NET. It is a single file with the interface built in: copy it anywhere and double-click.
+`app/build.cmd` produces a self-contained `Cube4Notes.exe` in `app/dist/win-x64` that runs on any Windows PC without .NET. It is a single file with the interface built in: copy it anywhere and double-click.
 
 ### Headless Linux server (systemd service)
 
@@ -75,17 +87,17 @@ To keep your notes on an always-on Linux server (Debian, Ubuntu, Raspberry Pi OS
    ```bash
    git clone https://github.com/robertoritter/cube4notes.git
    cd cube4notes/app
-   ./gerar-executavel.sh
+   ./build.sh
    ```
 3. Install it as a service (asks for `sudo`; the service runs as your user, not as root, and starts with the machine):
    ```bash
-   ./instalar-servico.sh
+   ./install-service.sh
    ```
    The script shows Cube4Notes' first messages, with its addresses and the **setup code**.
 4. On another device on the same network, open `https://<server-ip>:43125`, accept the browser warning (the certificate is not installed on that device yet), type the code and choose the folder of the first vault, which lives on the server.
 5. Then connect devices as usual: [Connecting a phone, step by step](#connecting-a-phone-step-by-step). Also reserve the server's IP in the router.
 
-Settings live in `~/.local/share/Cube4Notes` of the service user. Useful commands: `journalctl -u cube4notes -f` (messages), `sudo systemctl restart cube4notes`. To update: `git pull`, `./gerar-executavel.sh` and `./instalar-servico.sh` again (settings, devices and notes are kept). If the machine has a firewall (for example `ufw`), allow ports 43124 and 43125 (TCP) and 5353 (UDP) from the local network.
+Settings live in `~/.local/share/Cube4Notes` of the service user. Useful commands: `journalctl -u cube4notes -f` (messages), `sudo systemctl restart cube4notes`. To update: `git pull`, `./build.sh` and `./install-service.sh` again (settings, devices and notes are kept). If the machine has a firewall (for example `ufw`), allow ports 43124 and 43125 (TCP) and 5353 (UDP) from the local network.
 
 ### Command-line options
 
@@ -94,12 +106,12 @@ Settings live in `~/.local/share/Cube4Notes` of the service user. Useful command
 | `--config <folder>` | Configuration folder (default `%LOCALAPPDATA%\Cube4Notes` on Windows, `~/.local/share/Cube4Notes` on Linux) |
 | `--port <number>` | Port (default 43125; in *Home network* mode the port below it redirects HTTP to HTTPS) |
 | `--notes <folder>` | With no existing configuration, use this folder as the first vault (upgrade from the first prototype) |
-| `--sem-janela` | Console server, no app window (for machines without a screen) |
-| `--sem-navegador` | Do not open the app window or the browser on start |
-| `--sem-https` | Plain HTTP on the network (testing only) |
-| `--sem-instalar-certificado` | Do not add the certificate to the Windows trust store |
-| `--sem-firewall` | Do not create the Windows Firewall rule |
-| `--sem-nome-na-rede` | Do not answer for `<computer-name>-notes.local` on the local network |
+| `--no-window` | Console server, no app window (for machines without a screen) |
+| `--no-browser` | Do not open the app window or the browser on start |
+| `--no-https` | Plain HTTP on the network (testing only) |
+| `--no-cert-install` | Do not add the certificate to the Windows trust store |
+| `--no-firewall` | Do not create the Windows Firewall rule |
+| `--no-network-name` | Do not answer for `<computer-name>-notes.local` on the local network |
 
 ## Connecting a phone, step by step
 
@@ -108,6 +120,8 @@ Do it in this order. Steps 1 and 2 are done once and prevent almost every proble
 1. **Reserve the computer's IP in the router.** In the router settings, look for *DHCP reservation* (also called *static IP* or *static lease*) and reserve the current IP of the computer running Cube4Notes. Without it, the router may give the computer another IP one day, and devices show "No server" (see [why](#how-devices-find-your-computer)).
 2. **Install the certificate on the device.** In the device's browser, open `http://<computer-ip>:43124/cube4notes-ca.cer` and follow [Installing the certificate](#installing-the-certificate-on-phones-tablets-and-other-computers). On an iPhone, do not skip the last step (Certificate Trust Settings). Without the certificate, the browser shows "Not Secure" and the app does not open away from home.
 3. **Scan the QR code.** On the computer, open **Preferences > Connect device**, choose which vaults the device may access and point the device's camera at the QR code.
+
+   ![Connect device: QR code, short code and connected devices](docs/images/connect-device.png)
 4. **Add to the Home Screen** (optional). On an iPhone, in Safari: Share > Add to Home Screen. Cube4Notes then opens like an app, also with no connection.
 
 That is it: the device syncs by itself on the home network and works offline away from it.
@@ -150,7 +164,7 @@ Cube4Notes never goes through the internet. A phone or tablet talks directly to 
 
 - Guest Wi-Fi and networks that isolate devices block these name lookups. A normal home network allows them.
 - Android resolves `.local` names inconsistently, depending on the version and the browser. iPhone, iPad, macOS, Windows and Linux handle them well.
-- Cube4Notes answers for the name itself, so it does not depend on the operating system doing it (Windows often does not). On Windows it also adds a firewall rule for name lookups (UDP 5353, local network only) together with the rule for its own ports. On Linux it shares the port with `avahi-daemon`, if it is running. To turn the name off, start Cube4Notes with `--sem-nome-na-rede`.
+- Cube4Notes answers for the name itself, so it does not depend on the operating system doing it (Windows often does not). On Windows it also adds a firewall rule for name lookups (UDP 5353, local network only) together with the rule for its own ports. On Linux it shares the port with `avahi-daemon`, if it is running. To turn the name off, start Cube4Notes with `--no-network-name`.
 - Two computers with the same name on the same network confuse the answer. Give them different names.
 
 **The simplest and most robust option: a fixed IP** (step 1 of [Connecting a phone](#connecting-a-phone-step-by-step)). In your router settings, look for *DHCP reservation* (also called *static lease* or *fixed IP*) and reserve the current IP for the computer that runs Cube4Notes. Then both the IP and the name keep working forever, on every device, including Android. With a fixed IP, using the name is optional.
@@ -194,29 +208,27 @@ Only the certificate *authority* needs installing. The server's own certificate 
 
 - The notes belong to you, in a format any editor can open.
 - Local only: Cube4Notes is reachable from the computer it runs on and, if you enable it, from your own network. No external access, no tunnel, no cloud service.
-- Security is part of the core: per-device tokens (stored hashed), host and origin checks, strict upload rules, OWASP Top 10 review ([app/SECURITY.md](app/SECURITY.md), in Portuguese).
+- Security is part of the core: per-device tokens (stored hashed), host and origin checks, strict upload rules, OWASP Top 10 review ([app/SECURITY.md](app/SECURITY.md)).
 - Simple to set up anywhere: a first-run wizard in the browser, no configuration files to edit by hand.
 
 ## Repository layout
 
 ```text
-app/                        Cube4Notes ([technical reference](app/README.md), in Portuguese)
+app/                        Cube4Notes ([technical reference](app/README.md))
   Program.cs, src/          server: .NET 10 (ASP.NET Core)
   web/                      web interface source: TypeScript, Vite, Milkdown
   wwwroot/                  compiled interface, embedded in the executable
   dev/                      Node test server with the same API, and the tests
-  seguranca/                security test suite
+  security/                security test suite
   SECURITY.md              OWASP Top 10 review and known risks
-  gerar-executavel.cmd/.sh  standalone executable (Windows / Linux and macOS)
-  instalar-servico.sh       systemd service on a headless Linux
+  build.cmd/.sh  standalone executable (Windows / Linux and macOS)
+  install-service.sh       systemd service on a headless Linux
 docs/                       vision, architecture, status, scenarios, AI agents, license and decisions
 .github/workflows/ci.yml    checks on every push
 scripts/check_project.py    structure and documentation link checks
 ```
 
 ## Documentation
-
-The documents below are in Portuguese.
 
 | Document | What for |
 | --- | --- |
@@ -240,13 +252,13 @@ npm run build        # compiles the interface into app/wwwroot (commit it too)
 npm run dev          # dev server; run Cube4Notes on port 43125 alongside
 ```
 
-Tests (Python 3; the interface tests also need Playwright). The full list is in the [technical reference](app/README.md#testes):
+Tests (Python 3; the interface tests also need Playwright). The full list is in the [technical reference](app/README.md#tests):
 
 ```bash
-python app/dev/teste_sync.py                                   # adversarial sync scenarios
-python app/seguranca/teste_seguranca.py --lan https://<ip>:43125   # security suite against a running server
+python app/dev/test_sync.py                                   # adversarial sync scenarios
+python app/security/test_security.py --lan https://<ip>:43125   # security suite against a running server
 python scripts/check_project.py                                # repository structure checks
-python app/dev/teste_executavel.py app/dist/<platform>/Cube4Notes # the built executable, as a new user would run it
+python app/dev/test_executable.py app/dist/<platform>/Cube4Notes # the built executable, as a new user would run it
 ```
 
 Every push to `main` and every pull request runs the same checks ([.github/workflows/ci.yml](.github/workflows/ci.yml)): the executable is built and tested on Windows, Linux and macOS, built and tested again on a minimal Debian with no extra libraries, installed as a systemd service, and the interface tests run against the test server.

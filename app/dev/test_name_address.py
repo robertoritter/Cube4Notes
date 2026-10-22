@@ -6,7 +6,7 @@
 # Teste da troca para o endereço pelo nome do computador: o aparelho abre pelo IP, o app testa o nome,
 # oferece a troca e o mesmo aparelho passa a usar o nome, sem QR novo e sem virar outro aparelho.
 # Aqui "127.0.0.1" faz o papel do IP e "localhost" o do nome (computador.local).
-# Uso: python dev/teste_endereco.py  (precisa de Node, Playwright e openssl)
+# Uso: python dev/test_name_address.py  (precisa de Node, Playwright e openssl)
 import asyncio, json, os, shutil, ssl, subprocess, sys, tempfile, time, urllib.request
 from playwright.async_api import async_playwright
 

@@ -13,7 +13,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-static class Idioma
+static class Lang
 {
     public static readonly bool Pt = Detect();
 

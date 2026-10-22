@@ -4,7 +4,7 @@
 # Copyright (c) 2026 Roberto Ritter
 #
 # Verificação a cada push: gera o executável em Windows, Linux e macOS e testa como um usuário novo usaria
-# (dev/teste_executavel.py), instala o serviço do systemd num Ubuntu, compila e testa num Debian mínimo
+# (dev/test_executable.py), instala o serviço do systemd num Ubuntu, compila e testa num Debian mínimo
 # (sem bibliotecas extras), roda os testes da interface no servidor de teste e confere os links da documentação.
 name: CI
 
@@ -41,9 +41,9 @@ jobs:
       - name: Gerar (Linux e macOS, com o script do README)
         if: runner.os != 'Windows'
         working-directory: app
-        run: ./gerar-executavel.sh || (cat gerar-executavel.log; exit 1)
+        run: ./build.sh || (cat build.log; exit 1)
       - name: Testar o executável
-        run: python app/dev/teste_executavel.py app/dist/${{ matrix.rid }}/${{ matrix.exe }}
+        run: python app/dev/test_executable.py app/dist/${{ matrix.rid }}/${{ matrix.exe }}
       - uses: actions/upload-artifact@v4
         with:
           name: Cube4Notes-${{ matrix.rid }}
@@ -61,12 +61,12 @@ jobs:
         run: curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0
       - name: Gerar com o script do README
         working-directory: app
-        run: ./gerar-executavel.sh || (cat gerar-executavel.log; exit 1)
+        run: ./build.sh || (cat build.log; exit 1)
       - name: Testar o executável
-        run: python3 app/dev/teste_executavel.py app/dist/linux-x64/Cube4Notes
+        run: python3 app/dev/test_executable.py app/dist/linux-x64/Cube4Notes
 
   servico-linux:
-    name: Serviço do systemd (instalar-servico.sh)
+    name: Serviço do systemd (install-service.sh)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -75,8 +75,8 @@ jobs:
       - name: Gerar e instalar como no README
         working-directory: app
         run: |
-          ./gerar-executavel.sh || (cat gerar-executavel.log; exit 1)
-          ./instalar-servico.sh
+          ./build.sh || (cat build.log; exit 1)
+          ./install-service.sh
       - name: O serviço responde e mostra o código de configuração
         run: |
           for i in $(seq 1 60); do curl -skf https://127.0.0.1:43125/api/status && break; sleep 1; done
@@ -86,7 +86,7 @@ jobs:
       - name: Atualizar (rodar o instalador de novo) mantém o serviço funcionando
         working-directory: app
         run: |
-          ./instalar-servico.sh
+          ./install-service.sh
           for i in $(seq 1 60); do curl -skf https://127.0.0.1:43125/api/status && break; sleep 1; done
           systemctl is-active cube4notes
       - name: Mensagens do serviço (em caso de falha)
@@ -117,8 +117,8 @@ jobs:
       - name: Testes
         working-directory: app
         run: |
-          python dev/teste_sync.py
-          python dev/teste_offline.py
-          python dev/teste_recursos.py
-          python dev/teste_endereco.py
-          python dev/teste_idioma.py
+          python dev/test_sync.py
+          python dev/test_offline.py
+          python dev/test_features.py
+          python dev/test_name_address.py
+          python dev/test_language.py

@@ -46,7 +46,7 @@ static class Mcp
         }
         catch (Exception ex)
         {
-            Console.WriteLine(Idioma.T($"  MCP: erro em {method}: {ex.Message}", $"  MCP: error in {method}: {ex.Message}"));
+            Console.WriteLine(Lang.T($"  MCP: erro em {method}: {ex.Message}", $"  MCP: error in {method}: {ex.Message}"));
             return Results.Json(Error(id, -32603, "Internal error"));
         }
     }
@@ -107,7 +107,7 @@ static class Mcp
             if (v is null) problem = $"Vault \"{id}\" não existe ou não está liberado para este agente.";
             return v;
         }
-        Console.WriteLine(Idioma.T($"  Agente {device.Name}: {name}", $"  Agent {device.Name}: {name}"));
+        Console.WriteLine(Lang.T($"  Agente {device.Name}: {name}", $"  Agent {device.Name}: {name}"));
         switch (name)
         {
             case "list_vaults":

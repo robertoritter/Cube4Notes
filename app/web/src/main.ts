@@ -19,8 +19,8 @@ import { termThemes, findTheme, applyTermTheme, swatches } from './termtheme';
 import { resolveRef, noteLink, rewriteLinks, mover, isExternal } from './links';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { parseProps, serializeProps, noteTags, parseQuery, matches, noteProps, type Prop } from './props';
-import { kits, kitNotes } from './conjuntos';
-import { info, typeLabel, nameIndex, outgoing, incoming, bodyTargets, templates, fromTemplate, today, isTemplate, templateDir, TEMPLATE_DIRS, type Template } from './tipos';
+import { kits, kitNotes } from './kits';
+import { info, typeLabel, nameIndex, outgoing, incoming, bodyTargets, templates, fromTemplate, today, isTemplate, templateDir, TEMPLATE_DIRS, type Template } from './types';
 
 // ---------------------------------------------------------------- helpers
 type Attrs = Record<string, any>;

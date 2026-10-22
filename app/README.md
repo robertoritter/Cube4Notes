@@ -1,161 +1,170 @@
-# Cube4Notes: referência técnica do app
+# Cube4Notes: app technical reference
 
-Visão geral do produto, instalação e uso: [README.pt-BR.md](../README.pt-BR.md) (em inglês: [README.md](../README.md)). Como funciona por dentro: [docs/01-architecture.md](../docs/01-architecture.md). Este arquivo é a referência para quem mexe no código.
+Product overview, installation and use: [README.md](../README.md). How it works inside: [docs/01-architecture.md](../docs/01-architecture.md). This file is the reference for people working on the code.
 
-## Compilar e rodar
+## Build and run
 
-| O quê | Windows | Linux e macOS |
+| What | Windows | Linux and macOS |
 | --- | --- | --- |
-| Rodar a partir do código | `iniciar.cmd` (equivale a `dotnet run -c Release`) | `dotnet run -c Release` |
-| Só verificar se compila | `compilar.cmd` (resultado em `compilar.log`) | `dotnet build -c Release` |
-| Executável independente | `gerar-executavel.cmd` → `dist\win-x64\Cube4Notes.exe` | `./gerar-executavel.sh` → `dist/<plataforma>/Cube4Notes` |
-| Servidor sem tela como serviço | não se aplica | `./instalar-servico.sh` (systemd) |
+| Run from source | `run.cmd` (same as `dotnet run -c Release`) | `dotnet run -c Release` |
+| Only check that it builds | `check-build.cmd` (output in `check-build.log`) | `dotnet build -c Release` |
+| Standalone executable | `build.cmd` → `dist\win-x64\Cube4Notes.exe` | `./build.sh` → `dist/<platform>/Cube4Notes` |
+| Headless server as a service | not applicable | `./install-service.sh` (systemd) |
 
-- Precisa do .NET 10 SDK. O executável gerado não precisa de nada instalado: é um arquivo único, autocontido, com a interface (`wwwroot`) embutida como recurso.
-- O projeto mira `net10.0`, nunca `net10.0-windows`. O que é específico do Windows (ícone na bandeja, firewall, confiar no certificado) fica atrás de `OperatingSystem.IsWindows()`.
-- Globalização invariante (`InvariantGlobalization`): o programa não depende da biblioteca ICU. `gerar-executavel.sh` também roda o SDK assim, para compilar num Linux mínimo.
-- `gerar-executavel.sh` detecta a plataforma (`linux-x64`, `linux-arm64`, `osx-arm64`, `osx-x64`) ou recebe uma como argumento.
+- Requires the .NET 10 SDK. The generated executable needs nothing installed: it is a single, self-contained file, with the interface (`wwwroot`) embedded as a resource.
+- The project targets `net10.0`, never `net10.0-windows`. Anything Windows-specific (tray icon, firewall, trusting the certificate) sits behind `OperatingSystem.IsWindows()`.
+- Invariant globalization (`InvariantGlobalization`): the program does not depend on the ICU library. `build.sh` also runs the SDK this way, so it can build on a minimal Linux.
+- `build.sh` detects the platform (`linux-x64`, `linux-arm64`, `osx-arm64`, `osx-x64`) or takes one as an argument.
 
-## Janela, bandeja e serviço
+## Window, tray and service
 
-- Com tela disponível, o processo principal é o servidor e abre a janela num segundo processo (`Cube4Notes --janela <endereço>`), feita com Photino.NET (WebView2 no Windows, WebKitGTK no Linux, WebKit no macOS). Sem tela, ou com `--sem-janela`, roda só o servidor, no console.
-- Abrir o Cube4Notes de novo com ele já rodando só abre outra janela.
-- *Só este computador*: fechar a janela encerra tudo. *Rede de casa*: o servidor continua; no Windows fica um ícone perto do relógio (Abrir, Liberar no firewall, Encerrar), feito direto com a API do Windows para não depender de WinForms. Em qualquer sistema, Preferências > Vaults e servidor > Encerrar o Cube4Notes também encerra (só no próprio computador).
-- Primeira execução numa janela: o assistente roda em HTTP só neste computador; o certificado só é criado se o usuário escolher *Rede de casa*.
-- Como serviço do systemd (`instalar-servico.sh`): o executável vai para `/opt/cube4notes`, o serviço roda com o usuário que instalou (nunca root) e com `--sem-janela --sem-navegador`. Rodar o script de novo atualiza o executável e reinicia o serviço; configuração, aparelhos e notas continuam.
-- Mensagens do programa (ícone, avisos do Windows, console, nome das cópias de conflito) seguem a língua do sistema: Windows pela API, macOS pelas preferências, Linux por `LANG`/`LC_*`. `CUBE4NOTES_LANG=pt` ou `en` força uma língua.
+- When a display is available, the main process is the server and it opens the window in a second process (`Cube4Notes --window <address>`), built with Photino.NET (WebView2 on Windows, WebKitGTK on Linux, WebKit on macOS). Without a display, or with `--no-window`, only the server runs, in the console.
+- Opening Cube4Notes again while it is already running just opens another window.
+- *This computer only*: closing the window shuts everything down. *Home network*: the server keeps running; on Windows an icon stays near the clock (Open Cube4Notes, Allow through firewall, Quit Cube4Notes), built directly on the Windows API so it does not depend on WinForms. On any system, Preferences > Vaults and server > Quit Cube4Notes also shuts it down (only on the computer itself).
+- First run in a window: the setup wizard runs over HTTP on this computer only; the certificate is created only if the user chooses *Home network*.
+- As a systemd service (`install-service.sh`): the executable goes to `/opt/cube4notes`, the service runs as the user who installed it (never root) and with `--no-window --no-browser`. Running the script again updates the executable and restarts the service; configuration, devices and notes are kept.
+- Program messages (icon, Windows notices, console, name of conflict copies) follow the system language: Windows through the API, macOS through its preferences, Linux through `LANG`/`LC_*`. `CUBE4NOTES_LANG=pt` or `en` forces a language.
 
-## Configuração
+## Configuration
 
-Tudo fica numa pasta de configuração: `%LOCALAPPDATA%\Cube4Notes` no Windows, `~/.local/share/Cube4Notes` no Linux, `~/Library/Application Support/Cube4Notes` no macOS, ou `--config <pasta>`.
+Everything lives in a configuration folder: `%LOCALAPPDATA%\Cube4Notes` on Windows, `~/.local/share/Cube4Notes` on Linux, `~/Library/Application Support/Cube4Notes` on macOS, or `--config <folder>`.
 
 ```text
-config.json     nome do servidor, modo, porta e lista de vaults
-devices.json    aparelhos e agentes (só o hash dos tokens), administradores e vaults liberados
-tls/            autoridade certificadora local, certificado do servidor e os endereços que ele cobre (modo Rede de casa)
+config.json     server name, mode, port and list of vaults
+devices.json    devices and agents (token hashes only), administrators and allowed vaults
+tls/            local certificate authority, server certificate and the addresses it covers (Home network mode)
 ```
 
-- Sem `config.json`, o servidor inicia no **assistente de primeira execução**. No próprio computador não pede código; de outro aparelho, pede o código de 6 caracteres mostrado no console.
-- **Modos:** `pessoal` (*Só este computador*: escuta só em localhost, HTTP, sem certificado) e `rede` (*Rede de casa*: HTTPS na porta 43125 e HTTP na 43124, que redireciona para HTTPS, entrega a autoridade certificadora em `.cer` e `.pem` e atende `/mcp` só para agentes no próprio computador). Trocar o modo grava a configuração e reinicia o servidor dentro do mesmo processo.
-- **Vaults:** qualquer pasta, exceto a raiz do disco, pastas do sistema, a pasta de configuração e pastas dentro de outro vault. Cada vault tem um id estável usado nas rotas (ex.: "Trabalho 2026" vira `trabalho-2026`). Tirar um vault da lista não apaga a pasta.
-- **Migração:** a configuração da versão de uma pasta só (`pasta-de-notas.txt` ou `--notes`) vira o vault `notas`, e os aparelhos antigos continuam valendo.
-- Arquivos internos de cada vault: `<vault>/.cube4notes/` (histórico e renomeações) e `<vault>/.lixeira/`.
+- Without `config.json`, the server starts in the **first-run setup wizard**. On the computer itself it asks for no code; from another device, it asks for the 6-character code shown in the console.
+- **Modes:** `pessoal` (*This computer only*: listens only on localhost, HTTP, no certificate) and `rede` (*Home network*: HTTPS on port 43125 and HTTP on 43124, which redirects to HTTPS, serves the certificate authority as `.cer` and `.pem`, and serves `/mcp` only to agents on the computer itself). Changing the mode saves the configuration and restarts the server within the same process.
+- **Vaults:** any folder, except the disk root, system folders, the configuration folder and folders inside another vault. Each vault has a stable id used in routes (e.g. "Trabalho 2026" becomes `trabalho-2026`). Removing a vault from the list does not delete the folder.
+- **Migration:** the configuration from the single-folder version (`pasta-de-notas.txt` or `--notes`) becomes the vault `notas`, and old devices keep working.
+- Internal files of each vault: `<vault>/.cube4notes/` (history and renames) and `<vault>/.trash/`.
 
-### Opções de linha de comando
+### Command-line options
 
-| Opção | Efeito |
+| Option | Effect |
 | --- | --- |
-| `--config <pasta>` | pasta da configuração |
-| `--port <número>` | porta do app (padrão 43125; no modo *Rede de casa* a porta anterior redireciona para HTTPS) |
-| `--notes <pasta>` | sem configuração existente, usa essa pasta como primeiro vault (id `notas`; migração do primeiro protótipo) |
-| `--sem-janela` | só o servidor, sem janela |
-| `--sem-navegador` | não abre a janela nem o navegador ao iniciar |
-| `--sem-https` | HTTP simples na rede (só para testes) |
-| `--sem-instalar-certificado` | não adiciona a autoridade à confiança do Windows |
-| `--sem-firewall` | não cria a regra do Firewall do Windows |
-| `--sem-nome-na-rede` | não responde por `<computador>-notes.local` |
+| `--config <folder>` | configuration folder |
+| `--port <number>` | app port (default 43125; in *Home network* mode the port below it redirects to HTTPS) |
+| `--notes <folder>` | with no existing configuration, uses this folder as the first vault (id `notas`; migration from the first prototype) |
+| `--no-window` | server only, no window |
+| `--no-browser` | does not open the window or the browser at startup |
+| `--no-https` | plain HTTP on the network (testing only) |
+| `--no-cert-install` | does not add the authority to Windows trust |
+| `--no-firewall` | does not create the Windows Firewall rule |
+| `--no-network-name` | does not answer to `<computer>-notes.local` |
 
-## Aparelhos, agentes e permissões
+## Devices, agents and permissions
 
-- O aparelho que conclui o assistente é administrador. No próprio computador do servidor (localhost), o pareamento é automático e também é administrador.
-- Os outros aparelhos entram por convite: QR code (144 bits) ou código curto de 6 caracteres, uso único, válido por 5 minutos. O convite define os vaults liberados e se o aparelho administra.
-- Um aparelho já conectado que lê um convite novo tem o acesso trocado pelo do convite, sem virar outro aparelho.
-- **Convite de transferência:** um aparelho conectado pede (`POST /api/transfer`) um convite preso a ele mesmo, para abrir o Cube4Notes por outro endereço (o nome do computador) sem novo QR. Ele ganha um token a mais; remover o aparelho invalida todos.
-- **Agentes:** token só de leitura, com os vaults escolhidos; recusado em qualquer alteração e nunca administrador.
-- Cada aparelho guarda offline todos os vaults liberados (um IndexedDB por vault). Vault que deixa de ser liberado some da tela; alterações pendentes nele ficam guardadas no aparelho.
+- The device that completes the setup wizard is an administrator. On the server computer itself (localhost), pairing is automatic and it is also an administrator.
+- Other devices join by invite: QR code (144 bits) or a short 6-character code, single use, valid for 5 minutes. The invite sets the allowed vaults and whether the device is an administrator.
+- An already connected device that reads a new invite has its access replaced by the invite's, without becoming a different device.
+- **Transfer invite:** a connected device requests (`POST /api/transfer`) an invite bound to itself, to open Cube4Notes at another address (the computer name) without a new QR code. It gets an extra token; removing the device invalidates all of them.
+- **Agents:** read-only token, with the chosen vaults; refused on any change and never an administrator.
+- Each device keeps all of its allowed vaults offline (one IndexedDB per vault). A vault that stops being allowed disappears from the screen; pending changes in it stay stored on the device.
 
-## Sincronização
+## Sync
 
-- Cópia local em IndexedDB e fila de operações (`put`, `delete`, `mkdir`, `rmdir`, `move` pela rota `sync`; `upload` pela rota `attachment`). Gravar e apagar levam a versão-base (SHA-256 do conteúdo). Decisão: [ADR 0008](../docs/adr/0008-sync-by-base-version.md).
-- Conflito: o servidor mantém a versão dele e grava a do aparelho como `Nome (conflito Aparelho aaaa-mm-dd HHmm).md` (em inglês, `conflict`).
-- Exclusão vai para `.lixeira`; se a nota mudou antes da exclusão chegar, ela é mantida.
-- Renomeações ficam registradas por 30 dias: uma edição enviada para o nome antigo é aplicada no nome novo (resposta com `movedTo`).
-- Histórico: no máximo uma versão a cada 5 minutos por nota, até 100 versões e 180 dias, sempre as 10 mais recentes. Acompanha renomeações.
-- Anexos: imagens e PDFs até 25 MB. Colados offline ficam no aparelho e sobem com o caminho escolhido por ele; arquivo igual já existente é reaproveitado, diferente ganha sufixo. Imagens citadas nas notas são pré-carregadas (até 10 MB cada, 150 MB por vault).
-- A interface consulta `/api/status` e recarrega sozinha quando o servidor passa a entregar uma interface nova.
+- Local copy in IndexedDB and an operation queue (`put`, `delete`, `mkdir`, `rmdir`, `move` through the `sync` route; `upload` through the `attachment` route). Writes and deletes carry the base version (SHA-256 of the content). Decision: [ADR 0008](../docs/adr/0008-sync-by-base-version.md).
+- Conflict: the server keeps its own version and saves the device's as `Note (conflict <device> <date>).md` on an English system (`Nota (conflito ...)` on a Portuguese one), with the date as `yyyy-mm-dd HHmm`.
+- A deletion goes to `.trash`; if the note changed before the deletion arrived, it is kept.
+- Renames are recorded for 30 days: an edit sent to the old name is applied to the new name (response with `movedTo`).
+- History: at most one version every 5 minutes per note, up to 100 versions and 180 days, always keeping the 10 most recent. It follows renames.
+- Attachments: images and PDFs up to 25 MB. Ones pasted offline stay on the device and are uploaded with the path the device chose; an identical existing file is reused, a different one gets a suffix. Images referenced in notes are preloaded (up to 10 MB each, 150 MB per vault).
+- The interface polls `/api/status` and reloads itself when the server starts serving a new interface.
 
 ## API
 
-Todas as rotas exigem `Authorization: Bearer <token>`, exceto `status`, `pair` e `setup`. O token nunca vai na URL. Alterações exigem a mesma origem (cabeçalho `Origin` ou `Sec-Fetch-Site`). Erros do servidor vêm como códigos estáveis (`{"error": "pick-folder"}`), traduzidos pela interface.
+All routes require `Authorization: Bearer <token>`, except `status`, `pair` and `setup`. The token never goes in the URL. Changes require the same origin (`Origin` or `Sec-Fetch-Site` header). Server errors come as stable codes (`{"error": "pick-folder"}`), translated by the interface.
 
-| Rota | Função |
+| Route | Purpose |
 | --- | --- |
-| `GET /api/status` | nome, modo, assistente, se o token vale, administrador, versão da interface, endereço pelo nome (`hostUrl`) |
-| `POST /api/pair` `{invite, deviceName, transfer}` | pareia com convite (sem convite em localhost); aparelho conectado tem o acesso atualizado; `transfer` usa um convite de transferência |
-| `POST /api/transfer` | convite de transferência para o próprio aparelho |
-| `GET /api/setup/browse?path=&code=`, `POST /api/setup` | assistente de primeira execução |
-| `GET /api/vaults` | vaults liberados para o aparelho |
-| `GET /api/v/{vault}/manifest` | pastas, notas (com versão) e anexos |
-| `POST /api/v/{vault}/fetch` `{paths}` | conteúdo de várias notas |
-| `POST /api/v/{vault}/sync` `{ops}` | aplica as operações da fila |
-| `GET /api/v/{vault}/raw?path=` | imagem ou PDF do vault |
-| `POST /api/v/{vault}/attachment?name=` ou `?path=` | salva imagem ou PDF (até 25 MB), em `anexos/` ou no caminho dado |
-| `GET /api/v/{vault}/history?path=`, `GET .../history/version?path=&id=` | versões de uma nota e o texto de uma versão |
-| `GET /api/admin/browse?path=` | subpastas do computador do servidor, para escolher a pasta de um vault |
-| `POST`, `PATCH`, `DELETE /api/admin/vaults[/{id}]` | cria, renomeia e tira vaults da lista |
-| `POST /api/admin/invite` `{vaults, admin}` | gera convite |
-| `GET`, `PATCH`, `DELETE /api/admin/devices[/{id}]` | lista aparelhos e agentes, muda acesso, remove |
-| `POST /api/admin/agents` `{name, vaults}` | cria token de agente (somente leitura) |
-| `GET`, `PATCH /api/admin/server` `{name, mode}` | nome e modo do servidor (mudar o modo reinicia) |
-| `POST /api/admin/quit` | encerra o Cube4Notes (só no próprio computador) |
-| `GET`, `POST`, `DELETE /mcp` | MCP para agentes ([docs/06-ai-agents.md](../docs/06-ai-agents.md)); em HTTP só de localhost |
-| `GET /cube4notes-ca.cer`, `/cube4notes-ca.pem` | autoridade certificadora (também em HTTP, porta 43124) |
+| `GET /api/status` | name, mode, setup wizard, whether the token is valid, administrator, interface version, address by name (`hostUrl`) |
+| `POST /api/pair` `{invite, deviceName, transfer}` | pairs with an invite (no invite on localhost); a connected device gets its access updated; `transfer` uses a transfer invite |
+| `POST /api/transfer` | transfer invite for the device itself |
+| `GET /api/setup/browse?path=&code=`, `POST /api/setup` | first-run setup wizard |
+| `GET /api/vaults` | vaults allowed for the device |
+| `GET /api/v/{vault}/manifest` | folders, notes (with version) and attachments |
+| `POST /api/v/{vault}/fetch` `{paths}` | content of several notes |
+| `POST /api/v/{vault}/sync` `{ops}` | applies the queued operations |
+| `GET /api/v/{vault}/raw?path=` | image or PDF from the vault |
+| `POST /api/v/{vault}/attachment?name=` or `?path=` | saves an image or PDF (up to 25 MB), in `attachments/` (`anexos/` in vaults created by older versions) or at the given path |
+| `GET /api/v/{vault}/history?path=`, `GET .../history/version?path=&id=` | versions of a note and the text of one version |
+| `GET /api/admin/browse?path=` | subfolders on the server computer, to pick a vault's folder |
+| `POST`, `PATCH`, `DELETE /api/admin/vaults[/{id}]` | creates, renames and removes vaults from the list |
+| `POST /api/admin/invite` `{vaults, admin}` | generates an invite |
+| `GET`, `PATCH`, `DELETE /api/admin/devices[/{id}]` | lists devices and agents, changes access, removes |
+| `POST /api/admin/agents` `{name, vaults}` | creates an agent token (read-only) |
+| `GET`, `PATCH /api/admin/server` `{name, mode}` | server name and mode (changing the mode restarts) |
+| `POST /api/admin/quit` | quits Cube4Notes (only on the computer itself) |
+| `GET`, `POST`, `DELETE /mcp` | MCP for agents ([docs/06-ai-agents.md](../docs/06-ai-agents.md)); over HTTP only from localhost |
+| `GET /cube4notes-ca.cer`, `/cube4notes-ca.pem` | certificate authority (also over HTTP, port 43124) |
 
-## Estrutura
+## Layout
 
 ```text
-Program.cs                 início, rede, rotas
-src/Configuracao.cs        config.json, migração, validação de pastas de vault
-src/Vaults.cs              operações de arquivo de cada vault (versão, conflito, lixeira, renomeações, anexos)
-src/Historico.cs           histórico de versões de cada nota (.cube4notes/historico)
-src/Aparelhos.cs           aparelhos, agentes, convites, limite de tentativas
-src/Rede.cs                segurança de Host/Origem, caminhos, endereços da rede local
-src/Tls.cs                 autoridade certificadora local e certificado do servidor
-src/Mdns.cs                responde por <computador>-notes.local na rede local (mDNS)
-src/Firewall.cs            regras do Firewall do Windows (portas e mDNS), só para a rede local
-src/Mcp.cs                 acesso somente leitura para agentes de IA (MCP)
-src/Interface.cs           entrega a interface embutida no executável
-src/Janela.cs              janela do app (Photino) em processo separado
-src/Bandeja.cs             ícone perto do relógio no Windows (API do Windows)
-src/Idioma.cs              língua das mensagens do programa (a do sistema)
-Cube4Notes.csproj          projeto
-gerar-executavel.cmd/.sh   executável independente (Windows / Linux e macOS)
-instalar-servico.sh        serviço do systemd num Linux sem tela
-wwwroot/                   interface compilada (versionada)
-web/                       código-fonte da interface (TypeScript + Vite + Milkdown)
-dev/                       servidor de teste em Node e testes (abaixo)
-seguranca/                 bateria de testes de segurança (Python, sem dependências)
-SECURITY.md               revisão OWASP e riscos conhecidos
+Program.cs            startup, network, routes
+src/Config.cs         config.json, migration, vault folder validation
+src/Vaults.cs         file operations for each vault (version, conflict, trash, renames, attachments)
+src/History.cs        version history of each note (.cube4notes/history)
+src/Devices.cs        devices, agents, invites, attempt limits
+src/Network.cs        Host/Origin security, paths, local network addresses
+src/Tls.cs            local certificate authority and server certificate
+src/Mdns.cs           answers to <computer>-notes.local on the local network (mDNS)
+src/Firewall.cs       Windows Firewall rules (ports and mDNS), local network only
+src/Mcp.cs            read-only access for AI agents (MCP)
+src/Interface.cs      serves the interface embedded in the executable
+src/AppWindow.cs      app window (Photino) in a separate process
+src/Tray.cs           icon near the clock on Windows (Windows API)
+src/Lang.cs           language of program messages (the system's)
+Cube4Notes.csproj     project
+run.cmd               runs from source on Windows
+check-build.cmd       only checks that it builds on Windows (check-build.log)
+build.cmd/.sh         standalone executable (Windows / Linux and macOS)
+install-service.sh    systemd service on a headless Linux
+icon/                 app icon (cube4notes.ico)
+wwwroot/              compiled interface (under version control)
+web/                  interface source code (TypeScript + Vite + Milkdown)
+dev/                  Node test server and tests (below)
+security/             security test suite (Python, no dependencies)
+SECURITY.md           OWASP review and known risks
 ```
 
 ### Interface (`web/src`)
 
 ```text
-main.ts        telas, editor, barra lateral, painel, preferências, aparelhos
-store.ts       IndexedDB, fila offline, sincronização, anexos, API
-editor.ts      Milkdown (Crepe), textos em português, envio de anexos
-links.ts       links Markdown relativos e reescrita ao renomear
-props.ts       propriedades (YAML simples) e tags
-tipos.ts       tipos, modelos, relações e listas por tipo
-conjuntos.ts   conjuntos prontos de modelos (português e inglês)
-i18n.ts        textos da interface (português e inglês)
-termtheme.ts   temas de cores (Cube4Themes)
+main.ts        screens, editor, sidebar, panel, preferences, devices
+store.ts       IndexedDB, offline queue, sync, attachments, API
+editor.ts      Milkdown (Crepe), Portuguese text, attachment upload
+links.ts       relative Markdown links and rewriting on rename
+props.ts       properties (simple YAML) and tags
+types.ts       types, templates, relations and lists by type
+kits.ts        ready-made template sets (Portuguese and English)
+i18n.ts        interface text (Portuguese and English)
+termtheme.ts   color themes (Cube4Themes)
+icons.ts       interface icons (Lucide)
+styles.css     interface styles
+fonts.css      interface fonts
+image/         interface images (logo)
 ```
 
-Para alterar a interface: `cd web`, `npm ci`, `npm run build` (compila para `wwwroot/`, que deve ser commitado junto). Durante o desenvolvimento, `npm run dev` com o servidor rodando na porta 43125 em HTTP (modo *Só este computador* ou `--sem-https`), ou `node dev/mock-server.mjs --config <pasta> --port 43125` sem compilar o .NET.
+To change the interface: `cd web`, `npm ci`, `npm run build` (builds to `wwwroot/`, which must be committed along with it). During development, `npm run dev` with the server running on port 43125 over HTTP (*This computer only* mode or `--no-https`), or `node dev/mock-server.mjs --config <folder> --port 43125` without building the .NET code.
 
-## Testes
+## Tests
 
 ```bash
-python dev/teste_executavel.py dist/<plataforma>/Cube4Notes   # o executável real, como um usuário novo
-python dev/teste_sync.py                                      # sincronização adversarial (dois aparelhos, offline, conflitos)
-python dev/teste_offline.py                                   # app aberto e editado sem servidor
-python dev/teste_recursos.py                                  # links, anexos, histórico, tags, modelos, relações, agentes
-python dev/teste_endereco.py                                  # troca para o endereço pelo nome
-python dev/teste_idioma.py                                    # nenhum texto da outra língua na interface
-python dev/teste_mdns.py <computador>                         # resposta pelo nome na rede (rodar na rede de casa)
-python seguranca/teste_seguranca.py --lan https://<ip>:43125  # bateria de segurança contra um servidor rodando
-python ../scripts/check_project.py ..                         # estrutura e links da documentação
+python dev/test_executable.py dist/<platform>/Cube4Notes    # the real executable, as a new user
+python dev/test_sync.py                                     # adversarial sync (two devices, offline, conflicts)
+python dev/test_offline.py                                  # app opened and edited without a server
+python dev/test_features.py                                 # links, attachments, history, tags, templates, relations, agents
+python dev/test_name_address.py                             # switch to the address by name
+python dev/test_language.py                                 # no text from the other language in the interface
+python dev/test_mdns.py <computer>                          # answer by name on the network (run on the home network)
+python security/test_security.py --lan https://<ip>:43125   # security suite against a running server
+python ../scripts/check_project.py ..                       # structure and documentation links
 ```
 
-Os testes da interface usam Playwright e o servidor de teste em Node (`dev/mock-server.mjs`), que implementa a mesma API. Todos, menos `teste_mdns` e `teste_seguranca`, rodam no GitHub a cada push na `main` e em cada pull request ([ci.yml](../.github/workflows/ci.yml)).
+Documentation screenshots (`docs/images`) are generated with `python dev/screenshots.py`: an English demo vault, the compiled interface and the test server (needs Node, Playwright, openssl and Pillow). Run it again when a screen changes.
+
+The interface tests use Playwright and the Node test server (`dev/mock-server.mjs`), which implements the same API. All of them, except `test_mdns.py` and `test_security.py`, run on GitHub on every push to `main` and on every pull request ([ci.yml](../.github/workflows/ci.yml)).

@@ -5,7 +5,7 @@
 #
 # Teste do app sem servidor (como na rua): a interface fica guardada no aparelho, abre rápido mesmo
 # quando o endereço do servidor não responde, e edições feitas assim continuam guardadas.
-# Uso: python dev/teste_offline.py (precisa de Node e Playwright)
+# Uso: python dev/test_offline.py (precisa de Node e Playwright)
 import asyncio, os, shutil, subprocess, time, socket, threading
 from playwright.async_api import async_playwright
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__))); PORT=43196; URL=f"http://localhost:{PORT}/"

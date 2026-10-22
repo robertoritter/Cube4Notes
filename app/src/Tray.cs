@@ -12,7 +12,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
 [SupportedOSPlatform("windows")]
-sealed class Bandeja : IDisposable
+sealed class Tray : IDisposable
 {
     private const uint WmTray = 0x8001, WmCommand = 0x0111, WmClose = 0x0010, WmDestroy = 0x0002, WmNull = 0x0000;
     private const uint WmLButtonUp = 0x0202, WmLButtonDblClk = 0x0203, WmRButtonUp = 0x0205, WmContextMenu = 0x007B;
@@ -28,7 +28,7 @@ sealed class Bandeja : IDisposable
     private IntPtr hwnd;
     private NotifyIconData data;
 
-    public Bandeja(string? iconPath, string tip, Action onOpen, Action onQuit, Action? onFirewall = null)
+    public Tray(string? iconPath, string tip, Action onOpen, Action onQuit, Action? onFirewall = null)
     {
         this.iconPath = iconPath; this.tip = tip; this.onOpen = onOpen; this.onQuit = onQuit; this.onFirewall = onFirewall;
         proc = WindowProc;
@@ -127,10 +127,10 @@ sealed class Bandeja : IDisposable
     private void ShowMenu()
     {
         var menu = CreatePopupMenu();
-        AppendMenu(menu, 0, new IntPtr(CmdOpen), Idioma.T("Abrir Cube4Notes", "Open Cube4Notes"));
-        if (onFirewall is not null) AppendMenu(menu, 0, new IntPtr(CmdFirewall), Idioma.T("Liberar no firewall (celular não conecta)", "Allow through firewall (phone cannot connect)"));
+        AppendMenu(menu, 0, new IntPtr(CmdOpen), Lang.T("Abrir Cube4Notes", "Open Cube4Notes"));
+        if (onFirewall is not null) AppendMenu(menu, 0, new IntPtr(CmdFirewall), Lang.T("Liberar no firewall (celular não conecta)", "Allow through firewall (phone cannot connect)"));
         AppendMenu(menu, 0x800, IntPtr.Zero, null);
-        AppendMenu(menu, 0, new IntPtr(CmdQuit), Idioma.T("Encerrar o Cube4Notes", "Quit Cube4Notes"));
+        AppendMenu(menu, 0, new IntPtr(CmdQuit), Lang.T("Encerrar o Cube4Notes", "Quit Cube4Notes"));
         GetCursorPos(out var p);
         SetForegroundWindow(hwnd);
         TrackPopupMenu(menu, 0x2, p.X, p.Y, 0, hwnd, IntPtr.Zero);
@@ -140,7 +140,7 @@ sealed class Bandeja : IDisposable
 
     private static void Safe(Action a)
     {
-        try { a(); } catch (Exception ex) { Console.WriteLine(Idioma.T($"  Bandeja: {ex.Message}", $"  Tray icon: {ex.Message}")); }
+        try { a(); } catch (Exception ex) { Console.WriteLine(Lang.T($"  Tray: {ex.Message}", $"  Tray icon: {ex.Message}")); }
     }
 
     // ------------------------------------------------------------ API do Windows

@@ -1,60 +1,60 @@
-# Instruções do projeto
+# Project instructions
 
-## Contexto
+## Context
 
-Cube4Notes é um produto independente: servidor pessoal de arquivos Markdown com edição visual web e sincronização local/offline entre dispositivos. Outros editores podem servir apenas como referência para ideias gerais de produto; Cube4Notes não terá plugins, integrações, APIs de compatibilidade ou dependências de Obsidian ou SilverBullet.
+Cube4Notes is an independent product: a personal server for Markdown files with visual web editing and local/offline sync between devices. Other editors may serve only as a reference for general product ideas; Cube4Notes will have no plugins, integrations, compatibility APIs or dependencies on Obsidian or SilverBullet.
 
-Leia `README.md`, `docs/00-vision-and-scope.md`, `docs/01-architecture.md` e `app/README.md` antes de alterações substanciais.
+Read `README.md`, `docs/00-vision-and-scope.md`, `docs/01-architecture.md` and `app/README.md` before substantial changes.
 
-## Regras permanentes
+## Standing rules
 
-- Markdown legível por humanos é o formato canônico das notas.
-- Preserve a distinção entre fatos, hipóteses, propostas e decisões.
-- Licença decidida: MIT (`LICENSE`, ADR 0002). Não mude a licença nem acrescente outras sem decisão expressa do proprietário.
-- Não invente requisitos, integrações, comandos ou suporte de plataforma inexistentes.
-- O Cube4Notes roda no computador que guarda as notas (o do próprio usuário ou um servidor doméstico sempre ligado); outros computadores, celular e tablet são clientes.
-- O servidor é acessível somente pela rede local da casa. Não configurar acesso externo, túnel remoto ou serviço de nuvem.
-- Celular e iPad devem manter dados e mudanças localmente enquanto offline e sincronizar ao reencontrar o servidor.
-- Resolver conflitos preservando alterações; nenhuma versão pode ser descartada silenciosamente.
-- Trate segurança e autorização local como requisitos do núcleo; agentes leem por interfaces controladas, sem acesso privilegiado direto ao armazenamento.
-- Registre decisões caras de reverter em `docs/adr/` antes da implementação.
-- Atualize documentação e testes quando uma mudança alterar escopo ou comportamento.
+- Human-readable Markdown is the canonical format for notes.
+- Keep the distinction between facts, hypotheses, proposals and decisions.
+- License decided: MIT (`LICENSE`, ADR 0002). Do not change the license or add others without an explicit decision by the owner.
+- Do not invent requirements, integrations, commands or platform support that do not exist.
+- Cube4Notes runs on the computer that holds the notes (the user's own computer or an always-on home server); other computers, phones and tablets are clients.
+- The server is reachable only from the home's local network. Do not set up external access, remote tunnels or cloud services.
+- Phones and iPads must keep data and changes locally while offline and sync when they reach the server again.
+- Resolve conflicts by preserving changes; no version may be silently discarded.
+- Treat security and local authorization as core requirements; agents read through controlled interfaces, with no direct privileged access to storage.
+- Record decisions that are expensive to reverse in `docs/adr/` before implementation.
+- Update documentation and tests when a change alters scope or behavior.
 
-## Protocolo de entrega
+## Delivery protocol
 
-Para cada incremento solicitado:
+For each requested increment:
 
-1. implementar somente o escopo autorizado;
-2. executar testes e verificações locais relevantes;
-3. criar um commit Git local, pequeno e descritivo;
-4. **PARAR** e entregar ao usuário instruções de validação manual;
-5. fazer `push` apenas após aprovação explícita do usuário.
+1. implement only the authorized scope;
+2. run the relevant local tests and checks;
+3. create a small, descriptive local Git commit;
+4. **STOP** and give the user manual validation instructions;
+5. `push` only after explicit approval from the user.
 
-Nunca pule direto do commit local para publicação, release ou `push`.
+Never jump straight from the local commit to publishing, a release or a `push`.
 
-## Ambientes
+## Environments
 
-- O código compila e roda no Windows, no Linux (x64 e ARM64) e no macOS. Nunca use `net10.0-windows` nem dependências que só existam num sistema; o que é específico de um sistema fica atrás de verificação em tempo de execução.
-- Servidor doméstico de referência: Linux (Debian) sem tela, rodando como serviço do systemd. Clientes: navegadores em Windows, Linux, macOS, iPhone, iPad e Android.
-- O macOS é verificado no CI (runner macOS); não presuma acesso a um Mac para depurar.
+- The code builds and runs on Windows, Linux (x64 and ARM64) and macOS. Never use `net10.0-windows` or dependencies that exist on only one system; anything system-specific sits behind a runtime check.
+- Reference home server: headless Linux (Debian), running as a systemd service. Clients: browsers on Windows, Linux, macOS, iPhone, iPad and Android.
+- macOS is checked in CI (macOS runner); do not assume access to a Mac for debugging.
 
-## Mapa do repositório
+## Repository map
 
-| Área | Responsabilidade |
+| Area | Responsibility |
 | --- | --- |
-| `app/` | o Cube4Notes: servidor .NET, interface embutida, scripts de compilação e de serviço ([referência técnica](app/README.md)) |
-| `app/web/` | código-fonte da interface (TypeScript, Vite, Milkdown); compila para `app/wwwroot/`, que é versionado |
-| `app/dev/` | servidor de teste em Node com a mesma API e os testes (Playwright e o teste do executável) |
-| `app/seguranca/`, `app/SECURITY.md` | bateria de segurança; revisão OWASP e riscos conhecidos |
-| `docs/` | visão, arquitetura, estado, cenários, agentes de IA, licença |
-| `docs/adr/` | decisões aceitas |
-| `.github/workflows/ci.yml` | verificação a cada push na `main` e em pull requests |
-| `scripts/check_project.py` | estrutura mínima e links da documentação |
+| `app/` | Cube4Notes itself: .NET server, embedded interface, build and service scripts ([technical reference](app/README.md)) |
+| `app/web/` | interface source code (TypeScript, Vite, Milkdown); builds to `app/wwwroot/`, which is under version control |
+| `app/dev/` | Node test server with the same API, and the tests (Playwright and the executable test) |
+| `app/security/`, `app/SECURITY.md` | security test suite; OWASP review and known risks |
+| `docs/` | vision, architecture, status, scenarios, AI agents, license |
+| `docs/adr/` | accepted decisions |
+| `.github/workflows/ci.yml` | checks on every push to `main` and on pull requests |
+| `scripts/check_project.py` | minimum structure and documentation links |
 
-## Verificação
+## Verification
 
-- Antes de concluir uma mudança, rode os testes que cobrem a área ([lista em app/README.md](app/README.md#testes)) e `python scripts/check_project.py`.
-- Mudou a interface: `npm run build` em `app/web` e commite `app/wwwroot` junto.
-- Mudou o servidor ou os scripts: confirme que o CI continua cobrindo o caminho que um usuário novo segue (`app/dev/teste_executavel.py`, serviço do systemd, Debian mínimo).
-- Documente só comandos que existem e foram verificados. Textos da interface sempre nas duas línguas (`app/web/src/i18n.ts`), e `app/dev/teste_idioma.py` precisa continuar passando.
-- Arquivos públicos não levam nomes pessoais, nomes de máquinas nem e-mails pessoais. Nomes de produto: sempre "Cube4" + nome, sem hífen.
+- Before finishing a change, run the tests that cover the area ([list in app/README.md](app/README.md#tests)) and `python scripts/check_project.py`.
+- Changed the interface: run `npm run build` in `app/web` and commit `app/wwwroot` along with it.
+- Changed the server or the scripts: confirm that CI still covers the path a new user follows (`app/dev/test_executable.py`, systemd service, minimal Debian).
+- Document only commands that exist and have been verified. Interface text always in both languages (`app/web/src/i18n.ts`), and `app/dev/test_language.py` must keep passing.
+- Public files carry no personal names, machine names or personal e-mails. Product names: always "Cube4" + name, no hyphen.

@@ -28,7 +28,7 @@ static class ConfigStore
     private static readonly object Sync = new();
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
-    public static string DefaultVaultName => Idioma.T("Notas", "Notes");
+    public static string DefaultVaultName => Lang.T("Notas", "Notes");
     public static string Dir { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cube4Notes");
     public static string FilePath => Path.Combine(Dir, "config.json");
 
@@ -43,7 +43,7 @@ static class ConfigStore
                 // Arquivo corrompido: guarda uma cópia e recomeça pelo assistente (as notas não são tocadas).
                 var bad = FilePath + ".invalido-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
                 File.Copy(FilePath, bad, true);
-                Console.WriteLine(Idioma.T($"  config.json inválido ({ex.Message}). Cópia salva em {bad}.", $"  Invalid config.json ({ex.Message}). Copy saved as {bad}."));
+                Console.WriteLine(Lang.T($"  config.json inválido ({ex.Message}). Cópia salva em {bad}.", $"  Invalid config.json ({ex.Message}). Copy saved as {bad}."));
                 return null;
             }
         }
@@ -79,7 +79,7 @@ static class ConfigStore
             File.Copy(oldDevices, newDevices);
         }
         Save(config);
-        Console.WriteLine(Idioma.T($"  Configuração criada a partir da pasta {root} (vault \"{ConfigStore.DefaultVaultName}\").", $"  Settings created from the folder {root} (vault \"{ConfigStore.DefaultVaultName}\")."));
+        Console.WriteLine(Lang.T($"  Configuração criada a partir da pasta {root} (vault \"{ConfigStore.DefaultVaultName}\").", $"  Settings created from the folder {root} (vault \"{ConfigStore.DefaultVaultName}\")."));
         return config;
     }
 

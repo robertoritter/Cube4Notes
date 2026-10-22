@@ -5,7 +5,7 @@
  * Copyright (c) 2026 Roberto Ritter
  *
  * Janela própria do Cube4Notes (Photino: WebView2 no Windows, WebKitGTK no Linux, WebKit no macOS),
- * sem navegador e sem console. A janela roda num processo separado (Cube4Notes --janela <endereço>):
+ * sem navegador e sem console. A janela roda num processo separado (Cube4Notes --window <endereço>):
  * fechar a janela não derruba o servidor, e abrir o Cube4Notes de novo só abre outra janela.
  */
 using System.Diagnostics;
@@ -13,7 +13,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using Photino.NET;
 
-static class Janela
+static class AppWindow
 {
     // Há uma tela onde abrir janela? (servidor Linux sem interface gráfica usa o modo console)
     public static bool HasDesktop()
@@ -40,7 +40,7 @@ static class Janela
         try
         {
             var path = Path.Combine(ConfigStore.Dir, OperatingSystem.IsWindows() ? "cube4notes.ico" : "cube4notes.png");
-            var resource = OperatingSystem.IsWindows() ? "icone/cube4notes.ico" : "wwwroot/brand/icon-512.png";
+            var resource = OperatingSystem.IsWindows() ? "icon/cube4notes.ico" : "wwwroot/brand/icon-512.png";
             using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream(resource);
             if (s is null) return null;
             if (!File.Exists(path) || new FileInfo(path).Length != s.Length)
@@ -63,7 +63,7 @@ static class Janela
             // "dotnet run": o processo é o dotnet, então passa a dll do Cube4Notes antes dos argumentos
             if (Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
                 info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "Cube4Notes.dll"));
-            info.ArgumentList.Add("--janela");
+            info.ArgumentList.Add("--window");
             info.ArgumentList.Add(url);
             info.ArgumentList.Add("--config");
             info.ArgumentList.Add(ConfigStore.Dir);
@@ -71,7 +71,7 @@ static class Janela
         }
         catch (Exception ex)
         {
-            Console.WriteLine(Idioma.T($"  Não foi possível abrir a janela ({ex.Message}); abrindo no navegador.", $"  Could not open the window ({ex.Message}); opening in the browser."));
+            Console.WriteLine(Lang.T($"  Não foi possível abrir a janela ({ex.Message}); abrindo no navegador.", $"  Could not open the window ({ex.Message}); opening in the browser."));
             OpenBrowser(url);
             return null;
         }
@@ -95,14 +95,14 @@ static class Janela
                     .SetDevToolsEnabled(false);
                 if (IconPath() is { } icon) window.SetIconFile(icon);
                 // dados do WebView2 (notas offline da janela) ficam junto da configuração, não ao lado do .exe
-                if (OperatingSystem.IsWindows()) window.SetTemporaryFilesPath(Path.Combine(ConfigStore.Dir, "janela"));
+                if (OperatingSystem.IsWindows()) window.SetTemporaryFilesPath(WindowDataDir());
                 window.Load(new Uri(url));
                 ok = true;
                 window.WaitForClose();
             }
             catch (Exception ex)
             {
-                Console.WriteLine(Idioma.T($"  Janela indisponível ({ex.Message}); abrindo no navegador.", $"  Window unavailable ({ex.Message}); opening in the browser."));
+                Console.WriteLine(Lang.T($"  AppWindow indisponível ({ex.Message}); abrindo no navegador.", $"  Window unavailable ({ex.Message}); opening in the browser."));
             }
         }
         if (OperatingSystem.IsWindows())
@@ -126,6 +126,16 @@ static class Janela
             else if (OperatingSystem.IsMacOS()) Process.Start("open", url);
             else Process.Start("xdg-open", url);
         }
-        catch (Exception) { Console.WriteLine(Idioma.T($"  Abra no navegador: {url}", $"  Open in the browser: {url}")); }
+        catch (Exception) { Console.WriteLine(Lang.T($"  Abra no navegador: {url}", $"  Open in the browser: {url}")); }
+    }
+
+    // Dados da janela (WebView2: notas offline da janela). Versões anteriores usavam a pasta "janela".
+    private static string WindowDataDir()
+    {
+        var dir = Path.Combine(ConfigStore.Dir, "window");
+        var old = Path.Combine(ConfigStore.Dir, "janela");
+        try { if (Directory.Exists(old) && !Directory.Exists(dir)) Directory.Move(old, dir); }
+        catch (Exception) { return old; }
+        return dir;
     }
 }

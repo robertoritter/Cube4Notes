@@ -1,25 +1,25 @@
-# ADR 0003: Links entre notas em Markdown padrão
+# ADR 0003: Links between notes in standard Markdown
 
-- Status: aceita
-- Data: 2026-10-21
+- Status: accepted
+- Date: 2026-10-21
 
-## Contexto
+## Context
 
-Notas ligadas umas às outras são o que transforma uma pasta de arquivos em base de conhecimento. Há dois formatos em uso: o link Markdown padrão (`[texto](pasta/nota.md)`), que qualquer editor e o GitHub entendem, e o link de wiki (`[[Nome]]`), mais curto de digitar, mas que fora de alguns apps aparece como texto cru e depende de o nome da nota ser único no vault.
+Notes linked to each other are what turn a folder of files into a knowledge base. Two formats are in use: the standard Markdown link (`[text](folder/note.md)`), which any editor and GitHub understand, and the wiki link (`[[Name]]`), shorter to type, but which outside some apps shows up as raw text and depends on the note name being unique in the vault.
 
-## Decisão
+## Decision
 
-O Cube4Notes grava links entre notas em **Markdown padrão, com caminho relativo à nota** e codificado (`%20` para espaços). Para digitar, `[[` abre a lista de notas e insere o link padrão; `[[Nome]]` digitado por inteiro também vira link padrão. Links `[[Nome]]` já existentes (vindos de outros editores) continuam aparecendo nos backlinks e acompanham renomeações, mas não são criados pelo Cube4Notes.
+Cube4Notes writes links between notes in **standard Markdown, with a path relative to the note** and encoded (`%20` for spaces). For typing, `[[` opens the list of notes and inserts the standard link; `[[Name]]` typed in full also becomes a standard link. Existing `[[Name]]` links (coming from other editors) still show up in backlinks and follow renames, but Cube4Notes does not create them.
 
-Ao renomear ou mover uma nota, pasta ou anexo **neste aparelho**, os links das outras notas e os relativos da própria nota são reescritos. Renomeações vindas de outro aparelho não reescrevem de novo (o aparelho que renomeou já reescreveu).
+When a note, folder or attachment is renamed or moved **on this device**, the links in other notes and the relative links in the note itself are rewritten. Renames coming from another device do not rewrite again (the device that did the rename already rewrote them).
 
-## Alternativas
+## Alternatives
 
-- `[[Nome]]` como formato gravado: mais curto, mas quebra a regra de Markdown legível em qualquer editor e fica ambíguo com nomes repetidos.
-- Caminho a partir da raiz do vault (`/pasta/nota.md`): não funciona em editores que abrem só a pasta da nota.
+- `[[Name]]` as the stored format: shorter, but breaks the rule of Markdown readable in any editor and is ambiguous with repeated names.
+- Path from the vault root (`/folder/note.md`): does not work in editors that open only the note's folder.
 
-## Consequências
+## Consequences
 
-- As notas continuam abrindo com links funcionando no VS Code, no GitHub e em outros editores de Markdown.
-- Uma nota renomeada fora do Cube4Notes (no Explorer, por exemplo) não atualiza os links: o link aponta para a nota que não existe e o Cube4Notes oferece criá-la.
-- Links dentro de blocos de código nunca são alterados.
+- Notes keep opening with working links in VS Code, on GitHub and in other Markdown editors.
+- A note renamed outside Cube4Notes (in Explorer, for example) does not update links: the link points to a note that does not exist and Cube4Notes offers to create it.
+- Links inside code blocks are never changed.

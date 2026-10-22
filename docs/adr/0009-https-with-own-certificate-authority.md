@@ -1,28 +1,28 @@
-# ADR 0009: HTTPS com uma autoridade certificadora criada pelo próprio Cube4Notes
+# ADR 0009: HTTPS with a certificate authority created by Cube4Notes itself
 
-- Status: aceita (registrada depois da implementação)
-- Data: 2026-10-20
+- Status: accepted (recorded after implementation)
+- Date: 2026-10-20
 
-## Contexto
+## Context
 
-Os aparelhos falam com o servidor pela rede de casa, sem internet. Navegadores só permitem service worker (app offline), área de transferência e armazenamento persistente em contexto seguro (HTTPS ou `localhost`). Certificados de autoridades públicas exigem um domínio na internet, o que contraria a regra de não depender de serviço externo. Tokens de aparelho e de agente não podem trafegar em texto aberto.
+Devices talk to the server over the home network, without internet. Browsers only allow service workers (offline app), the clipboard and persistent storage in a secure context (HTTPS or `localhost`). Certificates from public authorities require a domain on the internet, which goes against the rule of not depending on an external service. Device and agent tokens must not travel in plain text.
 
-## Decisão
+## Decision
 
-- No modo *Rede de casa*, o Cube4Notes cria uma autoridade certificadora própria na primeira execução, restrita a nomes locais e IPs privados (Name Constraints), e guarda na pasta de configuração.
-- Ela assina o certificado do servidor, que cobre `localhost`, o nome do computador, `<computador>-notes.local` e os IPs privados atuais. O certificado é guardado e refeito sozinho quando os endereços mudam.
-- Cada aparelho instala a autoridade uma vez. Ela é entregue em HTTP comum (porta 43124), em `.cer` e `.pem`, porque precisa ser baixada antes de ser confiável. Fora isso, a porta 43124 só redireciona para HTTPS; a única exceção é `/mcp` para agentes no próprio computador (`localhost`), cujo token não sai da máquina.
-- No Windows do próprio servidor, a autoridade é adicionada à confiança do usuário, com a confirmação do Windows.
-- O modo *Só este computador* usa HTTP em `localhost`, que os navegadores já tratam como seguro.
+- In *Home network* mode, Cube4Notes creates its own certificate authority on first run, restricted to local names and private IPs (Name Constraints), and stores it in the configuration folder.
+- It signs the server certificate, which covers `localhost`, the computer name, `<computer>-notes.local` and the current private IPs. The certificate is stored and regenerated automatically when the addresses change.
+- Each device installs the authority once. It is delivered over plain HTTP (port 43124), as `.cer` and `.pem`, because it has to be downloaded before it can be trusted. Apart from that, port 43124 only redirects to HTTPS; the only exception is `/mcp` for agents on the computer itself (`localhost`), whose token does not leave the machine.
+- On the server's own Windows, the authority is added to the user's trust store, with Windows confirmation.
+- *This computer only* mode uses HTTP on `localhost`, which browsers already treat as secure.
 
-## Alternativas
+## Alternatives
 
-- HTTP na rede local: o app não funcionaria offline e os tokens trafegariam em texto aberto.
-- Certificado autoassinado por servidor: exigiria aceitar um aviso por endereço, e o aviso voltaria a cada troca de IP.
-- Domínio público com Let's Encrypt e DNS apontando para IP privado: depende de internet, de um domínio e de um serviço externo.
+- HTTP on the local network: the app would not work offline and tokens would travel in plain text.
+- Self-signed certificate per server: would require accepting a warning per address, and the warning would come back on every IP change.
+- Public domain with Let's Encrypt and DNS pointing to a private IP: depends on the internet, a domain and an external service.
 
-## Consequências
+## Consequences
 
-- Instalar o certificado é um passo obrigatório por aparelho, documentado por sistema no README.
-- Se a autoridade mudar (pasta `tls` apagada, outra pasta de configuração, outro computador), todos os aparelhos precisam reinstalar.
-- Programas em Node.js e Python não usam a confiança do sistema; por isso a autoridade também é entregue em PEM ([06-ai-agents.md](../06-ai-agents.md)).
+- Installing the certificate is a required step on each device, documented per system in the README.
+- If the authority changes (`tls` folder deleted, another configuration folder, another computer), all devices must reinstall it.
+- Node.js and Python programs do not use the system trust store; that is why the authority is also delivered as PEM ([06-ai-agents.md](../06-ai-agents.md)).

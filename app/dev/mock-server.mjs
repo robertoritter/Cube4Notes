@@ -71,13 +71,15 @@ function browse(p) {
 const sha = s => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 const norm = a => (a || '').replace(/^::ffff:/, '');
 const isLoopAddr = a => a === '127.0.0.1' || a === '::1';
-// --como-rede: trata o próprio computador como outro aparelho da rede (testes de pareamento por convite)
-const asLan = process.argv.includes('--como-rede');
+// --as-lan: trata o próprio computador como outro aparelho da rede (testes de pareamento por convite)
+const asLan = process.argv.includes('--as-lan') || process.argv.includes('--como-rede');
 const isLoop = req => !asLan && isLoopAddr(norm(req.socket.remoteAddress));
 // --lan-ip: só para testes em máquinas sem endereço privado (trata esse IP como rede local)
 const extraLan = arg('--lan-ip', '');
 const isPrivate = a => a === extraLan || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a);
-const lanAddrs = () => Object.entries(os.networkInterfaces()).flatMap(([name, l]) => l.filter(x => x.family === 'IPv4' && (!x.internal || x.address === extraLan) && isPrivate(x.address)).map(x => ({ address: x.address, name, primary: !/virtual|vmware|vbox|hyper-v|vethernet|wireguard|wg|vpn|tap|tun|docker|wsl|zerotier|tailscale/i.test(name) })));
+// --show-lan <ip>: endereço mostrado na tela de conectar aparelho (para capturas de tela da documentação)
+const showLan = arg('--show-lan', '');
+const lanAddrs = () => showLan ? [{ address: showLan, name: 'Wi-Fi', primary: true }] : Object.entries(os.networkInterfaces()).flatMap(([name, l]) => l.filter(x => x.family === 'IPv4' && (!x.internal || x.address === extraLan) && isPrivate(x.address)).map(x => ({ address: x.address, name, primary: !/virtual|vmware|vbox|hyper-v|vethernet|wireguard|wg|vpn|tap|tun|docker|wsl|zerotier|tailscale/i.test(name) })));
 const hostAllowed = h => { h = (h || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase(); return ['localhost', '127.0.0.1', '::1', os.hostname().toLowerCase(), os.hostname().toLowerCase() + '.local'].includes(h) || lanAddrs().some(a => a.address === h); };
 const sameOrigin = req => { const o = req.headers.origin; if (!o) { const s = req.headers['sec-fetch-site']; return !s || s === 'same-origin' || s === 'none'; } try { return new URL(o).host.toLowerCase() === String(req.headers.host).toLowerCase(); } catch { return false; } };
 const INVALID = /[<>:"|?*\\/\x00-\x1f]/;
@@ -120,7 +122,7 @@ function conflictPath(rel, device) {
   return p;
 }
 function toTrash(full) {
-  const t = path.join(root, '.lixeira', new Date().toISOString().replace(/[:.]/g, '-'));
+  const t = path.join(root, '.trash', new Date().toISOString().replace(/[:.]/g, '-'));
   fs.mkdirSync(t, { recursive: true });
   fs.renameSync(full, path.join(t, path.basename(full)));
 }
@@ -149,9 +151,9 @@ function followRenames(rel) {
   }
   return cur === rel ? null : cur;
 }
-// Histórico de versões (.cube4notes/historico/<nota>/<data>.md), igual ao servidor .NET.
+// Histórico de versões (.cube4notes/history/<nota>/<data>.md), igual ao servidor .NET.
 const historyGap = Number(arg('--history-gap-ms', String(5 * 60000)));
-const histDir = rel => path.join(root, '.cube4notes', 'historico', ...rel.split('/'));
+const histDir = rel => path.join(root, '.cube4notes', 'history', ...rel.split('/'));
 const stampOf = d => d.toISOString().replace(/[-:T]/g, '').replace(/\.(\d{3})Z$/, '-$1').replace(/^(\d{8})(\d{6})/, '$1-$2');
 const atOf = id => new Date(`${id.slice(0, 4)}-${id.slice(4, 6)}-${id.slice(6, 8)}T${id.slice(9, 11)}:${id.slice(11, 13)}:${id.slice(13, 15)}.${id.slice(16, 19)}Z`);
 function versions(rel) {
@@ -410,12 +412,12 @@ const handler = async (req, res) => {
       return fs.createReadStream(f).pipe(res);
     }
     if (action === 'attachment' && req.method === 'POST') {
-      // path: caminho escolhido pelo aparelho (anexo colado offline); name: o servidor escolhe em anexos/
+      // path: caminho escolhido pelo aparelho (anexo colado offline); name: o servidor escolhe a pasta de anexos (attachments/, ou anexos/ se o vault já usa)
       useVault(vault);
       const wanted = u.searchParams.get('path');
       let folder, name;
       if (wanted) { const full = resolve(wanted, false); if (!full || full === root) { req.resume(); return send(res, 400, { error: 'invalid path' }); } folder = path.relative(root, path.dirname(full)).split(path.sep).join('/'); name = path.basename(full); }
-      else { folder = 'anexos'; name = safeName(u.searchParams.get('name') || 'imagem.png'); }
+      else { folder = fs.existsSync(path.join(root, 'anexos')) && !fs.existsSync(path.join(root, 'attachments')) ? 'anexos' : 'attachments'; name = safeName(u.searchParams.get('name') || 'imagem.png'); }
       const ext = path.extname(name).toLowerCase();
       if (!UPLOAD.has(ext)) { req.resume(); return send(res, 415); }
       if (Number(req.headers['content-length'] || 0) > MAX_UPLOAD) { req.resume(); return send(res, 413); }

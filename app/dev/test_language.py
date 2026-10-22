@@ -6,7 +6,7 @@
 # Confere a língua da interface: abre as telas principais em inglês e em português e procura textos da outra
 # língua (texto visível, placeholders, títulos, aria-labels). O conteúdo das notas de teste está na mesma língua
 # da interface, então qualquer palavra da outra língua é texto da interface esquecido.
-# Uso: python dev/teste_idioma.py  (precisa de Node e Playwright; rode depois de compilar a interface)
+# Uso: python dev/test_language.py  (precisa de Node e Playwright; rode depois de compilar a interface)
 import asyncio, os, re, shutil, subprocess, sys, time
 from playwright.async_api import async_playwright
 

@@ -60,7 +60,7 @@ static class Security
         var now = DateTime.UtcNow;
         if (now - lastLog > TimeSpan.FromSeconds(10)) burst = 0;
         lastLog = now;
-        if (++burst <= 5) Console.WriteLine(Idioma.T($"  [segurança] {DateTime.Now:HH:mm:ss} {message}", $"  [security] {DateTime.Now:HH:mm:ss} {message}"));
+        if (++burst <= 5) Console.WriteLine(Lang.T($"  [segurança] {DateTime.Now:HH:mm:ss} {message}", $"  [security] {DateTime.Now:HH:mm:ss} {message}"));
     }
 }
 
@@ -193,7 +193,7 @@ static class Lan
             if (now == lastSet) return;
             lastSet = now;
         }
-        Console.WriteLine(Idioma.T("\n  A rede mudou. Endereços atuais:", "\n  The network changed. Current addresses:"));
+        Console.WriteLine(Lang.T("\n  A rede mudou. Endereços atuais:", "\n  The network changed. Current addresses:"));
         print();
     }
 }

@@ -1,29 +1,29 @@
-# ADR 0005: Tipos, modelos e relações entre notas
+# ADR 0005: Types, templates and relations between notes
 
-- Status: aceita
-- Data: 2026-10-21
+- Status: accepted
+- Date: 2026-10-21
 
-## Contexto
+## Context
 
-O proprietário quer registrar fichas ligadas entre si (empresas, pessoas, reuniões, mas também livros, jogos, aulas) e ver essas ligações de forma organizada, no computador e no celular, também sem servidor. Um grafo espacial mostra que existe ligação, mas não qual.
+The owner wants to record linked entries (companies, people, meetings, but also books, games, classes) and see those links in an organized way, on the computer and on the phone, also without a server. A spatial graph shows that a link exists, but not what kind.
 
-## Decisão
+## Decision
 
-- **Tipo** é a propriedade `tipo:` da nota (um por nota). **Tags** continuam sendo quantas a pessoa quiser.
-- **Modelos** são notas comuns na pasta `modelos/` ou `templates/` do vault (as duas valem; um vault sem modelos recebe a pasta na língua da interface), com `tipo`, `tags`, campos vazios e `destino:` (pasta onde a nota nova é criada; não é copiado para a nota). `{{titulo}}`, `{{data}}` e `{{hora}}` são preenchidos na criação.
-- **Relação** é um campo cujo valor é o nome de outra nota (`empresa: Empresa Y`, também `[[Empresa Y]]` ou um link Markdown) ou um link no texto. Renomear a nota atualiza esses campos.
-- O painel de relações agrupa por tipo quem aponta para a nota; a lista por tipo mostra campos como colunas, contadores de relações e o último contato (a data mais recente das notas ligadas).
-- **Conjuntos** prontos (Trabalho, Pessoal, Leituras, Estudos, Software, Jogos) só criam modelos na pasta de modelos que o vault já usa; depois são do usuário.
-- Tudo é calculado no aparelho a partir das notas. O servidor não muda.
+- **Type** is the note's `tipo:` (or `type:`) property (one per note). **Tags** remain as many as the person wants.
+- **Templates** are regular notes in the vault's `templates/` or `modelos/` folder (both work; a vault without templates gets the folder in the interface language), with `tipo`, `tags`, empty fields and `destino:` (or `folder:`, the folder where the new note is created; it is not copied into the note). `{{titulo}}`, `{{data}}` and `{{hora}}` (or `{{title}}`, `{{date}}` and `{{time}}`) are filled in on creation.
+- **Relation** is a field whose value is the name of another note (`company: Company Y`, also `[[Company Y]]` or a Markdown link) or a link in the text. Renaming the note updates those fields.
+- The relations panel groups by type the notes that point to the note; the list by type shows fields as columns, relation counts and the last contact (the most recent date among the linked notes).
+- Ready-made **sets** (Work, Personal, Reading, Studies, Software projects, Board games) only create templates in the template folder the vault already uses; after that they belong to the user.
+- Everything is computed on the device from the notes. The server does not change.
 
-## Alternativas
+## Alternatives
 
-- Banco de dados ou esquema próprio para tipos: quebraria a regra de Markdown legível e o funcionamento offline sem servidor.
-- Tipo como tag: uma nota com duas tags de tipo não saberia em que grupo aparecer.
-- Modelos guardados na configuração do servidor: não sincronizariam nem funcionariam offline.
+- Database or custom schema for types: would break the rule of readable Markdown and offline use without a server.
+- Type as a tag: a note with two type tags would not know which group to appear in.
+- Templates stored in the server configuration: would not sync or work offline.
 
-## Consequências
+## Consequences
 
-- Qualquer editor continua abrindo as notas; os campos são YAML simples.
-- Valores de campo que coincidem com o nome de uma nota viram relação, mesmo sem intenção (por exemplo `status: Concluído` se existir uma nota "Concluído"). Os campos `tipo`, `tags`, `aliases`, `destino` e `data` nunca contam.
-- Vaults muito grandes calculam relações a cada abertura de nota; há cache por conteúdo.
+- Any editor still opens the notes; the fields are plain YAML.
+- Field values that match the name of a note become a relation, even unintentionally (for example `status: Done` if a note "Done" exists). The fields `tipo`/`type`, `tags`, `aliases`, `destino`/`folder` and `data`/`date` never count.
+- Very large vaults compute relations every time a note is opened; there is a cache by content.

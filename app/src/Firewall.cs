@@ -19,7 +19,7 @@ static class Firewall
 {
     public const string RuleName = "Cube4Notes (rede local)";
     public const string MdnsRule = "Cube4Notes (nome na rede, mDNS)";
-    private static string DeclinedFile => Path.Combine(ConfigStore.Dir, "firewall-recusado.txt");
+    private static string DeclinedFile => Path.Combine(ConfigStore.Dir, "firewall-declined.txt");
 
     // As regras já existem? (consultar não precisa de administrador)
     public static bool HasRule() => Exists(RuleName) && Exists(MdnsRule);

@@ -1,32 +1,32 @@
-# Alternativas de licenciamento
+# Licensing alternatives
 
-Licença escolhida: MIT (ver Decisão, abaixo). Este documento registra as alternativas comparadas.
+Chosen license: MIT (see Decision, below). This document records the alternatives that were compared.
 
-Isto é uma análise prática, não aconselhamento jurídico.
+This is a practical analysis, not legal advice.
 
-O cenário atual é um servidor pessoal executado na rede doméstica, sem oferta hospedada definida. Portanto, a cláusula de rede da AGPL não é uma necessidade imediata do uso pessoal; ela continua relevante se terceiros oferecerem versões modificadas como serviço. A licença deve ser escolhida considerando também clientes distribuídos e contribuições, não apenas o servidor.
+The current scenario is a personal server running on the home network, with no defined hosted offering. Therefore, the AGPL network clause is not an immediate need for personal use; it remains relevant if third parties offer modified versions as a service. The license should be chosen considering distributed clients and contributions as well, not only the server.
 
-| Opção | Vantagem prática | Custo/trade-off | Quando combina com Cube4Notes |
+| Option | Practical advantage | Cost/trade-off | When it fits Cube4Notes |
 | --- | --- | --- | --- |
-| Apache-2.0 | permissiva, adoção comercial simples e concessão explícita de patentes | terceiros podem criar versões fechadas e serviços concorrentes | prioridade é adoção ampla, integrações e ecossistema |
-| MPL-2.0 | copyleft por arquivo; alterações nos arquivos cobertos permanecem abertas, mas permite composição com código proprietário | fronteiras por arquivo exigem disciplina e não obrigam abrir um serviço inteiro | equilíbrio entre comunidade e extensões/edições comerciais |
-| AGPL-3.0 | copyleft forte inclui software oferecido pela rede, reduzindo o “SaaS fechado” do código modificado | pode afastar empresas, investidores e integrações; compatibilidade deve ser examinada | prioridade é garantir que melhorias do servidor oferecido como serviço retornem à comunidade |
-| GPL-3.0 | copyleft forte na distribuição de aplicações | não possui a obrigação de rede da AGPL; pode complicar combinação/distribuição com módulos incompatíveis | foco maior em clientes distribuídos do que em proteger o serviço hospedado |
-| BSL 1.1 / source-available | código visível com restrições comerciais temporárias e mudança futura para licença aberta | **não é open source** enquanto as restrições vigoram; pode reduzir contribuições e confiança | proteção comercial é mais importante que a definição formal de open source |
-| núcleo aberto + módulos comerciais | separa editor/contratos abertos de hospedagem ou recursos empresariais fechados | aumenta governança, fronteiras de contribuição e manutenção | há plano claro de produto hospedado e recursos premium |
+| Apache-2.0 | permissive, simple commercial adoption and an explicit patent grant | third parties can create closed versions and competing services | the priority is broad adoption, integrations and ecosystem |
+| MPL-2.0 | file-level copyleft; changes to covered files stay open, but composition with proprietary code is allowed | file boundaries require discipline and do not force opening a whole service | balance between community and commercial extensions/editions |
+| AGPL-3.0 | strong copyleft that includes software offered over the network, reducing "closed SaaS" built on modified code | may drive away companies, investors and integrations; compatibility must be examined | the priority is ensuring that improvements to the server offered as a service flow back to the community |
+| GPL-3.0 | strong copyleft on distribution of applications | lacks the AGPL network obligation; may complicate combination/distribution with incompatible modules | more focus on distributed clients than on protecting the hosted service |
+| BSL 1.1 / source-available | visible code with temporary commercial restrictions and a future change to an open license | **not open source** while the restrictions apply; may reduce contributions and trust | commercial protection matters more than the formal definition of open source |
+| open core + commercial modules | separates an open editor/contracts from closed hosting or enterprise features | increases governance, contribution boundaries and maintenance | there is a clear plan for a hosted product and premium features |
 
-## Perguntas que decidem
+## Deciding questions
 
-1. Um terceiro deve poder oferecer Cube4Notes hospedado sem publicar suas mudanças?
-2. Empresas devem poder incorporar o editor em produtos fechados?
-3. A receita virá de hospedagem, suporte, recursos empresariais ou licenciamento comercial?
-4. Haverá CLA ou DCO para contribuições e possível relicenciamento futuro?
-5. Quais dependências do editor/desktop são compatíveis com a opção escolhida?
+1. Should a third party be able to offer hosted Cube4Notes without publishing its changes?
+2. Should companies be able to embed the editor in closed products?
+3. Will revenue come from hosting, support, enterprise features or commercial licensing?
+4. Will there be a CLA or DCO for contributions and possible future relicensing?
+5. Which editor/desktop dependencies are compatible with the chosen option?
 
-## Decisão
+## Decision
 
-Em 2026-10-20 o proprietário escolheu a **MIT** (ver [ADR 0002](adr/0002-mit-license.md)). A análise abaixo fica como registro.
+On 2026-10-20 the owner chose **MIT** (see [ADR 0002](adr/0002-mit-license.md)). The analysis below is kept as a record.
 
-## Recomendação provisória (anterior à decisão)
+## Provisional recommendation (before the decision)
 
-Não licenciar ainda é correto durante a fundação. Antes de publicar, compare principalmente **MPL-2.0** (equilíbrio e copyleft limitado), **AGPL-3.0** (proteção contra apropriação SaaS) e **Apache-2.0** (adoção máxima). Se a intenção for chamar o projeto de open source, não use BSL como se fosse equivalente.
+Not licensing yet is correct during the foundation phase. Before publishing, compare mainly **MPL-2.0** (balance and limited copyleft), **AGPL-3.0** (protection against SaaS appropriation) and **Apache-2.0** (maximum adoption). If the intention is to call the project open source, do not use BSL as if it were equivalent.

@@ -6,7 +6,7 @@
 # Testa o executável gerado (Windows, Linux ou macOS) do jeito que um usuário novo usaria: primeira execução
 # numa pasta só de leitura, configuração pela rede com o código, configuração no próprio computador, interface,
 # certificado, criação de nota no disco e uma segunda partida com a configuração já existente.
-# Só usa a biblioteca padrão do Python. Uso: python dev/teste_executavel.py <caminho do Cube4Notes>
+# Só usa a biblioteca padrão do Python. Uso: python dev/test_executable.py <caminho do Cube4Notes>
 import json, os, re, shutil, socket, ssl, stat, subprocess, sys, tempfile, time, urllib.error, urllib.request
 
 PORT = int(os.environ.get("C4N_TEST_PORT", "43180"))
@@ -60,7 +60,7 @@ def lan_ip():
 
 
 def start(exe, cfg, log):
-    args = [exe, "--config", cfg, "--sem-janela", "--sem-navegador", "--sem-firewall", "--sem-instalar-certificado", "--port", str(PORT)]
+    args = [exe, "--config", cfg, "--no-window", "--no-browser", "--no-firewall", "--no-cert-install", "--port", str(PORT)]
     env = {**os.environ, "CUBE4NOTES_LANG": "en"}
     return subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT, env=env, cwd=tempfile.gettempdir())
 
@@ -73,7 +73,7 @@ def stop(proc):
 
 
 def main():
-    if len(sys.argv) < 2: print(__doc__ or "uso: teste_executavel.py <executável>"); return 2
+    if len(sys.argv) < 2: print(__doc__ or "uso: test_executable.py <executável>"); return 2
     src = os.path.abspath(sys.argv[1])
     work = tempfile.mkdtemp(prefix="c4n-exe-")
     bindir, cfg, vault = os.path.join(work, "programa"), os.path.join(work, "config"), os.path.join(work, "notas")

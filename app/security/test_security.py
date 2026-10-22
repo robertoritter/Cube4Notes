@@ -8,13 +8,13 @@
 
 Roda contra um servidor em execução, sem dependências além do Python 3.
 
-    python seguranca/teste_seguranca.py --lan https://192.168.0.10:43125
+    python security/test_security.py --lan https://192.168.0.10:43125
 
 --url  endereço local (padrão https://localhost:43125): testa como o próprio computador do servidor.
 --lan  endereço de rede do mesmo computador: o servidor enxerga como outro aparelho da rede.
 
-O teste cria uma pasta "_teste_seguranca" (enviada à .lixeira no fim) e dois aparelhos de teste (removidos no fim).
-O teste de força bruta bloqueia o endereço --lan por 10 minutos; use --sem-forca-bruta para pular.
+O teste cria uma pasta "_security_test" (enviada à .lixeira no fim) e dois aparelhos de teste (removidos no fim).
+O teste de força bruta bloqueia o endereço --lan por 10 minutos; use --no-brute-force para pular.
 """
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ def main() -> int:
     ap.add_argument("--url", default="https://localhost:43125")
     ap.add_argument("--ca", help="certificado da autoridade do Cube4Notes; se omitido, é baixado pela porta HTTP")
     ap.add_argument("--lan", required=True)
-    ap.add_argument("--sem-forca-bruta", action="store_true")
+    ap.add_argument("--no-brute-force", action="store_true")
     a = ap.parse_args()
     loc, lan = Client(a.url), Client(a.lan)
 
@@ -165,7 +165,7 @@ def main() -> int:
     check("token válido -> 200", s == 200, str(s))
 
     print("\nA01 Controle de acesso: caminhos (path traversal)")
-    base = "_teste_seguranca"
+    base = "_security_test"
     s, j = loc.json("POST", V + "/sync", body={"ops": [{"id": 1, "type": "mkdir", "path": base}, {"id": 2, "type": "put", "path": base + "/ok.md", "content": "ok", "baseVersion": None}]}, token=tok)
     check("escrita normal funciona", s == 200 and all(r["status"] == "applied" for r in j["results"]), str(j))
     evil_paths = ["../fora.md", "..\\fora.md", "a/../../fora.md", "/etc/passwd.md", "C:\\Windows\\win.ini.md", "C:/x.md",
@@ -191,7 +191,7 @@ def main() -> int:
         s, _, _ = loc.req("POST", V + "/attachment?name=" + name, raw=b"<script>alert(1)</script>", token=tok, headers={"Content-Type": "application/octet-stream"})
         check(f"anexo '{name}' recusado", s == 415, str(s))
     s, j = loc.json("POST", V + "/attachment?name=" + urllib.parse.quote("../../fora.png"), raw=png, token=tok, headers={"Content-Type": "application/octet-stream"})
-    check("nome de anexo com ../ fica dentro de anexos/", s == 200 and j["path"].startswith("anexos/") and ".." not in j["path"], str(j))
+    check("nome de anexo com ../ fica dentro da pasta de anexos", s == 200 and j["path"].split("/")[0] in ("attachments", "anexos") and ".." not in j["path"], str(j))
     if s == 200:
         s, h, _ = loc.req("GET", V + "/raw?path=" + urllib.parse.quote(j["path"]), token=tok)
         check("imagem servida em sandbox e nosniff", s == 200 and "sandbox" in h.get("content-security-policy", "") and h.get("x-content-type-options") == "nosniff", str(h))
@@ -348,7 +348,7 @@ def report() -> int:
     print(f"\n{len(RESULTS) - len(fails)} de {len(RESULTS)} verificações passaram.")
     for n, _, d in fails:
         print(f"  FALHOU: {n} {d}")
-    print("Obs.: o anexo de teste 'anexos/fora.png' fica na pasta de notas; pode apagar.")
+    print("Obs.: o anexo de teste 'fora.png' fica na pasta de anexos do vault (attachments/ ou anexos/); pode apagar.")
     return 1 if fails else 0
 
 

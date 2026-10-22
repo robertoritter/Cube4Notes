@@ -5,17 +5,17 @@
 # Copyright (c) 2026 Roberto Ritter
 #
 # Instala (ou atualiza) o Cube4Notes como serviço do systemd num servidor Linux sem tela: copia o executável
-# gerado por gerar-executavel.sh para /opt/cube4notes, cria o serviço "cube4notes" que roda com o seu usuário
+# gerado por build.sh para /opt/cube4notes, cria o serviço "cube4notes" que roda com o seu usuário
 # (as notas e a configuração ficam nas pastas dele) e inicia junto com a máquina.
-# Uso: ./instalar-servico.sh            (porta padrão 43125)
-#      ./instalar-servico.sh --port 43200
+# Uso: ./install-service.sh            (porta padrão 43125)
+#      ./install-service.sh --port 43200
 set -euo pipefail
 cd "$(dirname "$0")"
 
 user="${SUDO_USER:-$USER}"
 if [ "$user" = "root" ]; then echo "Rode com o seu usuário (o script pede sudo quando precisa); o serviço não deve rodar como root."; exit 1; fi
 bin=$(ls -t dist/linux-*/Cube4Notes 2>/dev/null | head -1 || true)
-if [ -z "$bin" ]; then echo "Gere o executável antes: ./gerar-executavel.sh"; exit 1; fi
+if [ -z "$bin" ]; then echo "Gere o executável antes: ./build.sh"; exit 1; fi
 extra="${*:-}"
 lang="${LANG:-C.UTF-8}"
 
@@ -33,7 +33,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=$user
-ExecStart=/opt/cube4notes/Cube4Notes --sem-janela --sem-navegador $extra
+ExecStart=/opt/cube4notes/Cube4Notes --no-window --no-browser $extra
 Environment=LANG=$lang
 Restart=on-failure
 RestartSec=5

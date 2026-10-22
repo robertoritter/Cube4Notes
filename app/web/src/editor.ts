@@ -30,7 +30,12 @@ import { rawUrl, addAttachment, ATTACHMENT_TYPES } from './store';
 export interface EditorHandle { destroy(): void; getMarkdown(): string; focus(): void; view(): any; }
 
 // '| - | - |' é válido em GFM, mas '| --- |' é o que as pessoas escrevem.
-const tidy = (md: string) => md.replace(/^\|(?:\s*:?-+:?\s*\|)+\s*$/gm, row => row.replace(/:?-+:?/g, c => (c.startsWith(':') ? ':' : '-') + '-' + (c.endsWith(':') ? ':' : '-')));
+// Espaço no começo ou no fim de um parágrafo (por exemplo ao começar a digitar com espaço) vira "&#x20;" no Markdown,
+// que aparece como lixo em outros editores. Esses espaços não mudam nada no texto, então saem (fora de blocos de código).
+const unescapeEdgeSpaces = (md: string) => md.split(/(^```[\s\S]*?^```[^\n]*$)/m).map((part, i) => (i % 2 ? part : part
+  .replace(/^(\s*(?:(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?|>\s*)?)(?:&#x(?:20|9);)+/gm, '$1')
+  .replace(/(?:&#x(?:20|9);)+$/gm, ''))).join('');
+const tidy = (md: string) => unescapeEdgeSpaces(md).replace(/^\|(?:\s*:?-+:?\s*\|)+\s*$/gm, row => row.replace(/:?-+:?/g, c => (c.startsWith(':') ? ':' : '-') + '-' + (c.endsWith(':') ? ':' : '-')));
 const safeDecode = (u: string) => { try { return decodeURIComponent(u); } catch { return u; } };
 const isRelative = (u: string) => !!u && !/^([a-z][a-z0-9+.-]*:|\/\/|#|\/)/i.test(u);
 

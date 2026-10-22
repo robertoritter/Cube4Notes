@@ -1,45 +1,45 @@
-# Visão e escopo
+# Vision and scope
 
-## O problema
+## The problem
 
-Ferramentas de notas costumam obrigar a uma escolha ruim. Uma opção é guardar tudo na nuvem de uma empresa. A outra é configurar sincronização, servidores e plugins, e torcer para o celular não perder o que foi escrito offline. Além disso, escrever Markdown "na mão" afasta quem só quer escrever.
+Note-taking tools usually force a bad choice. One option is to keep everything in a company's cloud. The other is to set up sync, servers and plugins, and hope the phone does not lose what was written offline. On top of that, writing Markdown "by hand" pushes away people who just want to write.
 
-O Cube4Notes parte de três ideias:
+Cube4Notes starts from three ideas:
 
-1. **As notas são arquivos seus.** Markdown comum, numa pasta comum, legível por qualquer editor e por qualquer programa.
-2. **O computador de casa é o servidor.** Nada passa pela internet: os aparelhos falam direto com o computador que guarda as notas, pela rede local.
-3. **Cada aparelho funciona sozinho.** Celular, tablet e outros computadores guardam uma cópia completa e continuam funcionando longe de casa; quando voltam, sincronizam sem perder nada.
+1. **The notes are your files.** Plain Markdown, in a plain folder, readable by any editor and any program.
+2. **The home computer is the server.** Nothing goes through the internet: devices talk directly to the computer that stores the notes, over the local network.
+3. **Each device works on its own.** Phones, tablets and other computers keep a full copy and keep working away from home; when they come back, they sync without losing anything.
 
-## Para quem é
+## Who it is for
 
-- Quem quer notas em vários aparelhos sem conta, assinatura ou nuvem.
-- Quem quer edição visual (títulos, listas, tabelas, imagens) sem decorar sintaxe, mas com os arquivos continuando em Markdown portável.
-- Quem usa agentes de IA e quer que eles consultem as notas sem dar a eles acesso ao disco.
-- Quem não tem servidor em casa: o mesmo executável roda no próprio computador, no modo *Só este computador*.
+- People who want notes on several devices without an account, a subscription or a cloud.
+- People who want visual editing (headings, lists, tables, images) without memorizing syntax, while the files stay in portable Markdown.
+- People who use AI agents and want them to read the notes without giving them access to the disk.
+- People who have no server at home: the same executable runs on their own computer, in *This computer only* mode.
 
-## O que o Cube4Notes é
+## What Cube4Notes is
 
-- Um único executável que guarda as notas, serve a interface web e sincroniza os aparelhos da rede de casa.
-- Um editor visual de Markdown que funciona no navegador do computador, do celular e do tablet, e também offline.
-- Vários vaults (qualquer pasta pode ser um), com acesso escolhido por aparelho.
-- Links entre notas, tipos, modelos e relações, tags e propriedades, histórico de versões, anexos offline.
-- Acesso somente leitura para agentes de IA, por MCP.
+- A single executable that stores the notes, serves the web interface and syncs the devices on the home network.
+- A visual Markdown editor that works in the browser on the computer, the phone and the tablet, and also offline.
+- Multiple vaults (any folder can be one), with access chosen per device.
+- Links between notes, types, templates and relations, tags and properties, version history, offline attachments.
+- Read-only access for AI agents, through MCP.
 
-## O que o Cube4Notes não é (por decisão)
+## What Cube4Notes is not (by design)
 
-- **Não é um serviço na nuvem** e não abre acesso pela internet: sem túnel, relay, abertura de portas ou conta.
-- **Não é colaborativo em tempo real.** Cada aparelho edita a sua cópia; edições simultâneas na mesma nota viram uma cópia de conflito para juntar, nunca uma perda.
-- **Não sincroniza aparelhos entre si.** O servidor é o ponto de encontro.
-- **Não tem plugins nem compatibilidade com ecossistemas de outros editores.** Os arquivos são Markdown padrão; qualquer editor abre.
-- **Agentes não escrevem.** O acesso de IA é só leitura.
-- **Não tem app nativo para iPhone, iPad ou Android.** O cliente móvel é a interface web, instalável na tela inicial e com uso offline.
+- **It is not a cloud service** and does not open access from the internet: no tunnel, relay, port forwarding or account.
+- **It is not real-time collaborative.** Each device edits its own copy; simultaneous edits to the same note become a conflict copy to merge, never a loss.
+- **It does not sync devices with each other.** The server is the meeting point.
+- **It has no plugins and no compatibility with other editors' ecosystems.** The files are standard Markdown; any editor opens them.
+- **Agents do not write.** AI access is read-only.
+- **There is no native app for iPhone, iPad or Android.** The mobile client is the web interface, installable on the home screen and usable offline.
 
-## Princípios que guiam as decisões
+## Principles that guide decisions
 
-- Nenhuma alteração é descartada em silêncio. Conflito vira cópia, exclusão vai para a lixeira, edição em nota renomeada segue a nota.
-- Fácil de instalar em qualquer ambiente: um executável, sem banco, proxy ou containers. Sem configuração manual por máquina.
-- Segurança é requisito do núcleo: HTTPS com autoridade própria, token por aparelho, convites de uso único, só rede local.
-- Sempre compila e roda no Windows, no Linux e no macOS (`net10.0`), verificado no CI.
-- Documentação explícita sobre o que pode dar errado (rede, IP, certificado), sem esconder limites.
+- No change is ever silently discarded. A conflict becomes a copy, a deletion goes to the trash, an edit to a renamed note follows the note.
+- Easy to install in any environment: one executable, no database, proxy or containers. No manual per-machine configuration.
+- Security is a core requirement: HTTPS with its own authority, a token per device, single-use invitations, local network only.
+- Always builds and runs on Windows, Linux and macOS (`net10.0`), verified in CI.
+- Explicit documentation about what can go wrong (network, IP, certificate), without hiding limits.
 
-Decisões detalhadas: [`docs/adr`](adr/README.md). Estado atual e próximos passos: [02-status-and-roadmap.md](02-status-and-roadmap.md).
+Detailed decisions: [`docs/adr`](adr/README.md). Current status and next steps: [02-status-and-roadmap.md](02-status-and-roadmap.md).

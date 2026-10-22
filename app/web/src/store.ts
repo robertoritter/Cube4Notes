@@ -356,8 +356,11 @@ export async function addAttachment(file: File): Promise<string> {
   if (file.size > MAX_ATTACHMENT) throw Object.assign(new Error('size'), { code: 'size' });
   const stem = name.slice(0, name.length - ext.length);
   const taken = (p: string) => st.files.has(p) || st.attachments.has(p) || st.notes.has(p);
-  let path = 'anexos/' + name;
-  for (let i = 2; taken(path); i++) path = `anexos/${stem}-${i}${ext}`;
+  // attachments/ nos vaults novos; um vault que já usa anexos/ (versões anteriores) continua com ela
+  const inUse = (dir: string) => st.folders.has(dir) || [...st.attachments.keys(), ...st.files.keys()].some(p => p.startsWith(dir + '/'));
+  const dir = inUse('anexos') && !inUse('attachments') ? 'anexos' : 'attachments';
+  let path = dir + '/' + name;
+  for (let i = 2; taken(path); i++) path = `${dir}/${stem}-${i}${ext}`;
   await st.db.put('files', { path, blob: file, pending: true, size: file.size } as FileRec);
   st.files.set(path, { size: file.size, pending: true });
   ensureParents(st, path); await st.saveMeta();

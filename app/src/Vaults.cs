@@ -30,6 +30,32 @@ sealed class Vault
         Directory.CreateDirectory(state);
         Renames = new RenameStore(System.IO.Path.Combine(state, "renames.json"));
         History = new History(state);
+        MigrateTrash();
+    }
+
+    // Pasta dos anexos colados: attachments/ nos vaults novos; vaults antigos que já têm anexos/ continuam com ela
+    // (as notas já apontam para lá).
+    public string AttachmentFolder =>
+        Directory.Exists(System.IO.Path.Combine(Root, "anexos")) && !Directory.Exists(System.IO.Path.Combine(Root, "attachments")) ? "anexos" : "attachments";
+
+    // Lixeira das versões antigas (.lixeira) passa para .trash, sem perder nada.
+    private void MigrateTrash()
+    {
+        var old = System.IO.Path.Combine(Root, ".lixeira");
+        if (!Directory.Exists(old)) return;
+        try
+        {
+            var trash = System.IO.Path.Combine(Root, ".trash");
+            if (!Directory.Exists(trash)) { Directory.Move(old, trash); return; }
+            foreach (var entry in new DirectoryInfo(old).EnumerateFileSystemInfos())
+            {
+                var target = System.IO.Path.Combine(trash, entry.Name);
+                if (Directory.Exists(target) || File.Exists(target)) target += " (" + Guid.NewGuid().ToString("N")[..6] + ")";
+                if (entry is DirectoryInfo d) d.MoveTo(target); else ((FileInfo)entry).MoveTo(target);
+            }
+            Directory.Delete(old);
+        }
+        catch (Exception ex) { Console.WriteLine($"  {ex.Message}"); }
     }
 
     public static void WriteAtomic(string full, string content)
@@ -72,7 +98,7 @@ sealed class Vault
                         }
                         var movedCopy = ConflictPath(moved, deviceName);
                         WriteAtomic(NotePaths.Resolve(Root, movedCopy, markdown: true)!, content);
-                        Console.WriteLine(Idioma.T($"  Conflito em {moved}: cópia salva como {movedCopy}", $"  Conflict in {moved}: copy saved as {movedCopy}"));
+                        Console.WriteLine(Lang.T($"  Conflito em {moved}: cópia salva como {movedCopy}", $"  Conflict in {moved}: copy saved as {movedCopy}"));
                         return new OpResult(op.Id, "conflict", Version(movedCurrent), movedCopy, Version(content), MovedTo: moved);
                     }
                     // nova nota, ou nota apagada em outro lugar: a versão deste aparelho é mantida
@@ -90,7 +116,7 @@ sealed class Vault
                 // Mudou dos dois lados: o servidor fica com a sua versão e a do aparelho vira uma cópia ao lado.
                 var copy = ConflictPath(op.Path!, deviceName);
                 WriteAtomic(NotePaths.Resolve(Root, copy, markdown: true)!, content);
-                Console.WriteLine(Idioma.T($"  Conflito em {op.Path}: cópia salva como {copy}", $"  Conflict in {op.Path}: copy saved as {copy}"));
+                Console.WriteLine(Lang.T($"  Conflito em {op.Path}: cópia salva como {copy}", $"  Conflict in {op.Path}: copy saved as {copy}"));
                 return new OpResult(op.Id, "conflict", Version(current), copy, Version(content));
             }
             case "delete":
@@ -150,9 +176,9 @@ sealed class Vault
     {
         var stem = rel[..^3];
         var safe = new string(device.Where(c => char.IsLetterOrDigit(c) || c is ' ' or '-' or '_').ToArray()).Trim();
-        if (safe.Length == 0) safe = Idioma.T("aparelho", "device");
+        if (safe.Length == 0) safe = Lang.T("aparelho", "device");
         var stamp = DateTime.Now.ToString("yyyy-MM-dd HHmm");
-        var word = Idioma.T("conflito", "conflict");
+        var word = Lang.T("conflito", "conflict");
         var candidate = $"{stem} ({word} {safe} {stamp}).md";
         for (var i = 2; File.Exists(NotePaths.Resolve(Root, candidate, markdown: true)); i++)
             candidate = $"{stem} ({word} {safe} {stamp} {i}).md";
@@ -161,7 +187,7 @@ sealed class Vault
 
     private void MoveToTrash(string full)
     {
-        var trash = Path.Combine(Root, ".lixeira", DateTime.Now.ToString("yyyy-MM-dd HHmmss-fff"));
+        var trash = Path.Combine(Root, ".trash", DateTime.Now.ToString("yyyy-MM-dd HHmmss-fff"));
         Directory.CreateDirectory(trash);
         var target = Path.Combine(trash, Path.GetFileName(full));
         if (File.Exists(full)) File.Move(full, target); else Directory.Move(full, target);

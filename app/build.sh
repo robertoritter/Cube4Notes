@@ -6,8 +6,8 @@
 #
 # Gera o Cube4Notes para Linux (x64 ou arm64, conforme esta máquina) ou macOS: arquivo único, com a interface
 # embutida, que roda sem o .NET instalado. Resultado em dist/<plataforma>/Cube4Notes.
-# Uso: ./gerar-executavel.sh            (plataforma desta máquina)
-#      ./gerar-executavel.sh linux-arm64 (outra plataforma: linux-x64, linux-arm64, osx-arm64, osx-x64)
+# Uso: ./build.sh            (plataforma desta máquina)
+#      ./build.sh linux-arm64 (outra plataforma: linux-x64, linux-arm64, osx-arm64, osx-x64)
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -37,13 +37,13 @@ fi
 echo "Gerando o Cube4Notes para $rid..."
 if dotnet publish Cube4Notes.csproj -c Release -r "$rid" --self-contained true \
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true \
-    -p:DebugType=none -o "dist/$rid" > gerar-executavel.log 2>&1; then
-  echo "SUCESSO" >> gerar-executavel.log
+    -p:DebugType=none -o "dist/$rid" > build.log 2>&1; then
+  echo "SUCESSO" >> build.log
   chmod +x "dist/$rid/Cube4Notes"
   echo "Pronto: dist/$rid/Cube4Notes"
 else
-  echo "FALHOU" >> gerar-executavel.log
-  tail -20 gerar-executavel.log
-  echo "Falhou. Veja gerar-executavel.log"
+  echo "FALHOU" >> build.log
+  tail -20 build.log
+  echo "Falhou. Veja build.log"
   exit 1
 fi

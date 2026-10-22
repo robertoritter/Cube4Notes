@@ -23,7 +23,7 @@ Os aparelhos sincronizam com o computador quando estão na mesma rede que ele. L
 - **Markdown puro no disco.** Notas são arquivos `.md` comuns em pastas comuns. Sem banco de dados, sem formato próprio, nada para exportar.
 - **Editor visual.** O Markdown vira formatação enquanto você digita: títulos, listas de tarefas, tabelas, blocos de código com destaque de sintaxe, imagens. `Ctrl+/` alterna para o Markdown puro. As edições geram diferenças pequenas e limpas.
 - **Offline em primeiro lugar.** Cada aparelho guarda todas as notas a que tem acesso. Leia, crie, edite, renomeie, mova e exclua sem conexão; as alterações entram numa fila e sincronizam depois.
-- **Nenhuma perda silenciosa.** Se a mesma nota mudou em dois lugares, uma versão fica e a outra é salva como `Nota (conflito Aparelho data).md`, com comparação lado a lado. Exclusões vão para a pasta `.lixeira`. Edições numa nota renomeada em outro aparelho seguem para o nome novo.
+- **Nenhuma perda silenciosa.** Se a mesma nota mudou em dois lugares, uma versão fica e a outra é salva como `Nota (conflito Aparelho data).md`, com comparação lado a lado. Exclusões vão para a pasta `.trash`. Edições numa nota renomeada em outro aparelho seguem para o nome novo.
 - **Vários vaults.** Qualquer pasta pode ser um vault. Cada aparelho acessa só os vaults que você escolher.
 - **Conectar aparelho por QR code**, ou por um código de 6 caracteres. Convites são de uso único e valem 5 minutos. Ler um convite novo num aparelho já conectado atualiza o acesso dele. O acesso de um aparelho pode ser retirado na hora.
 - **HTTPS local sem complicação.** No modo *Rede de casa* o Cube4Notes cria a própria autoridade certificadora, restrita a `localhost`, `*.local`, ao nome do computador e a IPs privados, então ela não serve para falsificar sites da internet.
@@ -37,15 +37,29 @@ Os aparelhos sincronizam com o computador quando estão na mesma rede que ele. L
 - **Navegação rápida.** Abas, árvore de pastas com arrastar e soltar, `Ctrl+K` para abrir notas e comandos, busca no conteúdo, painel de estrutura e de links para a nota.
 - **53 temas de terminal** (Dracula, Nord, Gruvbox, Solarized, Catppuccin, Tokyo Night...) além de claro, escuro e sépia, vindos do [Cube4Themes](https://github.com/robertoritter/Cube4Themes). Interface em português e inglês (escolhida em cada aparelho, em Preferências); o ícone ao lado do relógio, os avisos do Windows e o console seguem a língua do sistema, e os conjuntos de modelos são criados na língua da interface.
 
-| Celular | Vaults | Tema de terminal |
+### Telas
+
+As capturas mostram a interface em inglês; em português os textos são os mesmos, traduzidos.
+
+| Relações entre notas | Listas por tipo |
+| --- | --- |
+| ![Uma empresa com suas reuniões, pessoas e projeto](docs/images/relations.png) | ![Todas as empresas, com os campos como colunas e contadores de relações](docs/images/type-list.png) |
+| **Nota nova a partir de um modelo** | **Histórico de versões** |
+| ![Nota nova: escolha do modelo e das tags](docs/images/new-note.png) | ![Comparar e restaurar uma versão anterior](docs/images/history.png) |
+| **Conectar celular ou tablet** | **Acesso somente leitura para agentes de IA** |
+| ![QR code, código curto e aparelhos conectados](docs/images/connect-device.png) | ![Token do agente e endereços do MCP](docs/images/ai-agent.png) |
+| **Vaults** | **Tema de terminal (Tokyo Night)** |
+| ![Troca de vault](docs/images/vaults.png) | ![Tema escuro de terminal](docs/images/editor-dark.png) |
+
+| Celular: editor | Celular: relações em cartões | Celular: lateral |
 | --- | --- | --- |
-| ![Celular](docs/images/mobile-editor.png) | ![Troca de vault](docs/images/vaults.png) ![Lateral no celular](docs/images/mobile-tree.png) | ![Tema Tokyo Night](docs/images/editor-dark.png) |
+| ![Editor no celular](docs/images/mobile-editor.png) | ![Relações abaixo da nota](docs/images/mobile-relations.png) | ![Notas e pastas no celular](docs/images/mobile-tree.png) |
 
 ## Como começar (Windows)
 
 Requisito: [.NET 10 SDK](https://dotnet.microsoft.com/download), ou o `Cube4Notes.exe` independente (veja abaixo), que não precisa de nada instalado.
 
-1. Dê dois cliques no `Cube4Notes.exe` (ou, a partir do código, em `app/iniciar.cmd`).
+1. Dê dois cliques no `Cube4Notes.exe` (ou, a partir do código, em `app/run.cmd`).
 2. O Cube4Notes abre numa janela própria de aplicativo (sem navegador e sem console). Na primeira execução, um assistente pergunta três coisas:
    - onde você vai usar: *Só este computador* ou *Rede de casa*;
    - a pasta do primeiro vault (qualquer pasta; se não existir, é criada, e arquivos `.md` que já estiverem nela aparecem como notas);
@@ -60,7 +74,7 @@ Configurar uma máquina sem tela: inicie o Cube4Notes nela, abra `https://<ip-de
 
 ### Executável independente
 
-`app/gerar-executavel.cmd` gera um `Cube4Notes.exe` independente em `app/dist/win-x64`, que roda em qualquer Windows sem .NET. É um arquivo único, com a interface embutida: copie para onde quiser e dê dois cliques.
+`app/build.cmd` gera um `Cube4Notes.exe` independente em `app/dist/win-x64`, que roda em qualquer Windows sem .NET. É um arquivo único, com a interface embutida: copie para onde quiser e dê dois cliques.
 
 ### Servidor Linux sem tela (serviço do systemd)
 
@@ -75,17 +89,17 @@ Para deixar as notas num servidor Linux sempre ligado (Debian, Ubuntu, Raspberry
    ```bash
    git clone https://github.com/robertoritter/cube4notes.git
    cd cube4notes/app
-   ./gerar-executavel.sh
+   ./build.sh
    ```
 3. Instale como serviço (pede `sudo`; o serviço roda com o seu usuário, não como root, e inicia junto com a máquina):
    ```bash
-   ./instalar-servico.sh
+   ./install-service.sh
    ```
    O script mostra as primeiras mensagens do Cube4Notes, com os endereços e o **código de configuração**.
 4. Em outro aparelho da mesma rede, abra `https://<ip-do-servidor>:43125`, aceite o aviso do navegador (o certificado ainda não está instalado nesse aparelho), digite o código e escolha a pasta do primeiro vault, que fica no servidor.
 5. Depois, conecte os aparelhos normalmente: [Conectar um celular, passo a passo](#conectar-um-celular-passo-a-passo). Reserve também o IP do servidor no roteador.
 
-A configuração fica em `~/.local/share/Cube4Notes` do usuário do serviço. Comandos úteis: `journalctl -u cube4notes -f` (mensagens), `sudo systemctl restart cube4notes`. Para atualizar: `git pull`, `./gerar-executavel.sh` e `./instalar-servico.sh` de novo (configuração, aparelhos e notas continuam). Se a máquina tiver firewall (por exemplo `ufw`), libere as portas 43124 e 43125 (TCP) e 5353 (UDP) para a rede local.
+A configuração fica em `~/.local/share/Cube4Notes` do usuário do serviço. Comandos úteis: `journalctl -u cube4notes -f` (mensagens), `sudo systemctl restart cube4notes`. Para atualizar: `git pull`, `./build.sh` e `./install-service.sh` de novo (configuração, aparelhos e notas continuam). Se a máquina tiver firewall (por exemplo `ufw`), libere as portas 43124 e 43125 (TCP) e 5353 (UDP) para a rede local.
 
 ### Opções de linha de comando
 
@@ -94,12 +108,12 @@ A configuração fica em `~/.local/share/Cube4Notes` do usuário do serviço. Co
 | `--config <pasta>` | Pasta da configuração (padrão `%LOCALAPPDATA%\Cube4Notes` no Windows, `~/.local/share/Cube4Notes` no Linux) |
 | `--port <número>` | Porta (padrão 43125; no modo *Rede de casa* a porta anterior redireciona HTTP para HTTPS) |
 | `--notes <pasta>` | Sem configuração existente, usa essa pasta como primeiro vault (atualização a partir do primeiro protótipo) |
-| `--sem-janela` | Servidor no console, sem janela (para máquinas sem tela) |
-| `--sem-navegador` | Não abre a janela nem o navegador ao iniciar |
-| `--sem-https` | HTTP simples na rede (só para testes) |
-| `--sem-instalar-certificado` | Não adiciona o certificado à confiança do Windows |
-| `--sem-firewall` | Não cria a regra do Firewall do Windows |
-| `--sem-nome-na-rede` | Não responder por `<nome-do-computador>-notes.local` na rede local |
+| `--no-window` | Servidor no console, sem janela (para máquinas sem tela) |
+| `--no-browser` | Não abre a janela nem o navegador ao iniciar |
+| `--no-https` | HTTP simples na rede (só para testes) |
+| `--no-cert-install` | Não adiciona o certificado à confiança do Windows |
+| `--no-firewall` | Não cria a regra do Firewall do Windows |
+| `--no-network-name` | Não responder por `<nome-do-computador>-notes.local` na rede local |
 
 ## Conectar um celular, passo a passo
 
@@ -108,6 +122,8 @@ Faça nesta ordem. Os passos 1 e 2 são feitos uma vez só e evitam quase todos 
 1. **Fixe o IP do computador no roteador.** Nas configurações do roteador, procure *reserva de DHCP* (também chamada *IP fixo* ou *concessão estática*) e reserve o IP atual do computador que roda o Cube4Notes. Sem isso, o roteador pode dar outro IP ao computador um dia, e os aparelhos ficam em "Sem servidor" (veja [por quê](#como-os-aparelhos-acham-o-seu-computador)).
 2. **Instale o certificado no aparelho.** No navegador do aparelho, abra `http://<ip-do-computador>:43124/cube4notes-ca.cer` e siga [Instalar o certificado](#instalar-o-certificado-no-celular-no-tablet-e-em-outros-computadores). No iPhone, não esqueça o último passo (Ajustes de Confiança de Certificados). Sem o certificado, o navegador mostra "Não seguro" e o app não abre longe de casa.
 3. **Leia o QR code.** No computador, abra **Preferências > Conectar aparelho**, escolha os vaults que o aparelho pode acessar e aponte a câmera do aparelho para o QR code.
+
+   ![Conectar aparelho: QR code, código curto e aparelhos conectados](docs/images/connect-device.png)
 4. **Adicione à Tela de Início** (opcional). No iPhone, no Safari: Compartilhar > Adicionar à Tela de Início. O Cube4Notes passa a abrir como app, também sem conexão.
 
 Pronto: o aparelho sincroniza sozinho na rede de casa e funciona offline fora dela.
@@ -150,7 +166,7 @@ O Cube4Notes nunca passa pela internet. O celular ou tablet conversa direto com 
 
 - Wi-Fi de visitantes e redes que isolam os aparelhos bloqueiam essas perguntas pelo nome. Uma rede comum de casa permite.
 - O Android resolve nomes `.local` de forma irregular, conforme a versão e o navegador. iPhone, iPad, macOS, Windows e Linux resolvem bem.
-- O próprio Cube4Notes responde pelo nome, então não depende de o sistema fazer isso (o Windows muitas vezes não faz). No Windows ele também cria uma regra de firewall para as perguntas pelo nome (UDP 5353, só rede local) junto com a regra das portas dele. No Linux ele divide a porta com o `avahi-daemon`, se estiver rodando. Para desligar o nome, inicie o Cube4Notes com `--sem-nome-na-rede`.
+- O próprio Cube4Notes responde pelo nome, então não depende de o sistema fazer isso (o Windows muitas vezes não faz). No Windows ele também cria uma regra de firewall para as perguntas pelo nome (UDP 5353, só rede local) junto com a regra das portas dele. No Linux ele divide a porta com o `avahi-daemon`, se estiver rodando. Para desligar o nome, inicie o Cube4Notes com `--no-network-name`.
 - Dois computadores com o mesmo nome na mesma rede confundem a resposta. Dê nomes diferentes a eles.
 
 **A opção mais simples e robusta: IP fixo** (passo 1 de [Conectar um celular](#conectar-um-celular-passo-a-passo)). Nas configurações do roteador, procure *reserva de DHCP* (também chamada *IP fixo* ou *concessão estática*) e reserve o IP atual para o computador que roda o Cube4Notes. Assim o IP e o nome funcionam para sempre, em qualquer aparelho, inclusive Android. Com o IP fixo, usar o nome é opcional.
@@ -205,16 +221,18 @@ app/                        o Cube4Notes ([referência técnica](app/README.md))
   web/                      código-fonte da interface: TypeScript, Vite, Milkdown
   wwwroot/                  interface compilada, embutida no executável
   dev/                      servidor de teste em Node com a mesma API, e os testes
-  seguranca/                bateria de testes de segurança
+  security/                bateria de testes de segurança
   SECURITY.md              revisão OWASP Top 10 e riscos conhecidos
-  gerar-executavel.cmd/.sh  executável independente (Windows / Linux e macOS)
-  instalar-servico.sh       serviço do systemd num Linux sem tela
+  build.cmd/.sh  executável independente (Windows / Linux e macOS)
+  install-service.sh       serviço do systemd num Linux sem tela
 docs/                       visão, arquitetura, estado, cenários, agentes, licença e decisões
 .github/workflows/ci.yml    verificação a cada push
 scripts/check_project.py    estrutura e links da documentação
 ```
 
 ## Documentação
+
+A documentação técnica está em inglês.
 
 | Documento | Para quê |
 | --- | --- |
@@ -238,13 +256,13 @@ npm run build        # compila a interface para app/wwwroot (commite junto)
 npm run dev          # servidor de desenvolvimento; rode o Cube4Notes na porta 43125 junto
 ```
 
-Testes (Python 3; os da interface também precisam do Playwright). A lista completa está na [referência técnica](app/README.md#testes):
+Testes (Python 3; os da interface também precisam do Playwright). A lista completa está na [referência técnica](app/README.md#tests):
 
 ```bash
-python app/dev/teste_sync.py                                   # cenários maldosos de sincronização
-python app/seguranca/teste_seguranca.py --lan https://<ip>:43125   # bateria de segurança contra um servidor rodando
+python app/dev/test_sync.py                                   # cenários maldosos de sincronização
+python app/security/test_security.py --lan https://<ip>:43125   # bateria de segurança contra um servidor rodando
 python scripts/check_project.py                                # verificação da estrutura do repositório
-python app/dev/teste_executavel.py app/dist/<plataforma>/Cube4Notes # o executável gerado, do jeito que um usuário novo usaria
+python app/dev/test_executable.py app/dist/<plataforma>/Cube4Notes # o executável gerado, do jeito que um usuário novo usaria
 ```
 
 Cada push na `main` e cada pull request rodam as mesmas verificações ([.github/workflows/ci.yml](.github/workflows/ci.yml)): o executável é gerado e testado no Windows, no Linux e no macOS, gerado e testado de novo num Debian mínimo sem bibliotecas extras, instalado como serviço do systemd, e os testes da interface rodam no servidor de teste.

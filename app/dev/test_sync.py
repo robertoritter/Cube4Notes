@@ -5,7 +5,7 @@
 #
 # Testes "maldosos" de sincronização: dois aparelhos usando a interface real, com rede ligando e desligando,
 # edições, renomeações e exclusões concorrentes. Regra verificada: nenhum texto digitado pode sumir.
-# Uso: python dev/teste_sync.py  (sobe o servidor de teste sozinho; precisa de Node e Playwright)
+# Uso: python dev/test_sync.py  (sobe o servidor de teste sozinho; precisa de Node e Playwright)
 import asyncio, os, shutil, subprocess, sys, time, glob
 from playwright.async_api import async_playwright
 
@@ -20,7 +20,7 @@ def all_text(vault):
     out = []
     for p in glob.glob(os.path.join(vault, "**", "*.md"), recursive=True):
         out.append(open(p, encoding="utf-8").read())
-    for p in glob.glob(os.path.join(vault, ".lixeira", "**", "*.md"), recursive=True):
+    for p in glob.glob(os.path.join(vault, ".trash", "**", "*.md"), recursive=True):
         out.append(open(p, encoding="utf-8").read())
     return "\n".join(out)
 
@@ -141,7 +141,7 @@ async def main():
             await A.delete_row("Projeto"); await A.sync()
             await B.offline(False); await B.sync(); await A.sync()
             check("edição de B sobrevive à exclusão da pasta", "EDICAO-B-DENTRO" in all_text(v), str(files(v)))
-            check("versão antiga da pasta está na lixeira", os.path.isdir(os.path.join(v, ".lixeira")), "")
+            check("versão antiga da pasta está na lixeira", os.path.isdir(os.path.join(v, ".trash")), "")
         await scenario(p, "3. Pasta apagada enquanto outro aparelho edita dentro", {"Projeto/Dentro.md": "# Dentro\n\nconteúdo\n", "Projeto/Outra.md": "# Outra\n\nx\n"}, s3)
 
         # 4. A apaga a nota, B editou antes (B sincroniza primeiro)

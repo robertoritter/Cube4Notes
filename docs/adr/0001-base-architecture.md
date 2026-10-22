@@ -1,28 +1,28 @@
-# ADR 0001 — Servidor doméstico central e clientes offline
+# ADR 0001: Central home server and offline clients
 
-- Status: aceita; os mecanismos foram decididos depois (ADRs 0003 a 0009) e estão descritos em [01-architecture.md](../01-architecture.md)
-- Data: 2026-10-19
+- Status: accepted; the mechanisms were decided later (ADRs 0003 to 0009) and are described in [01-architecture.md](../01-architecture.md)
+- Date: 2026-10-19
 
-## Contexto
+## Context
 
-O usuário quer editar Markdown visualmente, abrir o mesmo espaço no navegador em vários dispositivos e continuar trabalhando no celular/iPad quando offline. O servidor pode ser o computador do próprio usuário ou um servidor doméstico sempre ligado (Linux); outros computadores (Windows, Linux) rodam agentes de IA. O servidor não pode ser acessado de fora de casa.
+The user wants to edit Markdown visually, open the same space in the browser on several devices, and keep working on the phone/iPad while offline. The server can be the user's own computer or an always-on home server (Linux); other computers (Windows, Linux) run AI agents. The server must not be reachable from outside the home.
 
-## Decisão
+## Decision
 
-Adotar um processo Cube4Notes Server que centraliza arquivos Markdown e serve uma interface web na rede local doméstica. Computadores, celular e iPad são clientes. Dispositivos móveis mantêm alterações locais offline e sincronizam diretamente com o servidor central ao reconectar; não fazem sincronização entre si. Conflitos devem preservar alterações e nunca sobrescrever silenciosamente. Agentes nos computadores podem ler por uma integração controlada a definir. Não oferecer acesso externo à internet.
+Adopt a Cube4Notes Server process that centralizes Markdown files and serves a web interface on the home local network. Computers, phone and iPad are clients. Mobile devices keep local changes offline and sync directly with the central server when they reconnect; they do not sync with each other. Conflicts must preserve changes and never overwrite silently. Agents on the computers can read through a controlled integration, to be defined. Do not offer external access from the internet.
 
-## Consequências
+## Consequences
 
-- centraliza arquivos legíveis e mantém o servidor como ponto único de sincronização;
-- exige clientes móveis com armazenamento persistente e fila offline;
-- conflitos no mesmo arquivo precisam de histórico/diff e resolução sem perda;
-- disponibilidade fora de casa não existe por decisão do usuário;
-- instalação inicial precisa ser simples, sem exigir montagem manual de proxy, banco externo ou containers;
-- o servidor precisa rodar em Windows e Linux; o macOS é verificado em CI.
+- centralizes readable files and keeps the server as the single sync point;
+- requires mobile clients with persistent storage and an offline queue;
+- conflicts on the same file need history/diff and resolution without loss;
+- availability outside the home does not exist, by the user's decision;
+- initial setup must be simple, without requiring manual setup of a proxy, external database or containers;
+- the server must run on Windows and Linux; macOS is checked in CI.
 
-## Alternativas consideradas
+## Alternatives considered
 
-- serviço acessível pela internet: explicitamente fora do escopo;
-- sincronização direta entre celulares/tablets: fora do escopo; servidor central é o intermediário;
-- exigir que o usuário configure infraestrutura separada para iniciar: contraria a expectativa de iniciar o servidor e usar;
-- agentes acessando todo o disco ou banco diretamente: não decidido e não deve ser pressuposto.
+- service reachable from the internet: explicitly out of scope;
+- direct sync between phones/tablets: out of scope; the central server is the intermediary;
+- requiring the user to set up separate infrastructure to get started: goes against the expectation of starting the server and using it;
+- agents accessing the whole disk or database directly: not decided and must not be assumed.

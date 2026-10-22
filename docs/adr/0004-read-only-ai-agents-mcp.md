@@ -1,28 +1,28 @@
-# ADR 0004: Acesso somente leitura para agentes de IA (MCP)
+# ADR 0004: Read-only access for AI agents (MCP)
 
-- Status: aceita
-- Data: 2026-10-21
+- Status: accepted
+- Date: 2026-10-21
 
-## Contexto
+## Context
 
-O proprietário roda agentes de IA em computadores da casa (por exemplo no servidor doméstico) e quer que eles consultem as notas. As regras do projeto exigem que agentes leiam por interfaces controladas, sem acesso privilegiado ao armazenamento, e que nada fique exposto fora da rede local. Até aqui, a documentação deixava em aberto se seria MCP ou REST e quais escopos. Como configurar: [06-ai-agents.md](../06-ai-agents.md).
+The owner runs AI agents on computers at home (for example on the home server) and wants them to look up notes. The project rules require agents to read through controlled interfaces, without privileged access to storage, and that nothing be exposed outside the local network. Until now, the documentation left open whether it would be MCP or REST and which scopes. How to set it up: [06-ai-agents.md](../06-ai-agents.md).
 
-## Decisão
+## Decision
 
-- O próprio servidor do Cube4Notes atende o **MCP** (Model Context Protocol, transporte HTTP, só pedido e resposta, sem SSE) em `/mcp`. Não há processo separado: o agente fala com o mesmo servidor, com as mesmas regras de rede.
-- Cada agente recebe um **token próprio, somente leitura**, criado por um administrador em *Conectar aparelho > Agentes de IA*, com a lista de vaults que pode ler. O token é mostrado uma vez e guardado só como hash, como o dos aparelhos.
-- Ferramentas: `list_vaults`, `list_notes`, `read_note`, `search_notes`, `recent_notes`. Nenhuma escreve.
-- Um token de agente nunca é administrador (nem no próprio computador), não escreve pela API de sincronização (qualquer método que não seja leitura recebe 403) e não pode trocar o próprio acesso por convite.
-- Da rede, `/mcp` só em HTTPS (o agente confia no certificado local do Cube4Notes). No próprio computador, também em HTTP (o token não sai da máquina).
+- The Cube4Notes server itself serves **MCP** (Model Context Protocol, HTTP transport, request and response only, no SSE) at `/mcp`. There is no separate process: the agent talks to the same server, with the same network rules.
+- Each agent gets its **own read-only token**, created by an administrator in *Connect device > AI agents*, with the list of vaults it can read. The token is shown once and stored only as a hash, like device tokens.
+- Tools: `list_vaults`, `list_notes`, `read_note`, `search_notes`, `recent_notes`. None of them writes.
+- An agent token is never an administrator (not even on the computer itself), does not write through the sync API (any non-read method gets 403) and cannot exchange its own access through an invite.
+- From the network, `/mcp` is HTTPS only (the agent trusts the local Cube4Notes certificate). On the computer itself, HTTP too (the token does not leave the machine).
 
-## Alternativas
+## Alternatives
 
-- API REST própria: mais simples, mas cada agente precisaria de um adaptador; MCP já é suportado pelos clientes de agentes.
-- Servidor MCP separado lendo a pasta de notas: daria ao agente acesso direto ao disco, contra as regras do projeto.
-- Reaproveitar o token de um aparelho: daria escrita e, para aparelhos administradores, administração.
+- Custom REST API: simpler, but each agent would need an adapter; MCP is already supported by agent clients.
+- Separate MCP server reading the notes folder: would give the agent direct disk access, against the project rules.
+- Reusing a device token: would grant writing and, for administrator devices, administration.
 
-## Consequências
+## Consequences
 
-- Qualquer cliente MCP com transporte HTTP (Claude Code, por exemplo) lê as notas liberadas sem instalar nada no servidor.
-- Acesso continua restrito à rede local; o agente precisa estar em casa (ou no próprio computador).
-- Escrita por agentes, se um dia for desejada, exige nova decisão (tokens com escopo de escrita, registro de autoria).
+- Any MCP client with HTTP transport (Claude Code, for example) reads the allowed notes without installing anything on the server.
+- Access stays restricted to the local network; the agent must be at home (or on the computer itself).
+- Writing by agents, if ever wanted, requires a new decision (tokens with write scope, authorship records).
