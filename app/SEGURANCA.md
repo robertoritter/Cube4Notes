@@ -1,8 +1,8 @@
 # Revisão de segurança (OWASP Top 10)
 
-Data: 19/10/2026, revista em 21/10/2026 (links, anexos offline, histórico, agentes de IA). Escopo: servidor `Program.cs`, interface `web/` e o contrato da API. Método: revisão de código item a item do OWASP Top 10, correções e uma bateria automatizada de ataques (`seguranca/teste_seguranca.py`, hoje 101 verificações sobre HTTPS, incluindo vaults, permissões por aparelho e tokens de agente) mais testes de navegador para injeção de script.
+Data: 19/10/2026, revista em 21/10/2026 (links, anexos offline, histórico, agentes de IA) e 22/10/2026 (servidor Linux como serviço, autoridade em PEM, mensagens de erro). Escopo: servidor `Program.cs`, interface `web/` e o contrato da API. Método: revisão de código item a item do OWASP Top 10, correções e uma bateria automatizada de ataques (`seguranca/teste_seguranca.py`, hoje 101 verificações sobre HTTPS, incluindo vaults, permissões por aparelho e tokens de agente) mais testes de navegador para injeção de script.
 
-**Como os testes foram rodados:** a bateria passou 66/66 (sobre HTTPS), depois dos vaults 73/73 e, com agentes, anexos, histórico e troca de endereço, 101/101 sobre HTTPS contra o servidor de teste `dev/mock-server.mjs`, que implementa as mesmas regras do servidor .NET. O ambiente onde isto foi escrito não alcança a rede da casa, então a bateria **ainda precisa rodar no computador do servidor, contra o servidor .NET** (instruções no fim).
+**Como os testes foram rodados:** a bateria passou 66/66 (sobre HTTPS), depois dos vaults 73/73 e, com agentes, anexos, histórico e troca de endereço, 101/101 sobre HTTPS contra o servidor de teste `dev/mock-server.mjs`, que implementa as mesmas regras do servidor .NET. A bateria completa ainda precisa rodar contra o servidor .NET num computador da rede (instruções no fim). Parte das regras já é conferida no executável .NET real a cada push, no Windows, no Linux e no macOS (`dev/teste_executavel.py`): código de configuração errado recusado pela rede, API sem token recusada, HTTP redirecionando para HTTPS e conexão HTTPS verificada com a autoridade do Cube4Notes.
 
 ## Achados e correções
 
@@ -30,10 +30,13 @@ Data: 19/10/2026, revista em 21/10/2026 (links, anexos offline, histórico, agen
 | A01 | (novo, 21/10) Anexo enviado com caminho escolhido pelo aparelho (anexos colados offline). | Mesmo validador de caminhos das notas; só tipos de imagem e PDF (nunca `.md`); arquivo existente nunca é sobrescrito (ganha sufixo); temporário oculto até terminar. |
 | A01 | (novo, 21/10) Aparelho que passa a usar o endereço pelo nome do computador precisava de acesso no novo endereço sem novo QR. | Convite de transferência criado só pelo próprio aparelho autenticado, de uso único, válido por 5 minutos e preso àquele aparelho: dá um token a mais ao mesmo aparelho (no máximo 5 extras), com o mesmo acesso. Não serve como convite comum, e convite comum não serve como transferência. Remover o aparelho invalida todos os tokens dele. |
 | A01 | (novo, 21/10) Histórico de versões lido por caminho e id. | Caminho validado como nota; id só no formato de data (`yyyyMMdd-HHmmss-fff`), sem como montar caminho para fora de `.cube4notes/historico`. |
+| A05 / A09 | (novo, 22/10) Mensagens de erro da configuração de vaults vinham em texto do servidor. | O servidor devolve só códigos estáveis (`pick-folder`, `is-file`...) e a interface traduz; nenhuma mensagem do sistema ou caminho interno vai para o aparelho. |
+| A02 | (novo, 22/10) Agentes em Node.js e Python não usam a confiança do sistema, o que levava a desligar a verificação de certificado para conseguir conectar. | A autoridade também é entregue em PEM (`/cube4notes-ca.pem`), com instruções para `NODE_EXTRA_CA_CERTS` e `REQUESTS_CA_BUNDLE`; a documentação recomenda nunca desligar a verificação. |
+| A05 | (novo, 22/10) Serviço no Linux. | Roda com o usuário que instalou, nunca como root; o executável fica em `/opt/cube4notes`, sem permissão de escrita para o serviço, e o programa não escreve nada na própria pasta (conferido no CI). |
 
 ## Riscos que continuam (conscientes)
 
-- **Chave da autoridade local sem senha** em `%LOCALAPPDATA%\Cube4Notes\tls` (pasta do usuário). Quem tiver acesso a ela poderia se passar pelo servidor **só em endereços locais**, graças à restrição de nomes. Aparelhos que não instalaram o certificado aceitam a conexão depois do aviso do navegador, sem proteção contra quem se passar pelo servidor na rede; instale o certificado.
+- **Chave da autoridade local sem senha** em `tls/` da pasta de configuração (`%LOCALAPPDATA%\Cube4Notes` no Windows, `~/.local/share/Cube4Notes` no Linux), dentro da pasta do usuário. Quem tiver acesso a ela poderia se passar pelo servidor **só em endereços locais**, graças à restrição de nomes. Aparelhos que não instalaram o certificado aceitam a conexão depois do aviso do navegador, sem proteção contra quem se passar pelo servidor na rede; instale o certificado.
 - **Quem usa o próprio computador do servidor é administrador.** O `localhost` pareia sem convite e gerencia aparelhos. Qualquer programa rodando nesse computador já teria acesso aos arquivos, então isso não amplia o risco.
 - **Administrador vale pelo token, não pelo endereço.** Um aparelho administrador continua administrador de qualquer ponto da rede local (necessário para configurar uma máquina sem tela). Dê convite de administrador só a aparelhos seus; os demais recebem só os vaults escolhidos.
 - **O administrador escolhe qualquer pasta do computador do servidor como vault.** Raiz do disco, pastas do sistema, a pasta de configuração e pastas dentro de outro vault são recusadas; o restante é decisão do administrador.
@@ -42,15 +45,15 @@ Data: 19/10/2026, revista em 21/10/2026 (links, anexos offline, histórico, agen
 - **Regra de firewall por porta.** No modo Rede de casa, o Windows libera as portas 43124 e 43125 só para a sub-rede local (`remoteip=localsubnet`), em qualquer perfil de rede, para o celular conectar mesmo que o Windows classifique o Wi-Fi como público. O servidor continua recusando qualquer endereço fora da rede local. Regras antigas presas ao caminho do `.exe` são apagadas, porque uma regra de bloqueio do programa venceria a liberação.
 - **Token de agente dá leitura de tudo o que foi liberado.** Quem copiar o token lê aqueles vaults de dentro da rede de casa. Libere só o necessário e remova o agente quando não usar mais. O console registra cada ferramenta usada por cada agente.
 - **Anexos e histórico guardados sem limite de espaço total.** O histórico fica limitado a 100 versões por nota e 180 dias; anexos guardados no aparelho, a 150 MB de pré-carga por vault (o que for aberto fica guardado).
-- **Nome do computador na rede (`<nome>.local`).** Qualquer máquina da rede pode responder por esse nome, mas a conexão exige o certificado da autoridade do Cube4Notes deste computador, que nenhuma outra máquina tem; o token também não vale em outro servidor. O firewall do Windows passa a aceitar as perguntas de nome (UDP 5353) só da sub-rede local. O próprio servidor responde pelo nome (mDNS): só a perguntas sobre o seu próprio nome, só de endereços da rede local e só com os IPs locais dele; mDNS não atravessa roteadores.
+- **Nome do computador na rede (`<computador>-notes.local`).** Qualquer máquina da rede pode responder por esse nome, mas a conexão exige o certificado da autoridade do Cube4Notes deste computador, que nenhuma outra máquina tem; o token também não vale em outro servidor. O firewall do Windows passa a aceitar as perguntas de nome (UDP 5353) só da sub-rede local. O próprio servidor responde pelo nome (mDNS): só a perguntas sobre o seu próprio nome, só de endereços da rede local e só com os IPs locais dele; mDNS não atravessa roteadores.
 - **Notas sem criptografia em disco** no servidor e nos aparelhos; depende da proteção do próprio sistema (BitLocker, bloqueio do celular).
 
 ## Rodar a bateria no computador do servidor
 
 Com o servidor rodando, num terminal na pasta `app`:
 
-```powershell
-python seguranca\teste_seguranca.py --lan https://<ip-do-computador>:43125
+```bash
+python seguranca/teste_seguranca.py --lan https://<ip-do-computador>:43125
 ```
 
 `--lan` é o endereço de rede do próprio computador do servidor: o servidor enxerga essas requisições como vindas de outro aparelho. O teste de força bruta bloqueia esse endereço por 10 minutos (o `localhost` continua funcionando); para pular, acrescente `--sem-forca-bruta`. O teste cria e remove dois aparelhos de teste, manda a pasta `_teste_seguranca` para a `.lixeira` e deixa um `anexos/fora.png` que pode ser apagado.

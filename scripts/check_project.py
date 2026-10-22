@@ -1,4 +1,8 @@
-"""Valida a estrutura mínima e referências Markdown locais de um projeto."""
+"""Valida a estrutura mínima e os links locais da documentação (Markdown) do projeto.
+
+Ignora blocos de código e trechos entre crases: exemplos como `{{titulo}}` ou `[Nota](pasta/Nota.md)`
+não são links nem marcadores pendentes.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +11,10 @@ from pathlib import Path
 import re
 
 
-REQUIRED = ("README.md", "AGENTS.md", "docs/00-visao-e-escopo.md")
-PLACEHOLDERS = ("[TODO", "{{", "A definir", "TBD")
+REQUIRED = ("README.md", "README.pt-BR.md", "AGENTS.md", "LICENSE", "docs/00-visao-e-escopo.md", "docs/01-arquitetura.md", "app/README.md")
+PLACEHOLDERS = ("[TODO", "A definir", "TBD")
+FENCE = re.compile(r"^```.*?^```", re.M | re.S)
+INLINE = re.compile(r"`[^`\n]*`")
 LINK = re.compile(r"\[[^]]*\]\((?!https?://|mailto:|#)([^)]+)\)")
 
 
@@ -19,9 +25,9 @@ def validate(root: Path) -> list[str]:
             problems.append(f"arquivo obrigatório ausente: {relative}")
 
     for path in root.rglob("*.md"):
-        if any(part in {".git", ".venv", "node_modules"} for part in path.parts):
+        if any(part in {".git", ".venv", "node_modules", "wwwroot", "dist"} for part in path.parts):
             continue
-        text = path.read_text(encoding="utf-8")
+        text = INLINE.sub("", FENCE.sub("", path.read_text(encoding="utf-8")))
         for marker in PLACEHOLDERS:
             if marker in text:
                 problems.append(f"placeholder '{marker}' em {path.relative_to(root)}")

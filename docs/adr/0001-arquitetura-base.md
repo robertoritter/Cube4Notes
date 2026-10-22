@@ -1,11 +1,11 @@
 # ADR 0001 — Servidor doméstico central e clientes offline
 
-- Status: aceita como direção do produto; mecanismos e tecnologias pendentes
+- Status: aceita; os mecanismos foram decididos depois (ADRs 0003 a 0009) e estão descritos em [01-arquitetura.md](../01-arquitetura.md)
 - Data: 2026-10-19
 
 ## Contexto
 
-O usuário quer editar Markdown visualmente, abrir o mesmo espaço no navegador em vários dispositivos e continuar trabalhando no celular/iPad quando offline. Um servidor doméstico Debian fica como centralizador de referência; há computadores Windows e Linux (Debian) com agentes locais. O servidor não pode ser acessado de fora de casa. Não há ambiente local macOS.
+O usuário quer editar Markdown visualmente, abrir o mesmo espaço no navegador em vários dispositivos e continuar trabalhando no celular/iPad quando offline. O servidor pode ser o computador do próprio usuário ou um servidor doméstico sempre ligado (Linux); outros computadores (Windows, Linux) rodam agentes de IA. O servidor não pode ser acessado de fora de casa.
 
 ## Decisão
 
@@ -18,7 +18,7 @@ Adotar um processo Cube4Notes Server que centraliza arquivos Markdown e serve um
 - conflitos no mesmo arquivo precisam de histórico/diff e resolução sem perda;
 - disponibilidade fora de casa não existe por decisão do usuário;
 - instalação inicial precisa ser simples, sem exigir montagem manual de proxy, banco externo ou containers;
-- o servidor de referência roda Debian; compilações macOS usam CI e ainda precisam de validação em hardware real quando houver acesso.
+- o servidor precisa rodar em Windows e Linux; o macOS é verificado em CI.
 
 ## Alternativas consideradas
 

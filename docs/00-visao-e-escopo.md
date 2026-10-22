@@ -1,64 +1,45 @@
-# Visão e escopo — Cube4Notes
+# Visão e escopo
 
-## Problema
+## O problema
 
-O usuário quer criar e organizar notas e pastas Markdown sem decorar a sintaxe, editando visualmente e mantendo arquivos acessíveis aos agentes locais. Também quer continuar criando e editando notas em celular/iPad quando estiver longe do computador ou sem Wi-Fi, e sincronizar tudo ao voltar para casa.
+Ferramentas de notas costumam obrigar a uma escolha ruim. Uma opção é guardar tudo na nuvem de uma empresa. A outra é configurar sincronização, servidores e plugins, e torcer para o celular não perder o que foi escrito offline. Além disso, escrever Markdown "na mão" afasta quem só quer escrever.
 
-## Público e contexto inicial
+O Cube4Notes parte de três ideias:
 
-- usuário com computadores Windows e Linux (Debian) e, opcionalmente, um servidor doméstico Debian;
-- usuário de celular e iPad que quer usar a mesma interface web e continuar offline;
-- agentes executados nos computadores que precisam ler o mesmo repositório de notas por uma interface controlada.
+1. **As notas são arquivos seus.** Markdown comum, numa pasta comum, legível por qualquer editor e por qualquer programa.
+2. **O computador de casa é o servidor.** Nada passa pela internet: os aparelhos falam direto com o computador que guarda as notas, pela rede local.
+3. **Cada aparelho funciona sozinho.** Celular, tablet e outros computadores guardam uma cópia completa e continuam funcionando longe de casa; quando voltam, sincronizam sem perder nada.
 
-## Resultado desejado
+## Para quem é
 
-Editar notas visualmente sem perder Markdown portável; usar o mesmo espaço no navegador pela rede de casa; continuar offline no celular/iPad; sincronizar as mudanças com o servidor central doméstico quando reconectar; e permitir leitura dos agentes nos computadores.
+- Quem quer notas em vários aparelhos sem conta, assinatura ou nuvem.
+- Quem quer edição visual (títulos, listas, tabelas, imagens) sem decorar sintaxe, mas com os arquivos continuando em Markdown portável.
+- Quem usa agentes de IA e quer que eles consultem as notas sem dar a eles acesso ao disco.
+- Quem não tem servidor em casa: o mesmo executável roda no próprio computador, no modo *Só este computador*.
 
-## Escopo do produto a explorar
+## O que o Cube4Notes é
 
-- servidor Cube4Notes iniciado no computador do usuário ou num servidor doméstico (Debian), que centraliza os Markdown e serve o cliente web;
-- clientes web nos computadores, celular e iPad pela rede local;
-- cliente móvel capaz de manter notas, pastas e alterações offline;
-- sincronização posterior com o servidor central, preservando alterações e detectando edições concorrentes;
-- acesso de agentes nos computadores por integração controlada do servidor;
-- acesso ao servidor restrito à rede doméstica: sem acesso externo pela internet;
-- servidor central executando em Debian; distribuição para Windows/Linux e eventuais builds de cliente macOS via CI, pois não há ambiente macOS local;
-- produto independente, implementado do zero a partir das necessidades e dos princípios registrados neste projeto;
-- referências a outros editores limitadas a ideias gerais de organização e edição, sem adotar seu código ou ecossistema.
+- Um único executável que guarda as notas, serve a interface web e sincroniza os aparelhos da rede de casa.
+- Um editor visual de Markdown que funciona no navegador do computador, do celular e do tablet, e também offline.
+- Vários vaults (qualquer pasta pode ser um), com acesso escolhido por aparelho.
+- Links entre notas, tipos, modelos e relações, tags e propriedades, histórico de versões, anexos offline.
+- Acesso somente leitura para agentes de IA, por MCP.
 
-## Fora do primeiro marco
+## O que o Cube4Notes não é (por decisão)
 
-- plugins, integrações, APIs de compatibilidade ou dependências de Obsidian/SilverBullet;
-- compatibilidade com plugins, formatos proprietários ou ecossistemas desses produtos;
-- edição colaborativa simultânea em tempo real;
-- marketplace de extensões;
-- escrita por agentes;
-- sincronização direta entre celulares/tablets; o servidor central é o ponto de sincronização;
-- acesso remoto externo ao servidor;
-- aplicativo nativo para iPhone/iPad nesta etapa; o cliente móvel inicial é web com capacidade offline.
+- **Não é um serviço na nuvem** e não abre acesso pela internet: sem túnel, relay, abertura de portas ou conta.
+- **Não é colaborativo em tempo real.** Cada aparelho edita a sua cópia; edições simultâneas na mesma nota viram uma cópia de conflito para juntar, nunca uma perda.
+- **Não sincroniza aparelhos entre si.** O servidor é o ponto de encontro.
+- **Não tem plugins nem compatibilidade com ecossistemas de outros editores.** Os arquivos são Markdown padrão; qualquer editor abre.
+- **Agentes não escrevem.** O acesso de IA é só leitura.
+- **Não tem app nativo para iPhone, iPad ou Android.** O cliente móvel é a interface web, instalável na tela inicial e com uso offline.
 
-## Restrições confirmadas
+## Princípios que guiam as decisões
 
-- o computador que roda o Cube4Notes é o servidor central (no cenário de referência, um Debian doméstico); os demais computadores (Windows, Linux) são clientes;
-- o servidor não deve ser acessível de fora de casa, nem por túnel ou serviço externo;
-- quando o servidor estiver desligado ou inalcançável, cada dispositivo móvel mantém suas próprias mudanças locais;
-- celular e iPad não sincronizam entre si diretamente; ambos sincronizam com o servidor quando ele voltar;
-- se dois clientes alterarem o mesmo arquivo offline, preservar as versões e sinalizar conflito; nunca descartar uma alteração silenciosamente;
-- Markdown é fonte de portabilidade;
-- licença MIT, decidida pelo proprietário (ADR 0002).
+- Nenhuma alteração é descartada em silêncio. Conflito vira cópia, exclusão vai para a lixeira, edição em nota renomeada segue a nota.
+- Fácil de instalar em qualquer ambiente: um executável, sem banco, proxy ou containers. Sem configuração manual por máquina.
+- Segurança é requisito do núcleo: HTTPS com autoridade própria, token por aparelho, convites de uso único, só rede local.
+- Sempre compila e roda no Windows, no Linux e no macOS (`net10.0`), verificado no CI.
+- Documentação explícita sobre o que pode dar errado (rede, IP, certificado), sem esconder limites.
 
-## Hipóteses a validar
-
-- um subconjunto de Markdown atende às tarefas frequentes com uma barra visual;
-- uma aplicação web consegue manter documentos e fila de mudanças offline nos dispositivos móveis desejados;
-- a sincronização pode detectar mudanças e oferecer diff/resolução compreensível;
-- agentes locais podem ler via interface autorizada do servidor sem acesso direto privilegiado aos arquivos.
-
-## Decisões ainda pendentes
-
-- tecnologias do servidor, cliente web e camada de sincronização;
-- autenticação e pareamento de dispositivos dentro da rede doméstica;
-- política de conflitos: cópia em conflito, diff visual, resolução manual ou combinações;
-- limites e comportamento para anexos e mudanças de pastas;
-- integração e escopos para agentes (REST, MCP ou ambos);
-- forma de disponibilizar e instalar o cliente web offline em cada sistema móvel.
+Decisões detalhadas: [`docs/adr`](adr/README.md). Estado atual e próximos passos: [02-plano-de-entrega.md](02-plano-de-entrega.md).

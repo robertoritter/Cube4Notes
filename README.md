@@ -93,11 +93,12 @@ Settings live in `~/.local/share/Cube4Notes` of the service user. Useful command
 | --- | --- |
 | `--config <folder>` | Configuration folder (default `%LOCALAPPDATA%\Cube4Notes` on Windows, `~/.local/share/Cube4Notes` on Linux) |
 | `--port <number>` | Port (default 43125; in *Home network* mode the port below it redirects HTTP to HTTPS) |
-| `--notes <folder>` | Import a single notes folder as the vault "Notas" (upgrade from the first prototype) |
+| `--notes <folder>` | With no existing configuration, use this folder as the first vault (upgrade from the first prototype) |
 | `--sem-janela` | Console server, no app window (for machines without a screen) |
-| `--sem-navegador` | In console mode, do not open the browser on start |
+| `--sem-navegador` | Do not open the app window or the browser on start |
 | `--sem-https` | Plain HTTP on the network (testing only) |
 | `--sem-instalar-certificado` | Do not add the certificate to the Windows trust store |
+| `--sem-firewall` | Do not create the Windows Firewall rule |
 | `--sem-nome-na-rede` | Do not answer for `<computer-name>-notes.local` on the local network |
 
 ## Connecting a phone, step by step
@@ -186,8 +187,8 @@ Only the certificate *authority* needs installing. The server's own certificate 
 | Windows | Working, in daily validation |
 | iPhone / iPad (Safari, home screen app) | Working, in daily validation |
 | Android, other desktop browsers | Expected to work, not yet validated |
-| Linux (headless server, x64 and ARM64) | Build script and systemd service ready, being validated |
-| macOS (windowed app) | Planned; `gerar-executavel.sh` already builds the executable, the `.app` bundle is missing |
+| Linux (headless server, x64 and ARM64) | Working as a systemd service (Debian 13); x64 is tested in CI, ARM64 builds with the same script but is not yet tested |
+| macOS | Executable built and tested in CI; the `.app` bundle with a window is missing |
 
 ## Design principles
 
@@ -199,28 +200,47 @@ Only the certificate *authority* needs installing. The server's own certificate 
 ## Repository layout
 
 ```text
-app/                        Cube4Notes (server, web interface, tests)
-  Program.cs, src/          server: .NET 10 minimal API
+app/                        Cube4Notes ([technical reference](app/README.md), in Portuguese)
+  Program.cs, src/          server: .NET 10 (ASP.NET Core)
   web/                      web interface source: TypeScript, Vite, Milkdown
-  wwwroot/                  compiled web interface served by the server
-  dev/mock-server.mjs       Node server with the same API, for interface development and tests
-  dev/teste_sync.py         adversarial sync tests (two simulated devices)
-  seguranca/                security test suite (OWASP Top 10)
-services/api/               first server prototype
-apps/, packages/, services/mcp/   planned components (web client, editor, contracts, agent integration)
-docs/                       vision, architecture, delivery plan, research and decisions (Portuguese)
+  wwwroot/                  compiled interface, embedded in the executable
+  dev/                      Node test server with the same API, and the tests
+  seguranca/                security test suite
+  SEGURANCA.md              OWASP Top 10 review and known risks
+  gerar-executavel.cmd/.sh  standalone executable (Windows / Linux and macOS)
+  instalar-servico.sh       systemd service on a headless Linux
+docs/                       vision, architecture, status, scenarios, AI agents, license and decisions
+.github/workflows/ci.yml    checks on every push
+scripts/check_project.py    structure and documentation link checks
 ```
+
+## Documentation
+
+The documents below are in Portuguese.
+
+| Document | What for |
+| --- | --- |
+| [docs/00-visao-e-escopo.md](docs/00-visao-e-escopo.md) | the problem, who it is for, what Cube4Notes is and is not |
+| [docs/01-arquitetura.md](docs/01-arquitetura.md) | how it works inside: storage, sync, network, security, builds |
+| [docs/02-plano-de-entrega.md](docs/02-plano-de-entrega.md) | what is done, being validated, and next steps |
+| [docs/05-cenarios-de-uso.md](docs/05-cenarios-de-uso.md) | everyday scenarios and how each one works |
+| [docs/06-agentes-de-ia.md](docs/06-agentes-de-ia.md) | giving AI agents read access to your notes (MCP) |
+| [docs/adr/](docs/adr/README.md) | architecture decisions, with context and alternatives |
+| [docs/03-licenciamento.md](docs/03-licenciamento.md) | licenses compared before choosing MIT |
+| [app/README.md](app/README.md) | technical reference: build, configuration, API, code layout, tests |
+| [app/SEGURANCA.md](app/SEGURANCA.md) | OWASP Top 10 review and known risks |
+| [AGENTS.md](AGENTS.md) | rules for anyone (person or AI) changing the code |
 
 ## Development
 
 ```bash
 cd app/web
-npm install
-npm run build        # compiles the interface into app/wwwroot
+npm ci
+npm run build        # compiles the interface into app/wwwroot (commit it too)
 npm run dev          # dev server; run Cube4Notes on port 43125 alongside
 ```
 
-Tests (Python 3; the sync tests also need Playwright):
+Tests (Python 3; the interface tests also need Playwright). The full list is in the [technical reference](app/README.md#testes):
 
 ```bash
 python app/dev/teste_sync.py                                   # adversarial sync scenarios
@@ -229,13 +249,15 @@ python scripts/check_project.py                                # repository stru
 python app/dev/teste_executavel.py app/dist/<platform>/Cube4Notes # the built executable, as a new user would run it
 ```
 
-Every push to GitHub runs the same checks ([.github/workflows/ci.yml](.github/workflows/ci.yml)): the executable is built and tested on Windows, Linux and macOS, built and tested again on a minimal Debian with no extra libraries, installed as a systemd service, and the interface tests run against the test server.
+Every push to `main` and every pull request runs the same checks ([.github/workflows/ci.yml](.github/workflows/ci.yml)): the executable is built and tested on Windows, Linux and macOS, built and tested again on a minimal Debian with no extra libraries, installed as a systemd service, and the interface tests run against the test server.
 
 ## Roadmap
 
-- Linux build script and CI (every build must also compile on Linux)
-- Install as a service (Windows service, systemd, launchd) and find the server by name on the network
-- Optional automatic history of each vault with Git
+- Published releases on GitHub, with ready-made executables for Windows and Linux
+- macOS as an app (`.app` bundle with a window); the executable is already built and tested in CI
+- Validation on Android and in a Linux desktop window
+
+Details and what is already done: [docs/02-plano-de-entrega.md](docs/02-plano-de-entrega.md).
 
 ## License
 

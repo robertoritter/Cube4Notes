@@ -1,52 +1,35 @@
-# Cenários de uso confirmados
+# Cenários de uso
 
-Este documento registra o que o produto precisa permitir antes de escolher a implementação.
+Os cenários que o Cube4Notes precisa atender e como cada um funciona hoje.
 
-## Cenário 1 — computador cliente na rede de casa
+## 1. Computador na rede de casa
 
-O Cube4Notes Server roda no computador do usuário ou num servidor doméstico (Debian) e mantém o repositório Markdown central. Num computador Windows ou Linux, a pessoa abre um navegador, acessa o servidor pela rede local e edita com a mesma interface visual. Os outros computadores não precisam montar o disco do servidor nem manter um segundo servidor.
+O Cube4Notes roda no computador que guarda as notas (o do próprio usuário ou um servidor sempre ligado). Outro computador da casa abre `https://<ip-do-servidor>:43125` no navegador, conecta uma vez pelo QR code ou pelo código de 6 caracteres e edita com a mesma interface. Não precisa montar o disco do servidor nem instalar nada além do certificado.
 
-## Cenário 2 — agente no computador cliente
+## 2. Celular ou tablet em casa
 
-Agentes executados nos computadores precisam consultar as notas armazenadas pelo servidor. O caminho preferido a explorar é uma interface controlada do Cube4Notes Server, acessível na LAN. Ainda não foi decidido REST, MCP ou ambos, nem o nível de escopo. Não assumir que o navegador transfere acesso ao sistema de arquivos para o agente.
+O aparelho lê o QR code, instala o certificado uma vez e, se quiser, adiciona o Cube4Notes à tela inicial. A interface é pensada para toque: barra de formatação, menu de blocos com `/`, relações abaixo da nota e listas em cartões. Passo a passo: [Conectar um celular](../README.pt-BR.md#conectar-um-celular-passo-a-passo).
 
-## Cenário 3 — celular/iPad conectado em casa
+## 3. Celular ou tablet longe de casa
 
-Celular e iPad abrem o cliente web do servidor pela rede local e editam o mesmo espaço de notas. A interface deve ser adequada a toque e não exigir memorização de sintaxe Markdown; uma barra oferece itens comuns como títulos, listas e formatação.
+O servidor não é alcançável de fora, por decisão. O aparelho continua com a cópia completa dos vaults liberados: abre, edita, cria e organiza notas e pastas, cola imagens e PDFs. Tudo fica guardado no aparelho e sobrevive a fechar e reabrir o app.
 
-## Cenário 4 — celular/iPad fora de casa ou sem rede
+## 4. Volta para casa
 
-O servidor doméstico não é acessível externamente, por decisão explícita. O cliente móvel já usado anteriormente deve manter notas, criação de pastas e mudanças localmente mesmo sem Wi-Fi e sem o servidor. O conteúdo local precisa sobreviver ao fechamento e à reabertura do cliente.
+Ao alcançar o servidor, cada aparelho envia a sua fila de alterações e recebe as dos outros. Alterações em notas diferentes simplesmente se juntam. Se a mesma nota mudou no aparelho e no servidor, as duas versões ficam: a do servidor no lugar e a do aparelho como cópia de conflito, com aviso. Nada é descartado em silêncio. Detalhes: [arquitetura, sincronização](01-arquitetura.md#sincronização).
 
-## Cenário 5 — reconexão e sincronização
+## 5. Servidor desligado ou sempre ligado
 
-Quando celular/iPad voltam à rede doméstica, sincronizam cada um com o servidor central. Eles não se comunicam diretamente. Mudanças em arquivos diferentes podem ser conciliadas. Se o mesmo arquivo mudou tanto no cliente offline quanto no servidor, o sistema preserva as duas versões e mostra diff/conflito; nunca descarta uma alteração silenciosamente.
+Com o servidor desligado, cada aparelho trabalha na sua cópia; os aparelhos não sincronizam entre si. Com um servidor sempre ligado (por exemplo um Linux rodando o Cube4Notes como serviço), ele fica disponível o tempo todo dentro de casa. "Sempre ligado" não significa acessível pela internet.
 
-## Cenário 6 — servidor desligado e servidor sempre ligado
+## 6. O roteador troca o IP do computador
 
-Com o servidor desligado, cada dispositivo móvel continua trabalhando com sua própria cópia e fila pendente; os clientes não sincronizam entre si. Se o servidor ficar num computador doméstico sempre ligado, fica disponível continuamente dentro da rede de casa. “Sempre ligado” não implica acesso pela internet.
+Os aparelhos guardam o endereço do servidor. Se o roteador der outro IP ao computador, eles deixam de achá-lo. A solução recomendada é reservar o IP no roteador; como alternativa, o Cube4Notes responde pelo nome `<computador>-notes.local` e oferece a troca para esse endereço. Explicação completa: [Como os aparelhos acham o seu computador](../README.pt-BR.md#como-os-aparelhos-acham-o-seu-computador).
 
-## Máquinas e papéis atuais
+## 7. Agente de IA consultando as notas
 
-| Máquina/dispositivo | Papel |
-| --- | --- |
-| Servidor (computador do usuário ou Debian doméstico) | servidor central e armazenamento canônico |
-| Computador Windows | cliente web e ambiente para agente de teste |
-| Computador Linux (Debian) | cliente web e ambiente para agente de teste |
-| Celular | cliente web móvel com dados e alterações offline |
-| iPad | cliente web móvel com dados e alterações offline |
+Um agente num computador da casa lê as notas pelo MCP, com um token que só lê e só alcança os vaults escolhidos. Ele nunca recebe acesso ao disco nem altera notas. Configuração: [06-agentes-de-ia.md](06-agentes-de-ia.md).
 
-Suporte genérico a hosts adicionais dependerá do plano de distribuição. O proprietário não tem ambiente macOS local de desenvolvimento; builds específicos devem poder ser gerados em CI.
+## 8. Sem servidor em casa
 
-## Requisitos de simplicidade
-
-O processo inicial deve se comportar como “iniciar o servidor e usar”. O primeiro teste não deve exigir que o usuário configure manualmente Caddy/proxy reverso, banco separado ou uma pilha Docker. Uma tentativa anterior de configuração de ferramentas de notas foi frustrante; isso informa apenas a necessidade de instalação simples e não cria requisito de plugin, integração ou compatibilidade com outro produto.
-
-## O que ainda não está decidido
-
-- quais pacotes executáveis serão fornecidos para Windows, Linux e, eventualmente, macOS via CI;
-- instalação do cliente web para manter uso offline no iOS/iPadOS e limites de execução em segundo plano;
-- se a cópia offline contém todo o repositório ou apenas pastas selecionadas;
-- mecanismo de diff/merge, histórico e retenção de conflitos;
-- protocolo e autorização para agentes locais;
-- backups e recuperação do armazenamento central.
+Quem tem um computador só usa o modo *Só este computador*: o mesmo executável, sem rede, sem certificado e sem firewall. Dá para mudar para *Rede de casa* depois, em Preferências, sem perder nada.

@@ -5,7 +5,7 @@
 #
 # Verificação a cada push: gera o executável em Windows, Linux e macOS e testa como um usuário novo usaria
 # (dev/teste_executavel.py), instala o serviço do systemd num Ubuntu, compila e testa num Debian mínimo
-# (sem bibliotecas extras) e roda os testes da interface no servidor de teste.
+# (sem bibliotecas extras), roda os testes da interface no servidor de teste e confere os links da documentação.
 name: CI
 
 on:
@@ -94,7 +94,7 @@ jobs:
         run: sudo journalctl -u cube4notes --no-pager -n 200
 
   interface:
-    name: Interface e sincronização (servidor de teste)
+    name: Interface, sincronização e documentação
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -102,6 +102,8 @@ jobs:
         with: { node-version: '22' }
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
+      - name: Documentação (estrutura e links)
+        run: python scripts/check_project.py
       - name: Compilar a interface
         working-directory: app/web
         run: |

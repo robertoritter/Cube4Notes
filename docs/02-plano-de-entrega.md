@@ -1,41 +1,34 @@
-# Plano de entrega
+# Estado e próximos passos
 
-## Fase 0 — cenários e fundação (atual)
+Situação em outubro de 2026: **protótipo funcional, em uso diário.** Formatos e APIs ainda podem mudar sem aviso.
 
-Saída: problema, limites de rede, papel do servidor (computador do usuário ou servidor doméstico Debian), clientes, agentes, offline e decisões pendentes documentados. Licença continua sem escolha.
+## Entregue
 
-## Fase 1 — servidor simples e edição web
+| Fase | O que entrega | Estado |
+| --- | --- | --- |
+| Servidor e edição web | servidor .NET 10 em executável único, edição visual de Markdown (Milkdown), vários vaults, janela própria de app, assistente de primeira execução | pronto |
+| Cliente móvel offline | interface guardada no aparelho (service worker), cópia completa em IndexedDB, fila de alterações que sobrevive a fechar o app | pronto, validado no iPhone |
+| Sincronização e conflitos | versão-base por nota, cópia de conflito, lixeira, renomeações que seguem a nota, histórico de versões com restauração | pronto, coberto por testes adversariais |
+| Rede e segurança | HTTPS com autoridade própria, token por aparelho, convites de uso único, só rede local, firewall do Windows, revisão OWASP | pronto ([SEGURANCA.md](../app/SEGURANCA.md)) |
+| Endereço estável | resposta pelo nome `<computador>-notes.local` (mDNS), troca de endereço sem novo pareamento, guia de reserva de IP | pronto ([ADR 0006](adr/0006-endereco-pelo-nome-do-computador.md)) |
+| Organização | links entre notas que acompanham renomeações, tags e propriedades, tipos, modelos e relações, nota do dia, conjuntos de modelos em português e inglês | pronto |
+| Agentes de IA | MCP somente leitura com token por agente e vaults escolhidos | pronto ([06-agentes-de-ia.md](06-agentes-de-ia.md)) |
+| Servidor Linux | executável para x64 e ARM64, serviço do systemd com instalador | pronto, em uso num Debian 13 |
+| Verificação contínua | executável testado no Windows, Linux e macOS, Debian mínimo, serviço do systemd e testes da interface, a cada push na `main` | pronto ([ci.yml](../.github/workflows/ci.yml)) |
 
-Iniciar o Cube4Notes como servidor local que guarda arquivos Markdown, oferece a interface web e permite edição WYSIWYG com barra visual. Validar num servidor Debian e acessar com navegador nos computadores da mesma LAN. O primeiro uso deve evitar configuração manual de proxy reverso, banco separado ou containers.
+## Em validação
 
-Critério de saída: o mesmo arquivo pode ser aberto e editado visualmente por navegador e continua sendo Markdown legível no diretório central.
+- **Android** e navegadores além do Edge (janela do Windows) e do Safari (iPhone): devem funcionar, ainda sem validação em aparelho real. O Android resolve nomes `.local` de forma irregular; com o IP reservado no roteador isso não importa.
+- **Janela no Linux com tela** (Photino com WebKitGTK): compila, ainda não validada num desktop Linux.
 
-### Incremento inicial no Windows
+## Próximos passos
 
-Servidor web em .NET 10 com interface web responsiva, seleção da pasta central, navegação/criação de pastas e notas Markdown, comandos visuais básicos, descoberta e anúncio de IPv4 privado dinâmico e código de acesso temporário. Escopo ainda não inclui offline, sync, REST/MCP para agentes, TLS, build Debian validado ou edição WYSIWYG completa. HTTP e código compartilhado são aceitáveis apenas como protótipo em rede privada confiável.
+1. **Versões publicadas no GitHub**: executáveis prontos (Windows, Linux x64 e ARM64) gerados pelo CI a cada versão, para quem não quer compilar.
+2. **macOS como app**: pacote `.app` com janela e ícone. O executável já é gerado e testado no CI; falta o pacote e a confiança no certificado pelo Keychain.
+3. **Destaque de `#tags` no editor**: hoje as tags funcionam (painel, filtros, sugestão ao digitar `#`), mas não aparecem destacadas no texto.
 
-## Fase 2 — cliente móvel offline
+Ideias registradas, ainda **não decididas**: listas por tipo em quadro (kanban) e calendário, aproveitando tipos e campos que já existem.
 
-Validar celular e iPad pela interface web: abrir uma vez conectado, perder a rede, criar/organizar pastas e notas, fechar/reabrir e preservar mudanças localmente.
+## Como cada mudança é entregue
 
-Critério de saída: mudanças offline não somem ao fechar o navegador/app; ao retornar à rede de casa, sincronizam com o servidor.
-
-## Fase 3 — sincronização e conflitos
-
-Adicionar versões-base, diff e proteção contra sobrescrita quando servidor e cliente alteraram o mesmo arquivo. Clientes móveis conversam apenas com o servidor central, nunca entre si.
-
-Critério de saída: mudanças em arquivos distintos são combinadas; mudança concorrente no mesmo arquivo preserva ambas as versões e oferece resolução clara.
-
-## Fase 4 — acesso de agentes
-
-Provar leitura de notas por agentes executados nos computadores via uma interface local controlada, inicialmente somente leitura. A integração pode ser REST, MCP ou ambas após validação de necessidade.
-
-Critério de saída: agente lê conteúdo autorizado pela LAN sem precisar acessar diretamente todo o disco e sem expor o servidor à internet.
-
-## Fase 5 — distribuição e robustez
-
-Empacotar o processo servidor e cliente nas plataformas escolhidas; testar builds macOS via CI, sem depender de ambiente local de desenvolvimento Mac. Adicionar backup/recuperação e anexos conforme necessidade validada.
-
-## Protocolo por fase
-
-Cada incremento termina em testes/verificações relevantes e commit **local**. O trabalho para e aguarda validação manual; `push` só ocorre após autorização explícita.
+Cada incremento termina com testes relevantes, documentação atualizada e um commit pequeno e descritivo. Publicar (push, versão) só acontece depois de aprovação explícita.

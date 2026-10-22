@@ -4,7 +4,7 @@
 
 Cube4Notes é um produto independente: servidor pessoal de arquivos Markdown com edição visual web e sincronização local/offline entre dispositivos. Outros editores podem servir apenas como referência para ideias gerais de produto; Cube4Notes não terá plugins, integrações, APIs de compatibilidade ou dependências de Obsidian ou SilverBullet.
 
-Leia `README.md`, `docs/00-visao-e-escopo.md` e `docs/01-arquitetura.md` antes de alterações substanciais.
+Leia `README.md`, `docs/00-visao-e-escopo.md`, `docs/01-arquitetura.md` e `app/README.md` antes de alterações substanciais.
 
 ## Regras permanentes
 
@@ -12,7 +12,7 @@ Leia `README.md`, `docs/00-visao-e-escopo.md` e `docs/01-arquitetura.md` antes d
 - Preserve a distinção entre fatos, hipóteses, propostas e decisões.
 - Licença decidida: MIT (`LICENSE`, ADR 0002). Não mude a licença nem acrescente outras sem decisão expressa do proprietário.
 - Não invente requisitos, integrações, comandos ou suporte de plataforma inexistentes.
-- O Cube4Notes roda no computador que guarda as notas (o do próprio usuário ou um servidor doméstico, por exemplo um Debian sempre ligado); outros computadores (Windows, Linux), celular e tablet são clientes.
+- O Cube4Notes roda no computador que guarda as notas (o do próprio usuário ou um servidor doméstico sempre ligado); outros computadores, celular e tablet são clientes.
 - O servidor é acessível somente pela rede local da casa. Não configurar acesso externo, túnel remoto ou serviço de nuvem.
 - Celular e iPad devem manter dados e mudanças localmente enquanto offline e sincronizar ao reencontrar o servidor.
 - Resolver conflitos preservando alterações; nenhuma versão pode ser descartada silenciosamente.
@@ -34,24 +34,27 @@ Nunca pule direto do commit local para publicação, release ou `push`.
 
 ## Ambientes
 
-- Desenvolvimento principal: Windows.
-- Servidor doméstico de referência: Debian. Clientes de computador: Windows e Linux (Debian).
-- macOS: não há ambiente local macOS neste cenário; builds e testes específicos devem rodar em CI com runner macOS.
-- Evite depender de uma ferramenta que só possa ser configurada ou depurada localmente em macOS.
+- O código compila e roda no Windows, no Linux (x64 e ARM64) e no macOS. Nunca use `net10.0-windows` nem dependências que só existam num sistema; o que é específico de um sistema fica atrás de verificação em tempo de execução.
+- Servidor doméstico de referência: Linux (Debian) sem tela, rodando como serviço do systemd. Clientes: navegadores em Windows, Linux, macOS, iPhone, iPad e Android.
+- O macOS é verificado no CI (runner macOS); não presuma acesso a um Mac para depurar.
 
-## Mapa de responsabilidades
+## Mapa do repositório
 
 | Área | Responsabilidade |
 | --- | --- |
-| `apps/web` | cliente web instalável e interface do editor |
-| `apps/desktop` | host opcional para Windows, Linux e macOS; não é o servidor central |
-| `packages/editor` | edição visual e conversão Markdown sem acoplamento ao host |
-| `packages/contracts` | contratos de notas e sincronização |
-| `services/api` | interface local do servidor, versões e armazenamento central |
-| `services/mcp` | integração opcional de leitura para agentes locais |
-| `tests` | cenários entre componentes e portabilidade |
-| `docs/adr` | decisões arquiteturais aceitas |
+| `app/` | o Cube4Notes: servidor .NET, interface embutida, scripts de compilação e de serviço ([referência técnica](app/README.md)) |
+| `app/web/` | código-fonte da interface (TypeScript, Vite, Milkdown); compila para `app/wwwroot/`, que é versionado |
+| `app/dev/` | servidor de teste em Node com a mesma API e os testes (Playwright e o teste do executável) |
+| `app/seguranca/`, `app/SEGURANCA.md` | bateria de segurança; revisão OWASP e riscos conhecidos |
+| `docs/` | visão, arquitetura, estado, cenários, agentes de IA, licença |
+| `docs/adr/` | decisões aceitas |
+| `.github/workflows/ci.yml` | verificação a cada push na `main` e em pull requests |
+| `scripts/check_project.py` | estrutura mínima e links da documentação |
 
 ## Verificação
 
-Execute `python scripts/check_project.py` antes de concluir mudanças estruturais. Comandos adicionais só devem ser documentados depois de existirem e serem verificados.
+- Antes de concluir uma mudança, rode os testes que cobrem a área ([lista em app/README.md](app/README.md#testes)) e `python scripts/check_project.py`.
+- Mudou a interface: `npm run build` em `app/web` e commite `app/wwwroot` junto.
+- Mudou o servidor ou os scripts: confirme que o CI continua cobrindo o caminho que um usuário novo segue (`app/dev/teste_executavel.py`, serviço do systemd, Debian mínimo).
+- Documente só comandos que existem e foram verificados. Textos da interface sempre nas duas línguas (`app/web/src/i18n.ts`), e `app/dev/teste_idioma.py` precisa continuar passando.
+- Arquivos públicos não levam nomes pessoais, nomes de máquinas nem e-mails pessoais. Nomes de produto: sempre "Cube4" + nome, sem hífen.

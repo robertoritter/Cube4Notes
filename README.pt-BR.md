@@ -93,11 +93,12 @@ A configuração fica em `~/.local/share/Cube4Notes` do usuário do serviço. Co
 | --- | --- |
 | `--config <pasta>` | Pasta da configuração (padrão `%LOCALAPPDATA%\Cube4Notes` no Windows, `~/.local/share/Cube4Notes` no Linux) |
 | `--port <número>` | Porta (padrão 43125; no modo *Rede de casa* a porta anterior redireciona HTTP para HTTPS) |
-| `--notes <pasta>` | Importa uma pasta de notas como o vault "Notas" (atualização a partir do primeiro protótipo) |
+| `--notes <pasta>` | Sem configuração existente, usa essa pasta como primeiro vault (atualização a partir do primeiro protótipo) |
 | `--sem-janela` | Servidor no console, sem janela (para máquinas sem tela) |
-| `--sem-navegador` | No modo console, não abre o navegador ao iniciar |
+| `--sem-navegador` | Não abre a janela nem o navegador ao iniciar |
 | `--sem-https` | HTTP simples na rede (só para testes) |
 | `--sem-instalar-certificado` | Não adiciona o certificado à confiança do Windows |
+| `--sem-firewall` | Não cria a regra do Firewall do Windows |
 | `--sem-nome-na-rede` | Não responder por `<nome-do-computador>-notes.local` na rede local |
 
 ## Conectar um celular, passo a passo
@@ -186,8 +187,8 @@ Só a *autoridade* precisa ser instalada. O certificado do próprio servidor é 
 | Windows | Funcionando, em validação diária |
 | iPhone / iPad (Safari, app na tela inicial) | Funcionando, em validação diária |
 | Android, outros navegadores de computador | Devem funcionar, ainda não validados |
-| Linux (servidor sem tela, x64 e ARM64) | Script de compilação e serviço do systemd prontos, em validação |
-| macOS (app com janela) | Planejado; `gerar-executavel.sh` já gera o executável, falta o pacote `.app` |
+| Linux (servidor sem tela, x64 e ARM64) | Funcionando como serviço do systemd (Debian 13); x64 testado no CI, ARM64 compila com o mesmo script mas ainda não foi testado |
+| macOS | Executável gerado e testado no CI; falta o pacote `.app` com janela |
 
 ## Princípios
 
@@ -199,39 +200,45 @@ Só a *autoridade* precisa ser instalada. O certificado do próprio servidor é 
 ## Estrutura do repositório
 
 ```text
-app/                        Cube4Notes (servidor, interface web, testes)
-  Program.cs, src/          servidor: API mínima em .NET 10
+app/                        o Cube4Notes ([referência técnica](app/README.md))
+  Program.cs, src/          servidor: .NET 10 (ASP.NET Core)
   web/                      código-fonte da interface: TypeScript, Vite, Milkdown
-  wwwroot/                  interface compilada, entregue pelo servidor
-  dev/mock-server.mjs       servidor em Node com a mesma API, para desenvolver a interface e testar
-  dev/teste_sync.py         testes maldosos de sincronização (dois aparelhos simulados)
-  seguranca/                bateria de testes de segurança (OWASP Top 10)
-services/api/               primeiro protótipo de servidor
-apps/, packages/, services/mcp/   componentes planejados (cliente web, editor, contratos, integração com agentes)
-docs/                       visão, arquitetura, plano de entrega, pesquisa e decisões
+  wwwroot/                  interface compilada, embutida no executável
+  dev/                      servidor de teste em Node com a mesma API, e os testes
+  seguranca/                bateria de testes de segurança
+  SEGURANCA.md              revisão OWASP Top 10 e riscos conhecidos
+  gerar-executavel.cmd/.sh  executável independente (Windows / Linux e macOS)
+  instalar-servico.sh       serviço do systemd num Linux sem tela
+docs/                       visão, arquitetura, estado, cenários, agentes, licença e decisões
+.github/workflows/ci.yml    verificação a cada push
+scripts/check_project.py    estrutura e links da documentação
 ```
 
-Mapa da documentação:
+## Documentação
 
-- [`docs/00-visao-e-escopo.md`](docs/00-visao-e-escopo.md): problema, público, escopo e limites.
-- [`docs/01-arquitetura.md`](docs/01-arquitetura.md): componentes, fluxos, segurança e ambientes.
-- [`docs/02-plano-de-entrega.md`](docs/02-plano-de-entrega.md): fases e critérios de saída.
-- [`docs/05-cenarios-de-uso.md`](docs/05-cenarios-de-uso.md): cenário doméstico e aparelhos.
-- [`docs/03-licenciamento.md`](docs/03-licenciamento.md): alternativas de licença comparadas; decisão em [`docs/adr/0002-licenca-mit.md`](docs/adr/0002-licenca-mit.md).
-- [`docs/04-pesquisa-e-evidencias.md`](docs/04-pesquisa-e-evidencias.md): fontes externas.
-- [`AGENTS.md`](AGENTS.md): protocolo operacional obrigatório.
-- [`app/README.md`](app/README.md): referência técnica do app (API, configuração, testes).
+| Documento | Para quê |
+| --- | --- |
+| [docs/00-visao-e-escopo.md](docs/00-visao-e-escopo.md) | o problema, para quem é, o que o Cube4Notes é e não é |
+| [docs/01-arquitetura.md](docs/01-arquitetura.md) | como funciona por dentro: armazenamento, sincronização, rede, segurança, compilação |
+| [docs/02-plano-de-entrega.md](docs/02-plano-de-entrega.md) | o que está pronto, em validação e os próximos passos |
+| [docs/05-cenarios-de-uso.md](docs/05-cenarios-de-uso.md) | os cenários do dia a dia e como cada um funciona |
+| [docs/06-agentes-de-ia.md](docs/06-agentes-de-ia.md) | dar a agentes de IA acesso de leitura às notas (MCP) |
+| [docs/adr/](docs/adr/README.md) | as decisões de arquitetura, com contexto e alternativas |
+| [docs/03-licenciamento.md](docs/03-licenciamento.md) | licenças comparadas antes da escolha da MIT |
+| [app/README.md](app/README.md) | referência técnica: compilar, configuração, API, estrutura do código, testes |
+| [app/SEGURANCA.md](app/SEGURANCA.md) | revisão OWASP Top 10 e riscos conhecidos |
+| [AGENTS.md](AGENTS.md) | regras para quem (pessoa ou IA) mexe no código |
 
 ## Desenvolvimento
 
 ```bash
 cd app/web
-npm install
-npm run build        # compila a interface para app/wwwroot
+npm ci
+npm run build        # compila a interface para app/wwwroot (commite junto)
 npm run dev          # servidor de desenvolvimento; rode o Cube4Notes na porta 43125 junto
 ```
 
-Testes (Python 3; os de sincronização também precisam do Playwright):
+Testes (Python 3; os da interface também precisam do Playwright). A lista completa está na [referência técnica](app/README.md#testes):
 
 ```bash
 python app/dev/teste_sync.py                                   # cenários maldosos de sincronização
@@ -240,13 +247,15 @@ python scripts/check_project.py                                # verificação d
 python app/dev/teste_executavel.py app/dist/<plataforma>/Cube4Notes # o executável gerado, do jeito que um usuário novo usaria
 ```
 
-Cada push no GitHub roda as mesmas verificações ([.github/workflows/ci.yml](.github/workflows/ci.yml)): o executável é gerado e testado no Windows, no Linux e no macOS, gerado e testado de novo num Debian mínimo sem bibliotecas extras, instalado como serviço do systemd, e os testes da interface rodam no servidor de teste.
+Cada push na `main` e cada pull request rodam as mesmas verificações ([.github/workflows/ci.yml](.github/workflows/ci.yml)): o executável é gerado e testado no Windows, no Linux e no macOS, gerado e testado de novo num Debian mínimo sem bibliotecas extras, instalado como serviço do systemd, e os testes da interface rodam no servidor de teste.
 
 ## Próximos passos
 
-- Script de compilação e CI no Linux (toda versão precisa compilar também no Linux)
-- Instalar como serviço (serviço do Windows, systemd, launchd) e achar o servidor pelo nome na rede
-- Histórico automático opcional de cada vault com Git
+- Versões publicadas no GitHub, com executáveis prontos para Windows e Linux
+- macOS como app (pacote `.app` com janela); o executável já é gerado e testado no CI
+- Validação no Android e numa janela de desktop Linux
+
+Detalhes e o que já está pronto: [docs/02-plano-de-entrega.md](docs/02-plano-de-entrega.md).
 
 ## Licença
 
