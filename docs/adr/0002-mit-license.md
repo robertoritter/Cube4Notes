@@ -5,7 +5,7 @@
 
 ## Contexto
 
-O repositório nasceu sem licença (todos os direitos reservados) até decisão do proprietário. As alternativas comparadas estão em [`docs/03-licenciamento.md`](../03-licenciamento.md): MIT, Apache-2.0, MPL-2.0, AGPL-3.0 e BSL. Entre os apps de notas, os comerciais grandes são fechados, a maioria dos abertos usa AGPL e o projeto mais parecido (servidor próprio, Markdown, offline) usa MIT.
+O repositório nasceu sem licença (todos os direitos reservados) até decisão do proprietário. As alternativas comparadas estão em [`docs/03-licensing.md`](../03-licensing.md): MIT, Apache-2.0, MPL-2.0, AGPL-3.0 e BSL. Entre os apps de notas, os comerciais grandes são fechados, a maioria dos abertos usa AGPL e o projeto mais parecido (servidor próprio, Markdown, offline) usa MIT.
 
 ## Decisão
 

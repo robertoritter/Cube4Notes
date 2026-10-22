@@ -1,6 +1,6 @@
 # Cube4Notes: referência técnica do app
 
-Visão geral do produto, instalação e uso: [README.pt-BR.md](../README.pt-BR.md) (em inglês: [README.md](../README.md)). Como funciona por dentro: [docs/01-arquitetura.md](../docs/01-arquitetura.md). Este arquivo é a referência para quem mexe no código.
+Visão geral do produto, instalação e uso: [README.pt-BR.md](../README.pt-BR.md) (em inglês: [README.md](../README.md)). Como funciona por dentro: [docs/01-architecture.md](../docs/01-architecture.md). Este arquivo é a referência para quem mexe no código.
 
 ## Compilar e rodar
 
@@ -66,7 +66,7 @@ tls/            autoridade certificadora local, certificado do servidor e os end
 
 ## Sincronização
 
-- Cópia local em IndexedDB e fila de operações (`put`, `delete`, `mkdir`, `rmdir`, `move` pela rota `sync`; `upload` pela rota `attachment`). Gravar e apagar levam a versão-base (SHA-256 do conteúdo). Decisão: [ADR 0008](../docs/adr/0008-sincronizacao-por-versao-base.md).
+- Cópia local em IndexedDB e fila de operações (`put`, `delete`, `mkdir`, `rmdir`, `move` pela rota `sync`; `upload` pela rota `attachment`). Gravar e apagar levam a versão-base (SHA-256 do conteúdo). Decisão: [ADR 0008](../docs/adr/0008-sync-by-base-version.md).
 - Conflito: o servidor mantém a versão dele e grava a do aparelho como `Nome (conflito Aparelho aaaa-mm-dd HHmm).md` (em inglês, `conflict`).
 - Exclusão vai para `.lixeira`; se a nota mudou antes da exclusão chegar, ela é mantida.
 - Renomeações ficam registradas por 30 dias: uma edição enviada para o nome antigo é aplicada no nome novo (resposta com `movedTo`).
@@ -98,7 +98,7 @@ Todas as rotas exigem `Authorization: Bearer <token>`, exceto `status`, `pair` e
 | `POST /api/admin/agents` `{name, vaults}` | cria token de agente (somente leitura) |
 | `GET`, `PATCH /api/admin/server` `{name, mode}` | nome e modo do servidor (mudar o modo reinicia) |
 | `POST /api/admin/quit` | encerra o Cube4Notes (só no próprio computador) |
-| `GET`, `POST`, `DELETE /mcp` | MCP para agentes ([docs/06-agentes-de-ia.md](../docs/06-agentes-de-ia.md)); em HTTP só de localhost |
+| `GET`, `POST`, `DELETE /mcp` | MCP para agentes ([docs/06-ai-agents.md](../docs/06-ai-agents.md)); em HTTP só de localhost |
 | `GET /cube4notes-ca.cer`, `/cube4notes-ca.pem` | autoridade certificadora (também em HTTP, porta 43124) |
 
 ## Estrutura
@@ -125,7 +125,7 @@ wwwroot/                   interface compilada (versionada)
 web/                       código-fonte da interface (TypeScript + Vite + Milkdown)
 dev/                       servidor de teste em Node e testes (abaixo)
 seguranca/                 bateria de testes de segurança (Python, sem dependências)
-SEGURANCA.md               revisão OWASP e riscos conhecidos
+SECURITY.md               revisão OWASP e riscos conhecidos
 ```
 
 ### Interface (`web/src`)

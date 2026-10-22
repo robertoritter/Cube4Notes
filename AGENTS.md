@@ -4,7 +4,7 @@
 
 Cube4Notes é um produto independente: servidor pessoal de arquivos Markdown com edição visual web e sincronização local/offline entre dispositivos. Outros editores podem servir apenas como referência para ideias gerais de produto; Cube4Notes não terá plugins, integrações, APIs de compatibilidade ou dependências de Obsidian ou SilverBullet.
 
-Leia `README.md`, `docs/00-visao-e-escopo.md`, `docs/01-arquitetura.md` e `app/README.md` antes de alterações substanciais.
+Leia `README.md`, `docs/00-vision-and-scope.md`, `docs/01-architecture.md` e `app/README.md` antes de alterações substanciais.
 
 ## Regras permanentes
 
@@ -45,7 +45,7 @@ Nunca pule direto do commit local para publicação, release ou `push`.
 | `app/` | o Cube4Notes: servidor .NET, interface embutida, scripts de compilação e de serviço ([referência técnica](app/README.md)) |
 | `app/web/` | código-fonte da interface (TypeScript, Vite, Milkdown); compila para `app/wwwroot/`, que é versionado |
 | `app/dev/` | servidor de teste em Node com a mesma API e os testes (Playwright e o teste do executável) |
-| `app/seguranca/`, `app/SEGURANCA.md` | bateria de segurança; revisão OWASP e riscos conhecidos |
+| `app/seguranca/`, `app/SECURITY.md` | bateria de segurança; revisão OWASP e riscos conhecidos |
 | `docs/` | visão, arquitetura, estado, cenários, agentes de IA, licença |
 | `docs/adr/` | decisões aceitas |
 | `.github/workflows/ci.yml` | verificação a cada push na `main` e em pull requests |

@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 
 
-REQUIRED = ("README.md", "README.pt-BR.md", "AGENTS.md", "LICENSE", "docs/00-visao-e-escopo.md", "docs/01-arquitetura.md", "app/README.md")
+REQUIRED = ("README.md", "README.pt-BR.md", "AGENTS.md", "LICENSE", "docs/00-vision-and-scope.md", "docs/01-architecture.md", "app/README.md")
 PLACEHOLDERS = ("[TODO", "A definir", "TBD")
 FENCE = re.compile(r"^```.*?^```", re.M | re.S)
 INLINE = re.compile(r"`[^`\n]*`")

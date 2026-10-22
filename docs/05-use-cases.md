@@ -16,7 +16,7 @@ O servidor não é alcançável de fora, por decisão. O aparelho continua com a
 
 ## 4. Volta para casa
 
-Ao alcançar o servidor, cada aparelho envia a sua fila de alterações e recebe as dos outros. Alterações em notas diferentes simplesmente se juntam. Se a mesma nota mudou no aparelho e no servidor, as duas versões ficam: a do servidor no lugar e a do aparelho como cópia de conflito, com aviso. Nada é descartado em silêncio. Detalhes: [arquitetura, sincronização](01-arquitetura.md#sincronização).
+Ao alcançar o servidor, cada aparelho envia a sua fila de alterações e recebe as dos outros. Alterações em notas diferentes simplesmente se juntam. Se a mesma nota mudou no aparelho e no servidor, as duas versões ficam: a do servidor no lugar e a do aparelho como cópia de conflito, com aviso. Nada é descartado em silêncio. Detalhes: [arquitetura, sincronização](01-architecture.md#sincronização).
 
 ## 5. Servidor desligado ou sempre ligado
 
@@ -28,7 +28,7 @@ Os aparelhos guardam o endereço do servidor. Se o roteador der outro IP ao comp
 
 ## 7. Agente de IA consultando as notas
 
-Um agente num computador da casa lê as notas pelo MCP, com um token que só lê e só alcança os vaults escolhidos. Ele nunca recebe acesso ao disco nem altera notas. Configuração: [06-agentes-de-ia.md](06-agentes-de-ia.md).
+Um agente num computador da casa lê as notas pelo MCP, com um token que só lê e só alcança os vaults escolhidos. Ele nunca recebe acesso ao disco nem altera notas. Configuração: [06-ai-agents.md](06-ai-agents.md).
 
 ## 8. Sem servidor em casa
 

@@ -77,23 +77,23 @@ O princípio que vale em todos os casos: **nenhuma alteração é descartada em 
 - TypeScript, Vite e Milkdown (Crepe) para a edição visual. O Markdown gravado segue o padrão (listas com `-`, links relativos comuns), legível por qualquer outro editor.
 - Um **service worker** guarda a interface no aparelho: o app abre sem servidor e sem internet, com os dados do IndexedDB.
 - A interface consulta `/api/status` e recarrega sozinha quando o servidor passa a entregar uma versão nova.
-- **Links** entre notas são links Markdown padrão com caminho relativo. Renomear ou mover uma nota reescreve os links que apontam para ela, nas outras notas ([ADR 0003](adr/0003-links-markdown-padrao.md)).
-- **Tipos, modelos e relações** saem do próprio Markdown: `tipo:` nas propriedades, modelos são notas comuns na pasta de modelos, e um campo cujo valor é o nome de outra nota é uma relação. Tudo é calculado no aparelho, também offline ([ADR 0005](adr/0005-tipos-modelos-e-relacoes.md)).
+- **Links** entre notas são links Markdown padrão com caminho relativo. Renomear ou mover uma nota reescreve os links que apontam para ela, nas outras notas ([ADR 0003](adr/0003-standard-markdown-links.md)).
+- **Tipos, modelos e relações** saem do próprio Markdown: `tipo:` nas propriedades, modelos são notas comuns na pasta de modelos, e um campo cujo valor é o nome de outra nota é uma relação. Tudo é calculado no aparelho, também offline ([ADR 0005](adr/0005-types-templates-and-relations.md)).
 - Língua da interface por aparelho (português ou inglês). O próprio programa (ícone, avisos do sistema, console) segue a língua do sistema operacional.
 
 ## Rede e segurança
 
 - **Portas:** 43125 (HTTPS, o app) e 43124 (HTTP: redireciona para HTTPS, entrega o certificado da autoridade em `.cer` e `.pem` e atende `/mcp` só para agentes no próprio computador). No modo *Só este computador*, só HTTP em `localhost:43125`.
 - **Certificado:** na primeira execução em *Rede de casa* o Cube4Notes cria uma **autoridade certificadora própria**, restrita a nomes locais e IPs privados. Ela assina o certificado do servidor, que cobre os IPs atuais do computador e o nome `<computador>-notes.local` e é refeito sozinho quando os endereços mudam. Cada aparelho instala a autoridade uma vez. No Windows do próprio servidor ela é instalada com a confirmação do usuário.
-- **Endereço pelo nome:** o próprio Cube4Notes responde por `<computador>-notes.local` na rede local (mDNS, UDP 5353), só para clientes da rede local e só com endereços locais. O QR code usa o IP; um aparelho que alcança o nome pode trocar para ele sem novo pareamento ([ADR 0006](adr/0006-endereco-pelo-nome-do-computador.md)).
+- **Endereço pelo nome:** o próprio Cube4Notes responde por `<computador>-notes.local` na rede local (mDNS, UDP 5353), só para clientes da rede local e só com endereços locais. O QR code usa o IP; um aparelho que alcança o nome pode trocar para ele sem novo pareamento ([ADR 0006](adr/0006-address-by-computer-name.md)).
 - **Aparelhos:** cada aparelho tem um token próprio (o servidor guarda só o hash). Entrar exige um convite de uso único, válido por 5 minutos, por QR code ou código de 6 caracteres. O convite define os vaults e se o aparelho administra. No próprio computador do servidor (localhost) o pareamento é automático.
 - **Verificações em toda requisição:** cliente da rede local, cabeçalho `Host` conhecido (IP, `localhost`, nome do computador), mesma origem nas alterações, token nas rotas da API, caminhos sempre dentro do vault, limite de tamanho e de tentativas de pareamento.
 - **Firewall do Windows:** uma regra por porta (43124-43125 TCP) e uma para o mDNS (UDP 5353), só para a sub-rede local, criadas uma vez com a confirmação do Windows.
-- Revisão completa e riscos conhecidos: [app/SEGURANCA.md](../app/SEGURANCA.md).
+- Revisão completa e riscos conhecidos: [app/SECURITY.md](../app/SECURITY.md).
 
 ## Agentes de IA
 
-Agentes leem as notas pelo protocolo MCP em `/mcp`, com um token de agente que só lê e só alcança os vaults escolhidos. Ferramentas: listar vaults, listar notas, ler nota, buscar e notas recentes. Agentes nunca alteram notas e nunca recebem acesso ao disco ([ADR 0004](adr/0004-agentes-somente-leitura-mcp.md)). Como configurar: [docs/06-agentes-de-ia.md](06-agentes-de-ia.md).
+Agentes leem as notas pelo protocolo MCP em `/mcp`, com um token de agente que só lê e só alcança os vaults escolhidos. Ferramentas: listar vaults, listar notas, ler nota, buscar e notas recentes. Agentes nunca alteram notas e nunca recebem acesso ao disco ([ADR 0004](adr/0004-read-only-ai-agents-mcp.md)). Como configurar: [docs/06-ai-agents.md](06-ai-agents.md).
 
 ## Compilação e verificação
 

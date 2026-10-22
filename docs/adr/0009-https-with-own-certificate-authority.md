@@ -25,4 +25,4 @@ Os aparelhos falam com o servidor pela rede de casa, sem internet. Navegadores s
 
 - Instalar o certificado é um passo obrigatório por aparelho, documentado por sistema no README.
 - Se a autoridade mudar (pasta `tls` apagada, outra pasta de configuração, outro computador), todos os aparelhos precisam reinstalar.
-- Programas em Node.js e Python não usam a confiança do sistema; por isso a autoridade também é entregue em PEM ([06-agentes-de-ia.md](../06-agentes-de-ia.md)).
+- Programas em Node.js e Python não usam a confiança do sistema; por isso a autoridade também é entregue em PEM ([06-ai-agents.md](../06-ai-agents.md)).

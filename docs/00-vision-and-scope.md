@@ -42,4 +42,4 @@ O Cube4Notes parte de três ideias:
 - Sempre compila e roda no Windows, no Linux e no macOS (`net10.0`), verificado no CI.
 - Documentação explícita sobre o que pode dar errado (rede, IP, certificado), sem esconder limites.
 
-Decisões detalhadas: [`docs/adr`](adr/README.md). Estado atual e próximos passos: [02-plano-de-entrega.md](02-plano-de-entrega.md).
+Decisões detalhadas: [`docs/adr`](adr/README.md). Estado atual e próximos passos: [02-status-and-roadmap.md](02-status-and-roadmap.md).

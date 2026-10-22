@@ -1,6 +1,6 @@
 # Pesquisa sobre licenças
 
-Pesquisa que apoiou a escolha da licença MIT ([ADR 0002](adr/0002-licenca-mit.md), [03-licenciamento.md](03-licenciamento.md)).
+Pesquisa que apoiou a escolha da licença MIT ([ADR 0002](adr/0002-mit-license.md), [03-licensing.md](03-licensing.md)).
 
 Acesso em 19 de outubro de 2026. Fontes jurídicas devem ser confirmadas por profissional qualificado antes de uma decisão comercial.
 

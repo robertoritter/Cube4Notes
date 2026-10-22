@@ -5,7 +5,7 @@
 
 ## Contexto
 
-O proprietário roda agentes de IA em computadores da casa (por exemplo no servidor doméstico) e quer que eles consultem as notas. As regras do projeto exigem que agentes leiam por interfaces controladas, sem acesso privilegiado ao armazenamento, e que nada fique exposto fora da rede local. Até aqui, a documentação deixava em aberto se seria MCP ou REST e quais escopos. Como configurar: [06-agentes-de-ia.md](../06-agentes-de-ia.md).
+O proprietário roda agentes de IA em computadores da casa (por exemplo no servidor doméstico) e quer que eles consultem as notas. As regras do projeto exigem que agentes leiam por interfaces controladas, sem acesso privilegiado ao armazenamento, e que nada fique exposto fora da rede local. Até aqui, a documentação deixava em aberto se seria MCP ou REST e quais escopos. Como configurar: [06-ai-agents.md](../06-ai-agents.md).
 
 ## Decisão
 

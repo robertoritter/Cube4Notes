@@ -1,6 +1,6 @@
 # ADR 0001 — Servidor doméstico central e clientes offline
 
-- Status: aceita; os mecanismos foram decididos depois (ADRs 0003 a 0009) e estão descritos em [01-arquitetura.md](../01-arquitetura.md)
+- Status: aceita; os mecanismos foram decididos depois (ADRs 0003 a 0009) e estão descritos em [01-architecture.md](../01-architecture.md)
 - Data: 2026-10-19
 
 ## Contexto

@@ -194,7 +194,7 @@ Só a *autoridade* precisa ser instalada. O certificado do próprio servidor é 
 
 - As notas são suas, num formato que qualquer editor abre.
 - Só local: o Cube4Notes é acessível no computador onde roda e, se você ativar, na sua própria rede. Sem acesso externo, sem túnel, sem nuvem.
-- Segurança faz parte do núcleo: token próprio por aparelho (guardado só como hash), verificação de Host e Origem, regras rígidas para anexos, revisão OWASP Top 10 ([app/SEGURANCA.md](app/SEGURANCA.md)).
+- Segurança faz parte do núcleo: token próprio por aparelho (guardado só como hash), verificação de Host e Origem, regras rígidas para anexos, revisão OWASP Top 10 ([app/SECURITY.md](app/SECURITY.md)).
 - Fácil de configurar em qualquer ambiente: assistente no navegador na primeira execução, sem arquivos de configuração para editar à mão.
 
 ## Estrutura do repositório
@@ -206,7 +206,7 @@ app/                        o Cube4Notes ([referência técnica](app/README.md))
   wwwroot/                  interface compilada, embutida no executável
   dev/                      servidor de teste em Node com a mesma API, e os testes
   seguranca/                bateria de testes de segurança
-  SEGURANCA.md              revisão OWASP Top 10 e riscos conhecidos
+  SECURITY.md              revisão OWASP Top 10 e riscos conhecidos
   gerar-executavel.cmd/.sh  executável independente (Windows / Linux e macOS)
   instalar-servico.sh       serviço do systemd num Linux sem tela
 docs/                       visão, arquitetura, estado, cenários, agentes, licença e decisões
@@ -218,15 +218,15 @@ scripts/check_project.py    estrutura e links da documentação
 
 | Documento | Para quê |
 | --- | --- |
-| [docs/00-visao-e-escopo.md](docs/00-visao-e-escopo.md) | o problema, para quem é, o que o Cube4Notes é e não é |
-| [docs/01-arquitetura.md](docs/01-arquitetura.md) | como funciona por dentro: armazenamento, sincronização, rede, segurança, compilação |
-| [docs/02-plano-de-entrega.md](docs/02-plano-de-entrega.md) | o que está pronto, em validação e os próximos passos |
-| [docs/05-cenarios-de-uso.md](docs/05-cenarios-de-uso.md) | os cenários do dia a dia e como cada um funciona |
-| [docs/06-agentes-de-ia.md](docs/06-agentes-de-ia.md) | dar a agentes de IA acesso de leitura às notas (MCP) |
+| [docs/00-vision-and-scope.md](docs/00-vision-and-scope.md) | o problema, para quem é, o que o Cube4Notes é e não é |
+| [docs/01-architecture.md](docs/01-architecture.md) | como funciona por dentro: armazenamento, sincronização, rede, segurança, compilação |
+| [docs/02-status-and-roadmap.md](docs/02-status-and-roadmap.md) | o que está pronto, em validação e os próximos passos |
+| [docs/05-use-cases.md](docs/05-use-cases.md) | os cenários do dia a dia e como cada um funciona |
+| [docs/06-ai-agents.md](docs/06-ai-agents.md) | dar a agentes de IA acesso de leitura às notas (MCP) |
 | [docs/adr/](docs/adr/README.md) | as decisões de arquitetura, com contexto e alternativas |
-| [docs/03-licenciamento.md](docs/03-licenciamento.md) | licenças comparadas antes da escolha da MIT |
+| [docs/03-licensing.md](docs/03-licensing.md) | licenças comparadas antes da escolha da MIT |
 | [app/README.md](app/README.md) | referência técnica: compilar, configuração, API, estrutura do código, testes |
-| [app/SEGURANCA.md](app/SEGURANCA.md) | revisão OWASP Top 10 e riscos conhecidos |
+| [app/SECURITY.md](app/SECURITY.md) | revisão OWASP Top 10 e riscos conhecidos |
 | [AGENTS.md](AGENTS.md) | regras para quem (pessoa ou IA) mexe no código |
 
 ## Desenvolvimento
@@ -255,7 +255,7 @@ Cada push na `main` e cada pull request rodam as mesmas verificações ([.github
 - macOS como app (pacote `.app` com janela); o executável já é gerado e testado no CI
 - Validação no Android e numa janela de desktop Linux
 
-Detalhes e o que já está pronto: [docs/02-plano-de-entrega.md](docs/02-plano-de-entrega.md).
+Detalhes e o que já está pronto: [docs/02-status-and-roadmap.md](docs/02-status-and-roadmap.md).
 
 ## Licença
 

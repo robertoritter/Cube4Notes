@@ -25,7 +25,7 @@ O cenário atual é um servidor pessoal executado na rede doméstica, sem oferta
 
 ## Decisão
 
-Em 2026-10-20 o proprietário escolheu a **MIT** (ver [ADR 0002](adr/0002-licenca-mit.md)). A análise abaixo fica como registro.
+Em 2026-10-20 o proprietário escolheu a **MIT** (ver [ADR 0002](adr/0002-mit-license.md)). A análise abaixo fica como registro.
 
 ## Recomendação provisória (anterior à decisão)
 

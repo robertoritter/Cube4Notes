@@ -1,6 +1,6 @@
 # Agentes de IA (MCP)
 
-Agentes de IA (Claude Code, LM Studio, outros clientes MCP) podem **ler** as notas do Cube4Notes. O acesso fica dentro do próprio servidor, em `/mcp`, e segue o protocolo MCP (JSON-RPC sobre HTTP). Decisão registrada em [ADR 0004](adr/0004-agentes-somente-leitura-mcp.md).
+Agentes de IA (Claude Code, LM Studio, outros clientes MCP) podem **ler** as notas do Cube4Notes. O acesso fica dentro do próprio servidor, em `/mcp`, e segue o protocolo MCP (JSON-RPC sobre HTTP). Decisão registrada em [ADR 0004](adr/0004-read-only-ai-agents-mcp.md).
 
 ## O que um agente pode fazer
 

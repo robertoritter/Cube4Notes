@@ -194,7 +194,7 @@ Only the certificate *authority* needs installing. The server's own certificate 
 
 - The notes belong to you, in a format any editor can open.
 - Local only: Cube4Notes is reachable from the computer it runs on and, if you enable it, from your own network. No external access, no tunnel, no cloud service.
-- Security is part of the core: per-device tokens (stored hashed), host and origin checks, strict upload rules, OWASP Top 10 review ([app/SEGURANCA.md](app/SEGURANCA.md), in Portuguese).
+- Security is part of the core: per-device tokens (stored hashed), host and origin checks, strict upload rules, OWASP Top 10 review ([app/SECURITY.md](app/SECURITY.md), in Portuguese).
 - Simple to set up anywhere: a first-run wizard in the browser, no configuration files to edit by hand.
 
 ## Repository layout
@@ -206,7 +206,7 @@ app/                        Cube4Notes ([technical reference](app/README.md), in
   wwwroot/                  compiled interface, embedded in the executable
   dev/                      Node test server with the same API, and the tests
   seguranca/                security test suite
-  SEGURANCA.md              OWASP Top 10 review and known risks
+  SECURITY.md              OWASP Top 10 review and known risks
   gerar-executavel.cmd/.sh  standalone executable (Windows / Linux and macOS)
   instalar-servico.sh       systemd service on a headless Linux
 docs/                       vision, architecture, status, scenarios, AI agents, license and decisions
@@ -220,15 +220,15 @@ The documents below are in Portuguese.
 
 | Document | What for |
 | --- | --- |
-| [docs/00-visao-e-escopo.md](docs/00-visao-e-escopo.md) | the problem, who it is for, what Cube4Notes is and is not |
-| [docs/01-arquitetura.md](docs/01-arquitetura.md) | how it works inside: storage, sync, network, security, builds |
-| [docs/02-plano-de-entrega.md](docs/02-plano-de-entrega.md) | what is done, being validated, and next steps |
-| [docs/05-cenarios-de-uso.md](docs/05-cenarios-de-uso.md) | everyday scenarios and how each one works |
-| [docs/06-agentes-de-ia.md](docs/06-agentes-de-ia.md) | giving AI agents read access to your notes (MCP) |
+| [docs/00-vision-and-scope.md](docs/00-vision-and-scope.md) | the problem, who it is for, what Cube4Notes is and is not |
+| [docs/01-architecture.md](docs/01-architecture.md) | how it works inside: storage, sync, network, security, builds |
+| [docs/02-status-and-roadmap.md](docs/02-status-and-roadmap.md) | what is done, being validated, and next steps |
+| [docs/05-use-cases.md](docs/05-use-cases.md) | everyday scenarios and how each one works |
+| [docs/06-ai-agents.md](docs/06-ai-agents.md) | giving AI agents read access to your notes (MCP) |
 | [docs/adr/](docs/adr/README.md) | architecture decisions, with context and alternatives |
-| [docs/03-licenciamento.md](docs/03-licenciamento.md) | licenses compared before choosing MIT |
+| [docs/03-licensing.md](docs/03-licensing.md) | licenses compared before choosing MIT |
 | [app/README.md](app/README.md) | technical reference: build, configuration, API, code layout, tests |
-| [app/SEGURANCA.md](app/SEGURANCA.md) | OWASP Top 10 review and known risks |
+| [app/SECURITY.md](app/SECURITY.md) | OWASP Top 10 review and known risks |
 | [AGENTS.md](AGENTS.md) | rules for anyone (person or AI) changing the code |
 
 ## Development
@@ -257,7 +257,7 @@ Every push to `main` and every pull request runs the same checks ([.github/workf
 - macOS as an app (`.app` bundle with a window); the executable is already built and tested in CI
 - Validation on Android and in a Linux desktop window
 
-Details and what is already done: [docs/02-plano-de-entrega.md](docs/02-plano-de-entrega.md).
+Details and what is already done: [docs/02-status-and-roadmap.md](docs/02-status-and-roadmap.md).
 
 ## License
 
