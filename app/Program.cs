@@ -826,7 +826,7 @@ static void PrintBanner(AppConfig? config, bool setup, string setupCode, bool pe
         PrintAddresses(personal, scheme, port);
         Console.WriteLine();
         Console.WriteLine(Idioma.T("  Para conectar celular, iPad ou outro computador: abra o Cube4Notes num aparelho administrador,", "  To connect a phone, iPad or another computer: open Cube4Notes on an administrator device,"));
-        Console.WriteLine(Idioma.T("  Preferências > Conectar aparelho, e aponte a câmera para o QR code.", "  Settings > Connect device, and point the camera at the QR code."));
+        Console.WriteLine(Idioma.T("  Preferências > Conectar aparelho, e aponte a câmera para o QR code.", "  Preferences > Connect device, and point the camera at the QR code."));
         if (useHttps)
         {
             Console.WriteLine(Idioma.T($"  Conexão protegida por HTTPS com certificado próprio do Cube4Notes (impressão digital {Tls.CaThumbprint[..16]}...).", $"  Connection protected by HTTPS with Cube4Notes' own certificate (fingerprint {Tls.CaThumbprint[..16]}...)."));
@@ -834,7 +834,9 @@ static void PrintBanner(AppConfig? config, bool setup, string setupCode, bool pe
         }
         Console.WriteLine(Idioma.T("  Acesso restrito à rede local.", "  Access limited to the local network."));
     }
-    Console.WriteLine(Idioma.T("  Feche esta janela ou use Ctrl+C para encerrar.", "  Close this window or press Ctrl+C to stop."));
+    // rodando como serviço (systemd), não há janela nem Ctrl+C: o serviço é parado pelo systemctl
+    if (Environment.GetEnvironmentVariable("INVOCATION_ID") is null)
+        Console.WriteLine(Idioma.T("  Feche esta janela ou use Ctrl+C para encerrar.", "  Close this window or press Ctrl+C to stop."));
     Console.WriteLine();
 }
 
