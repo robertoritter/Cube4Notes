@@ -260,7 +260,7 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
 .pal-foot { display: flex; gap: 16px; padding: 8px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .pal-foot kbd { margin-right: 2px; }
 
-.popover { position: fixed; width: 340px; max-width: calc(100vw - 16px); background: var(--bg); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 16px; animation: pop .12s ease-out; }
+.popover { position: fixed; width: 340px; max-width: calc(100vw - 16px); background: var(--bg); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 16px; animation: pop .12s ease-out; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; }
 .popover h3 { margin: 0 0 12px; font-size: 14px; }
 .set-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .set-label { font-size: 12px; font-weight: 650; color: var(--muted); }
