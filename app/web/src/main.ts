@@ -1761,14 +1761,20 @@ async function openVaultsAdmin() {
         try { const r = await S.updateServer({ mode: v }); if (r.restart) waitRestart(r.next); } catch (e: any) { toast(serverError(e, t.setupFailed), 'warn'); }
       });
     } }, ic(icon, 18), h('b', {}, l), h('small', {}, hint))));
-  S.serverInfo().then(si => { srvName.value = si.name; mode = si.mode; drawMode(); }).catch(() => {});
+  // impressão digital da autoridade: quem conecta outro computador a este confere antes de confiar
+  const fingerprint = h('p', { class: 'muted small-note fingerprint' });
+  fingerprint.hidden = true;
+  S.serverInfo().then(si => {
+    srvName.value = si.name; mode = si.mode; drawMode();
+    if (si.fingerprint) { fingerprint.hidden = false; fingerprint.replaceChildren(t.caFingerprint + ' ', h('code', {}, si.fingerprint.match(/.{1,4}/g)!.join(' '))); }
+  }).catch(() => {});
   drawMode();
   const body = h('div', { class: 'vaults-admin' },
     h('h3', {}, t.vaults), vlist, openAdd, addForm,
     h('h3', {}, t.server),
     h('form', { class: 'srv-name', onsubmit: async (e: Event) => { e.preventDefault(); try { await S.updateServer({ name: srvName.value }); toast(t.nameSaved); } catch (e: any) { toast(serverError(e, t.setupFailed), 'warn'); } } },
       h('label', { class: 'label' }, t.serverName), h('div', { class: 'inline' }, srvName, h('button', { class: 'btn', type: 'submit' }, t.save))),
-    h('span', { class: 'label' }, t.mode), modeBox,
+    h('span', { class: 'label' }, t.mode), modeBox, fingerprint,
     ui.loopback ? h('button', { class: 'btn ghost danger-text quit-btn', onclick: () => dialog(t.quitQ, t.quitHint, t.quit, async () => {
       flushWrite();
       try { await S.quitServer(); } catch {}

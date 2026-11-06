@@ -419,7 +419,7 @@ export const createInvite = (vaultIds: string[], admin: boolean) => json<{ expir
 export const listDevices = async () => (await json<{ devices: DeviceInfo[] }>('/api/admin/devices')).devices;
 export const updateDevice = (id: string, change: { admin?: boolean; vaults?: string[] }) => json('/api/admin/devices/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(change) });
 export const removeDevice = (id: string) => json('/api/admin/devices/' + encodeURIComponent(id), { method: 'DELETE' });
-export const serverInfo = () => json<{ name: string; mode: 'pessoal' | 'rede'; port: number; configDir: string }>('/api/admin/server');
+export const serverInfo = () => json<{ name: string; mode: 'pessoal' | 'rede'; port: number; configDir: string; fingerprint?: string | null }>('/api/admin/server');
 export const quitServer = () => json('/api/admin/quit', { method: 'POST' });
 // Modo cliente: este computador passa a abrir o Cube4Notes de outro (pode esperar a confirmação do certificado no Windows).
 export const setupClient = (address: string) => json<{ next: string; name?: string }>('/api/setup/client', { method: 'POST', body: JSON.stringify({ address }) }, 130000);

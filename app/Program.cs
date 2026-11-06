@@ -46,7 +46,7 @@ if (ArgValue(args, "--client") is { } clientArg)
         Console.WriteLine("\n  " + Client.ErrorText(check.Error) + (check.Url is null ? "" : $" ({check.Url})") + "\n");
         return 1;
     }
-    ConfigStore.SetClient(check.Url!);
+    ConfigStore.SetClient(check.Url!, check.Thumbprint);
     Console.WriteLine(Lang.T($"\n  Modo cliente: este computador abre o Cube4Notes de {check.Name ?? check.Url} ({check.Url}).", $"\n  Client mode: this computer opens Cube4Notes from {check.Name ?? check.Url} ({check.Url})."));
 }
 else if (args.Contains("--server") && ConfigStore.Load() is { Mode: "cliente" })
@@ -743,7 +743,8 @@ async Task<int> RunAsync(AppConfig? config)
         return Results.Ok(new { quitting = true });
     });
 
-    app.MapGet("/api/admin/server", () => Results.Ok(new { name = config!.Name, mode = config.Mode, port, configDir = ConfigStore.Dir }));
+    // fingerprint: impressão digital da autoridade, para quem conecta outro computador conferir antes de confiar
+    app.MapGet("/api/admin/server", () => Results.Ok(new { name = config!.Name, mode = config.Mode, port, configDir = ConfigStore.Dir, fingerprint = useHttps ? Tls.CaThumbprint : null }));
 
     app.MapPatch("/api/admin/server", async (HttpContext ctx, ServerRequest body) =>
     {
@@ -803,7 +804,7 @@ async Task<int> RunAsync(AppConfig? config)
         if (!IsLoopback(ctx) || !windowMode) return Results.Json(new { error = "no-window" }, statusCode: StatusCodes.Status403Forbidden);
         var check = await Client.Check(address);
         if (check.Error is not null) return Results.BadRequest(new { error = check.Error });
-        ConfigStore.SetClient(check.Url!);
+        ConfigStore.SetClient(check.Url!, check.Thumbprint);
         Console.WriteLine(Lang.T($"  Modo cliente: abrindo o Cube4Notes de {check.Name ?? check.Url} ({check.Url}).", $"  Client mode: opening Cube4Notes from {check.Name ?? check.Url} ({check.Url})."));
         restart = true;
         _ = Task.Run(async () => { await Task.Delay(600); app.Lifetime.StopApplication(); });

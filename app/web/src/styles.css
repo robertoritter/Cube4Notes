@@ -493,6 +493,7 @@ mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: in
 .client-note b { display: block; margin-bottom: 2px; }
 .client-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .setup-client .field { width: 100%; }
+.fingerprint code { font-family: 'JetBrains Mono Variable', monospace; font-size: 12px; word-break: break-word; }
 .access { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
 .check input { accent-color: var(--accent); width: 15px; height: 15px; }

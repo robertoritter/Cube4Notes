@@ -84,7 +84,8 @@ static class Tls
         w.PushSequence();
         var permitted = new Asn1Tag(TagClass.ContextSpecific, 0, true);
         w.PushSequence(permitted);
-        foreach (var dns in new[] { "localhost", "local", Machine }.Where(x => x.Length > 0))
+        // o nome do computador fica de fora se for um domínio de topo (ex.: "dell"): valeria para sites da internet
+        foreach (var dns in new[] { "localhost", "local", Machine }.Where(x => x.Length > 0 && (x is "localhost" or "local" || !TopLevelDomains.All.Contains(x))))
         {
             w.PushSequence();
             w.WriteCharacterString(UniversalTagNumber.IA5String, dns, new Asn1Tag(TagClass.ContextSpecific, 2));
@@ -116,7 +117,8 @@ static class Tls
             if (leaf is not null && DateTime.UtcNow - checkedAt < TimeSpan.FromSeconds(15)) return leaf;
             checkedAt = DateTime.UtcNow;
             var ips = Lan.Addresses().Select(a => a.Address).ToList();
-            var key = string.Join(',', ips) + "|" + NetName; // certificado novo quando o IP ou o nome mudam
+            // certificado novo quando o IP ou o nome mudam ("v2": refaz os emitidos com nome fora da autoridade)
+            var key = string.Join(',', ips) + "|" + NetName + "|v2";
             if (leaf is null) (leaf, leafKey) = LoadSaved();
             if (leaf is not null && key == leafKey && leaf.NotAfter > DateTime.Now.AddDays(14)) return leaf;
             var pfx = Issue(ips);
@@ -157,6 +159,15 @@ static class Tls
         catch (Exception ex) { Console.WriteLine(Lang.T($"  Certificado do servidor não foi guardado ({ex.Message}).", $"  Server certificate was not saved ({ex.Message}).")); }
     }
 
+    // Nome do computador quando a autoridade foi criada ("Cube4Notes CA (NOME)"), o único nome sem ".local" que ela permite.
+    private static string CaMachine()
+    {
+        var cn = ca!.GetNameInfo(X509NameType.SimpleName, false);
+        var open = cn.IndexOf('(');
+        var close = cn.LastIndexOf(')');
+        return open >= 0 && close > open ? DnsName(cn[(open + 1)..close]) : "";
+    }
+
     // Devolve o certificado com a chave em PFX (recarregar de PFX evita o erro de chave efêmera do Windows/SChannel).
     private static byte[] Issue(List<IPAddress> ips)
     {
@@ -164,7 +175,13 @@ static class Tls
         var req = new CertificateRequest("CN=Cube4Notes", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         var san = new SubjectAlternativeNameBuilder();
         san.AddDnsName("localhost");
-        if (Machine.Length > 0) { san.AddDnsName(Machine); san.AddDnsName(Machine + ".local"); }
+        if (Machine.Length > 0)
+        {
+            // O nome sozinho só vale se a autoridade foi criada com ele: depois de renomear o computador,
+            // incluir o nome novo faria o sistema recusar o certificado inteiro (fora das restrições da autoridade).
+            if (Machine == CaMachine() && !TopLevelDomains.All.Contains(Machine)) san.AddDnsName(Machine);
+            san.AddDnsName(Machine + ".local");
+        }
         if (NetName.Length > 0) san.AddDnsName(NetName);
         san.AddIpAddress(IPAddress.Loopback);
         foreach (var ip in ips) san.AddIpAddress(ip);

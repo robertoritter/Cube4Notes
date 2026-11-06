@@ -5,7 +5,8 @@
 #
 # Testa o executável gerado (Windows, Linux ou macOS) do jeito que um usuário novo usaria: primeira execução
 # numa pasta só de leitura, configuração pela rede com o código, configuração no próprio computador, interface,
-# certificado, criação de nota no disco e uma segunda partida com a configuração já existente.
+# certificado, criação de nota no disco e uma segunda partida com a configuração já existente. Também confere
+# que o modo cliente (--client) recusa endereços inválidos, da internet e do próprio computador.
 # Só usa a biblioteca padrão do Python. Uso: python dev/test_executable.py <caminho do Cube4Notes>
 import json, os, re, shutil, socket, ssl, stat, subprocess, sys, tempfile, time, urllib.error, urllib.request
 
@@ -72,6 +73,27 @@ def stop(proc):
         proc.terminate()
         try: proc.wait(15)
         except subprocess.TimeoutExpired: proc.kill(); proc.wait(5)
+
+
+# Modo cliente: endereços recusados antes de qualquer conexão (nada pode ser gravado na configuração).
+def client_refusals(exe, work):
+    print("Modo cliente (--client): endereços recusados")
+    cases = [
+        ("ftp://192.168.0.10", "Invalid address", "endereço inválido"),
+        ("8.8.8.8", "home network", "IP da internet"),
+        ("example.com", "home network", "nome da internet"),
+        ("127.0.0.1", "address of this computer", "o próprio computador"),
+    ]
+    for address, expected, label in cases:
+        cfg = os.path.join(work, "cliente-" + re.sub(r"\W", "_", address))
+        env = {**os.environ, "CUBE4NOTES_LANG": "en"}
+        try:
+            r = subprocess.run([exe, "--config", cfg, "--no-window", "--client", address], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", env=env, timeout=60, cwd=tempfile.gettempdir())
+            out, code = r.stdout + r.stderr, r.returncode
+        except subprocess.TimeoutExpired:
+            out, code = "timeout", None
+        check(f"--client recusa {label} ({address})", code == 1 and expected in out and not os.path.exists(os.path.join(cfg, "config.json")), f"código {code}: {out[-500:]}")
 
 
 def main():
@@ -150,6 +172,8 @@ def main():
         check("inicia de novo com a configuração existente", st is not None, out[-3000:])
         code, _, _ = call(base + "/api/vaults", token=token)
         check("o aparelho continua conectado", code == 200, str(code))
+        stop(proc)
+        client_refusals(exe, work)
     finally:
         stop(proc); log.close()
         if posix: os.chmod(bindir, 0o755)

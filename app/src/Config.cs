@@ -22,6 +22,8 @@ sealed class AppConfig
     public string? ServerUrl { get; set; }
     // Modo de servidor usado antes de virar cliente, para voltar a ele (os vaults continuam na lista).
     public string? ServerMode { get; set; }
+    // Modo cliente: impressão digital da autoridade do servidor instalada no Windows (sai ao trocar de servidor).
+    public string? ServerCa { get; set; }
     public int Port { get; set; } = 43125;
     public List<VaultConfig> Vaults { get; set; } = [];
     // Vault criado na migração da versão antiga (o navegador migra para ele as notas guardadas offline).
@@ -66,30 +68,42 @@ static class ConfigStore
     }
 
     // Passa a abrir o Cube4Notes de outro computador. Vaults e modo de servidor ficam guardados para voltar.
-    public static AppConfig SetClient(string serverUrl)
+    // A autoridade do servidor anterior sai da confiança do Windows.
+    public static AppConfig SetClient(string serverUrl, string? serverCa)
     {
+        AppConfig config;
+        string? previous;
         lock (Sync)
         {
-            var config = Load() ?? new AppConfig();
+            config = Load() ?? new AppConfig();
             if (config.Mode != "cliente") config.ServerMode = config.Mode;
+            previous = config.ServerCa;
             config.Mode = "cliente";
             config.ServerUrl = serverUrl;
+            config.ServerCa = serverCa;
             Save(config);
-            return config;
         }
+        if (previous is not null && !string.Equals(previous, serverCa, StringComparison.OrdinalIgnoreCase)) Client.Untrust(previous);
+        return config;
     }
 
     // Volta a ser servidor no modo de antes (sem vaults, o assistente de primeira execução aparece).
+    // A autoridade do servidor que era usado sai da confiança do Windows.
     public static AppConfig UseServer()
     {
+        AppConfig config;
+        string? previous;
         lock (Sync)
         {
-            var config = Load() ?? new AppConfig();
+            config = Load() ?? new AppConfig();
             config.Mode = config.ServerMode is "pessoal" or "rede" ? config.ServerMode : "rede";
             config.ServerMode = null;
+            previous = config.ServerCa;
+            config.ServerCa = null;
             Save(config);
-            return config;
         }
+        Client.Untrust(previous);
+        return config;
     }
 
     // Converte a versão antiga (uma pasta só, devices.json dentro dela) para a configuração com vaults.

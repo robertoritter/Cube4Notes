@@ -74,7 +74,7 @@ Tudo pode ser mudado depois em **Preferências > Vaults e servidor**: adicionar,
 ### Usar outro computador como servidor (modo cliente)
 
 1. No computador servidor, anote o endereço dele (aparece no console, por exemplo `https://192.168.0.10:43125` ou `https://nome-notes.local:43125`).
-2. Neste computador, escolha *Conectar a outro computador* (no assistente da primeira execução ou em Preferências > Vaults e servidor) e digite esse endereço. O Cube4Notes confere se ali há um servidor Cube4Notes e, no Windows, pede uma vez para confiar no certificado desse servidor: clique em *Sim*.
+2. Neste computador, escolha *Conectar a outro computador* (no assistente da primeira execução ou em Preferências > Vaults e servidor) e digite esse endereço (precisa ser da rede de casa). O Cube4Notes confere se ali há um servidor Cube4Notes e, no Windows, mostra a impressão digital do certificado desse servidor: compare com a que aparece no servidor em Preferências > Vaults e servidor e só então clique em *Sim* (o Windows pergunta mais uma vez).
 3. A janela reabre mostrando o servidor. Conecte como qualquer outro aparelho, com QR code ou código de 6 caracteres gerado num aparelho administrador.
 
 No modo cliente, fechar a janela encerra o Cube4Notes. Se o servidor não responder, a janela oferece abrir a cópia offline, tentar de novo, trocar o endereço ou usar este computador como servidor. As mesmas opções ficam em Preferências > Este computador. No macOS e no Linux, se a janela avisar sobre o certificado, instale como confiável o certificado do servidor (salvo como `server-ca.cer` na pasta de configuração).
