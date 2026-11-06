@@ -15,6 +15,7 @@ O Cube4Notes roda **localmente, no computador que você já usa**. Basta rodar, 
 - **Só este computador.** Escolha *Só este computador* no assistente da primeira execução. O Cube4Notes atende só nesse computador, sem nada exposto na rede. Funciona como qualquer app de notas de desktop.
 - **Qualquer outro aparelho que você quiser.** Escolha *Rede de casa*, e o mesmo computador passa a entregar as notas ao celular, tablet ou notebook pelo Wi-Fi. Leia um QR code em cada aparelho e pronto. Não há mais nada para instalar.
 - **Uma máquina dedicada, só se você quiser.** Se preferir, rode o Cube4Notes numa máquina sempre ligada (um PC antigo, um mini PC, um Linux). As notas são arquivos comuns: mudar de um arranjo para outro é apontar o Cube4Notes para a mesma pasta.
+- **Outro computador como cliente.** Quando as notas já ficam em outro computador da casa, escolha *Conectar a outro computador* e digite o endereço dele. Este computador passa a abrir aquele Cube4Notes numa janela própria (com cópia offline) e não serve nada. Voltar a ser servidor é um clique e os vaults dele continuam lá.
 
 Os aparelhos sincronizam com o computador quando estão na mesma rede que ele. Longe dele, cada aparelho continua funcionando com a cópia completa e sincroniza ao voltar. O Cube4Notes nunca expõe as notas à internet.
 
@@ -68,7 +69,15 @@ Requisito: [.NET 10 SDK](https://dotnet.microsoft.com/download), ou o `Cube4Note
 
 Para conectar celular, tablet ou outro computador, siga [Conectar um celular, passo a passo](#conectar-um-celular-passo-a-passo).
 
-Tudo pode ser mudado depois em **Preferências > Vaults e servidor**: adicionar, renomear ou tirar vaults da lista, e trocar entre *Só este computador* e *Rede de casa* quando quiser.
+Tudo pode ser mudado depois em **Preferências > Vaults e servidor**: adicionar, renomear ou tirar vaults da lista, e trocar entre *Só este computador*, *Rede de casa* e *Conectar a outro computador* quando quiser.
+
+### Usar outro computador como servidor (modo cliente)
+
+1. No computador servidor, anote o endereço dele (aparece no console, por exemplo `https://192.168.0.10:43125` ou `https://nome-notes.local:43125`).
+2. Neste computador, escolha *Conectar a outro computador* (no assistente da primeira execução ou em Preferências > Vaults e servidor) e digite esse endereço. O Cube4Notes confere se ali há um servidor Cube4Notes e, no Windows, pede uma vez para confiar no certificado desse servidor: clique em *Sim*.
+3. A janela reabre mostrando o servidor. Conecte como qualquer outro aparelho, com QR code ou código de 6 caracteres gerado num aparelho administrador.
+
+No modo cliente, fechar a janela encerra o Cube4Notes. Se o servidor não responder, a janela oferece abrir a cópia offline, tentar de novo, trocar o endereço ou usar este computador como servidor. As mesmas opções ficam em Preferências > Este computador. No macOS e no Linux, se a janela avisar sobre o certificado, instale como confiável o certificado do servidor (salvo como `server-ca.cer` na pasta de configuração).
 
 Configurar uma máquina sem tela: inicie o Cube4Notes nela, abra `https://<ip-dela>:43125` em outro aparelho da mesma rede e digite o código de configuração mostrado no console.
 
@@ -114,6 +123,8 @@ A configuração fica em `~/.local/share/Cube4Notes` do usuário do serviço. Co
 | `--no-cert-install` | Não adiciona o certificado à confiança do Windows |
 | `--no-firewall` | Não cria a regra do Firewall do Windows |
 | `--no-network-name` | Não responder por `<nome-do-computador>-notes.local` na rede local |
+| `--client <endereço>` | Modo cliente: este computador abre o Cube4Notes de outro computador (ex.: `--client 192.168.0.10`) |
+| `--server` | Sai do modo cliente e volta a ser servidor (com os vaults que tinha) |
 
 ## Conectar um celular, passo a passo
 

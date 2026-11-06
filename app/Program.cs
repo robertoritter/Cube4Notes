@@ -7,6 +7,7 @@
  * Cube4Notes Server: inicialização, assistente de primeira execução e rotas da API. Serve a interface web,
  * sincroniza os vaults (pastas de notas Markdown) com os aparelhos e administra aparelhos e vaults.
  * Modo "pessoal": só este computador (localhost). Modo "rede": HTTPS para os aparelhos da casa.
+ * Modo "cliente": não é servidor; a janela abre o Cube4Notes de outro computador (src/Client.cs).
  * Nenhuma alteração é descartada (conflito vira cópia, exclusão vai para a .lixeira).
  * Com tela disponível, abre numa janela própria (processo separado) e, no Windows, fica com um ícone
  * perto do relógio; sem tela (servidor), roda só no console. "--no-window" força o modo console.
@@ -36,6 +37,24 @@ var notesArg = ArgValue(args, "--notes");
 var forceHttp = Flag("--no-https", "--sem-https");
 var openBrowser = !Flag("--no-browser", "--sem-navegador");
 
+// Escolha pela linha de comando: --client <endereço> abre o Cube4Notes de outro computador; --server volta a ser servidor.
+if (ArgValue(args, "--client") is { } clientArg)
+{
+    var check = await Client.Check(clientArg);
+    if (check.Error is not null)
+    {
+        Console.WriteLine("\n  " + Client.ErrorText(check.Error) + (check.Url is null ? "" : $" ({check.Url})") + "\n");
+        return 1;
+    }
+    ConfigStore.SetClient(check.Url!);
+    Console.WriteLine(Lang.T($"\n  Modo cliente: este computador abre o Cube4Notes de {check.Name ?? check.Url} ({check.Url}).", $"\n  Client mode: this computer opens Cube4Notes from {check.Name ?? check.Url} ({check.Url})."));
+}
+else if (args.Contains("--server") && ConfigStore.Load() is { Mode: "cliente" })
+{
+    var back = ConfigStore.UseServer();
+    Console.WriteLine(Lang.T($"\n  Este computador volta a ser servidor (modo {back.Mode}).", $"\n  This computer is a server again (mode {back.Mode})."));
+}
+
 var devices = new DeviceStore(Path.Combine(ConfigStore.Dir, "devices.json"));
 var invites = new InviteStore();
 var throttle = new FailureThrottle();
@@ -52,13 +71,18 @@ var trayHinted = false;
 var currentPersonal = false;
 var currentUrl = "";
 Action? stopServer = null;
+// Depois de sair do modo cliente a janela já fechou: o servidor abre outra ao iniciar.
+var reopenWindow = false;
+Mutex? clientLock = null;
 
 if (windowMode)
 {
     // Cube4Notes já aberto: este processo vira só mais uma janela dele.
     var existing = ConfigStore.Load();
     var existingPort = portArg ?? existing?.Port ?? 43125;
-    if (existing is not null && AppWindow.ServerRunning(existingPort))
+    // Modo cliente já aberto: este processo vira só mais uma janela dele.
+    if (existing is { Mode: "cliente", ServerUrl: { } openUrl } && !FirstClient()) return AppWindow.Run(openUrl);
+    if (existing is not null && existing.Mode != "cliente" && AppWindow.ServerRunning(existingPort))
         return AppWindow.Run(existing.Mode == "pessoal" || forceHttp ? $"http://localhost:{existingPort}/" : $"https://localhost:{existingPort}/");
     if (OperatingSystem.IsWindows())
         tray = new Tray(AppWindow.IconPath(), "Cube4Notes", () => StartWindow(currentUrl), Quit, () => _ = Task.Run(() => AllowFirewall(true)));
@@ -68,7 +92,7 @@ if (windowMode)
 while (true)
 {
     var config = ConfigStore.Load() ?? ConfigStore.Migrate(notesArg);
-    var result = await RunAsync(config);
+    var result = config is { Mode: "cliente", ServerUrl: not null } ? RunClient(config) : await RunAsync(config);
     if (result <= 0)
     {
         if (OperatingSystem.IsWindows()) tray?.Dispose();
@@ -87,11 +111,14 @@ void StartWindow(string url)
         if (OperatingSystem.IsWindows()) Tray.Focus(windowProc.MainWindowHandle);
         return;
     }
-    windowProc = AppWindow.Spawn(url);
-    if (windowProc is null) return;
-    windowProc.EnableRaisingEvents = true;
-    windowProc.Exited += (_, _) =>
+    var proc = AppWindow.Spawn(url);
+    windowProc = proc;
+    if (proc is null) return;
+    proc.EnableRaisingEvents = true;
+    proc.Exited += (_, _) =>
     {
+        // janela antiga, fechada de propósito ao trocar entre servidor e cliente
+        if (!ReferenceEquals(proc, windowProc)) return;
         // Só este computador: fechar a janela encerra. Rede de casa: continua atendendo os outros aparelhos.
         if (currentPersonal) stopServer?.Invoke();
         else if (OperatingSystem.IsWindows())
@@ -121,6 +148,49 @@ void Quit()
 {
     try { if (windowProc is { HasExited: false }) windowProc.Kill(); } catch (Exception) { }
     stopServer?.Invoke();
+}
+
+// Só uma instância do modo cliente por pasta de configuração (as outras só abrem janela).
+bool FirstClient()
+{
+    if (clientLock is not null) return true;
+    var id = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ConfigStore.Dir.ToLowerInvariant())))[..16];
+    var mutex = new Mutex(false, "Cube4NotesClient" + id, out var created);
+    if (!created) { mutex.Dispose(); return false; }
+    clientLock = mutex;
+    return true;
+}
+
+// Modo cliente: nenhum servidor local; a janela abre o Cube4Notes de outro computador.
+// 0 = encerrar, 1 = reiniciar (a janela mudou o modo ou o endereço), -1 = erro
+int RunClient(AppConfig config)
+{
+    var url = config.ServerUrl!;
+    if (!windowMode)
+    {
+        Console.WriteLine(Lang.T($"\n  Este computador está no modo cliente ({url}), que precisa de uma tela.", $"\n  This computer is in client mode ({url}), which needs a screen."));
+        Console.WriteLine(Lang.T("  Para ele voltar a ser servidor: Cube4Notes --server\n", "  To make it a server again: Cube4Notes --server\n"));
+        return -1;
+    }
+    FirstClient();
+    Console.WriteLine(Lang.T($"\n  Cube4Notes no modo cliente: abre {url}", $"\n  Cube4Notes in client mode: opens {url}"));
+    Console.WriteLine(Lang.T("  Para voltar a ser servidor: Preferências > Este computador, ou Cube4Notes --server.\n", "  To be a server again: Preferences > This computer, or Cube4Notes --server.\n"));
+    using var closed = new ManualResetEventSlim();
+    // fechar a janela encerra (não há nada para atender em segundo plano)
+    currentPersonal = true;
+    currentUrl = url;
+    stopServer = () => closed.Set();
+    var old = windowProc;
+    windowProc = null;
+    try { if (old is { HasExited: false }) old.Kill(); } catch (Exception) { }
+    StartWindow(url);
+    if (windowProc is null) return 0;
+    closed.Wait();
+    stopServer = null;
+    var after = ConfigStore.Load();
+    if (after is { Mode: "cliente" } && after.ServerUrl == url) return 0;
+    reopenWindow = true;
+    return 1;
 }
 
 // 0 = encerrar, 1 = reiniciar, -1 = erro
@@ -309,6 +379,8 @@ async Task<int> RunAsync(AppConfig? config)
             mode = personal ? "pessoal" : "rede",
             paired = device is not null,
             loopback,
+            // a janela deste computador pode virar cliente de outro servidor
+            canClient = loopback && windowMode,
             admin = device is not null && !device.ReadOnly && (device.Admin || loopback),
             ui = UiVersion(),
             // endereço pelo nome do computador (não muda quando o IP muda); os aparelhos testam se conseguem usá-lo
@@ -412,6 +484,13 @@ async Task<int> RunAsync(AppConfig? config)
         restart = true;
         _ = Task.Run(async () => { await Task.Delay(600); app.Lifetime.StopApplication(); });
         return Results.Ok(new { token, deviceId = device.Id, deviceName = device.Name, next = nextUrl });
+    });
+
+    // Primeira execução escolhendo abrir o Cube4Notes de outro computador.
+    app.MapPost("/api/setup/client", async (HttpContext ctx, ClientRequest body) =>
+    {
+        if (!setup) return Results.Conflict(new { error = "already-set-up" });
+        return await SwitchToClient(ctx, body.Address);
     });
 
     // ------------------------------------------------------------ vaults
@@ -666,8 +745,9 @@ async Task<int> RunAsync(AppConfig? config)
 
     app.MapGet("/api/admin/server", () => Results.Ok(new { name = config!.Name, mode = config.Mode, port, configDir = ConfigStore.Dir }));
 
-    app.MapPatch("/api/admin/server", (ServerRequest body) =>
+    app.MapPatch("/api/admin/server", async (HttpContext ctx, ServerRequest body) =>
     {
+        if (body.Mode == "cliente") return await SwitchToClient(ctx, body.Address);
         var current = ConfigStore.Load()!;
         if (body.Name is not null) current.Name = ConfigStore.CleanName(body.Name, current.Name);
         var mode = body.Mode is "pessoal" or "rede" ? body.Mode! : current.Mode;
@@ -692,10 +772,12 @@ async Task<int> RunAsync(AppConfig? config)
     void OnNetworkChange(object? s, EventArgs e) { Lan.OnAddressesChanged(() => PrintAddresses(personal, scheme, port)); mdns?.Refresh(); }
     NetworkChange.NetworkAddressChanged += OnNetworkChange;
     if (useHttps && OperatingSystem.IsWindows() && !Flag("--no-cert-install", "--sem-instalar-certificado")) Tls.TrustOnWindows();
+    var openWindow = openBrowser || reopenWindow;
+    reopenWindow = false;
     currentPersonal = personal;
     currentUrl = $"{scheme}://localhost:{port}/";
     stopServer = () => app.Lifetime.StopApplication();
-    if (openBrowser)
+    if (openWindow)
         app.Lifetime.ApplicationStarted.Register(() => { if (windowMode) StartWindow(currentUrl); else OpenBrowser(currentUrl); });
     // Rede de casa no Windows: sem a regra de firewall, o celular não alcança o servidor.
     if (!personal && OperatingSystem.IsWindows() && !Flag("--no-firewall", "--sem-firewall"))
@@ -714,6 +796,19 @@ async Task<int> RunAsync(AppConfig? config)
         NetworkChange.NetworkAddressChanged -= OnNetworkChange;
     }
     return restart ? 1 : 0;
+
+    // Este computador deixa de ser servidor e passa a abrir o de outro (só pela janela, no próprio computador).
+    async Task<IResult> SwitchToClient(HttpContext ctx, string? address)
+    {
+        if (!IsLoopback(ctx) || !windowMode) return Results.Json(new { error = "no-window" }, statusCode: StatusCodes.Status403Forbidden);
+        var check = await Client.Check(address);
+        if (check.Error is not null) return Results.BadRequest(new { error = check.Error });
+        ConfigStore.SetClient(check.Url!);
+        Console.WriteLine(Lang.T($"  Modo cliente: abrindo o Cube4Notes de {check.Name ?? check.Url} ({check.Url}).", $"  Client mode: opening Cube4Notes from {check.Name ?? check.Url} ({check.Url})."));
+        restart = true;
+        _ = Task.Run(async () => { await Task.Delay(600); app.Lifetime.StopApplication(); });
+        return Results.Ok(new { restart = true, next = check.Url, name = check.Name });
+    }
 
     bool SetupAllowed(HttpContext ctx, string? code)
     {
@@ -871,7 +966,8 @@ record VaultRequest(string? Name, string? Path);
 record InviteRequest(bool? Admin, List<string>? Vaults);
 record DeviceRequest(bool? Admin, List<string>? Vaults);
 record AgentRequest(string? Name, List<string>? Vaults);
-record ServerRequest(string? Name, string? Mode);
+record ServerRequest(string? Name, string? Mode, string? Address = null);
+record ClientRequest(string? Address);
 record FetchRequest(List<string>? Paths);
 record SyncRequest(List<SyncOp>? Ops);
 record SyncOp(long? Id, string? Type, string? Path, string? Content, string? BaseVersion, string? From, string? To);

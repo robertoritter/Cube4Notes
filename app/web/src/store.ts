@@ -276,13 +276,13 @@ export async function api(url: string, init: RequestInit = {}, timeout = 8000): 
     return await fetch(url, { ...init, signal: ctl.signal, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(init.headers || {}) } });
   } finally { clearTimeout(tm); }
 }
-async function json<T = any>(url: string, init: RequestInit = {}): Promise<T> {
-  const r = await api(url, init, 15000);
+async function json<T = any>(url: string, init: RequestInit = {}, timeout = 15000): Promise<T> {
+  const r = await api(url, init, timeout);
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error(body?.error || String(r.status)), { status: r.status });
   return body as T;
 }
-export interface ServerStatus { name: string; setup: boolean; mode: 'pessoal' | 'rede'; paired: boolean; loopback: boolean; admin: boolean; ui?: string; hostUrl?: string | null; }
+export interface ServerStatus { name: string; setup: boolean; mode: 'pessoal' | 'rede'; paired: boolean; loopback: boolean; admin: boolean; ui?: string; hostUrl?: string | null; canClient?: boolean; }
 export async function status(): Promise<ServerStatus | null> {
   try { const r = await api('/api/status', {}, 4000); return r.ok ? r.json() : null; } catch { return null; }
 }
@@ -421,6 +421,9 @@ export const updateDevice = (id: string, change: { admin?: boolean; vaults?: str
 export const removeDevice = (id: string) => json('/api/admin/devices/' + encodeURIComponent(id), { method: 'DELETE' });
 export const serverInfo = () => json<{ name: string; mode: 'pessoal' | 'rede'; port: number; configDir: string }>('/api/admin/server');
 export const quitServer = () => json('/api/admin/quit', { method: 'POST' });
+// Modo cliente: este computador passa a abrir o Cube4Notes de outro (pode esperar a confirmação do certificado no Windows).
+export const setupClient = (address: string) => json<{ next: string; name?: string }>('/api/setup/client', { method: 'POST', body: JSON.stringify({ address }) }, 130000);
+export const switchToClient = (address: string) => json<{ next: string; name?: string }>('/api/admin/server', { method: 'PATCH', body: JSON.stringify({ mode: 'cliente', address }) }, 130000);
 export const updateServer = (change: { name?: string; mode?: string }) => json<{ name: string; mode: string; restart: boolean; next: string }>('/api/admin/server', { method: 'PATCH', body: JSON.stringify(change) });
 
 // ---------- sincronização de todos os vaults ----------

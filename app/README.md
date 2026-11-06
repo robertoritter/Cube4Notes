@@ -36,7 +36,8 @@ tls/            local certificate authority, server certificate and the addresse
 ```
 
 - Without `config.json`, the server starts in the **first-run setup wizard**. On the computer itself it asks for no code; from another device, it asks for the 6-character code shown in the console.
-- **Modes:** `pessoal` (*This computer only*: listens only on localhost, HTTP, no certificate) and `rede` (*Home network*: HTTPS on port 43125 and HTTP on 43124, which redirects to HTTPS, serves the certificate authority as `.cer` and `.pem`, and serves `/mcp` only to agents on the computer itself). Changing the mode saves the configuration and restarts the server within the same process.
+- **Modes:** `pessoal` (*This computer only*: listens only on localhost, HTTP, no certificate), `rede` (*Home network*: HTTPS on port 43125 and HTTP on 43124, which redirects to HTTPS, serves the certificate authority as `.cer` and `.pem`, and serves `/mcp` only to agents on the computer itself) and `cliente` (*Connect to another computer*: no local server; the window opens `serverUrl`). Changing the mode saves the configuration and restarts the server within the same process.
+- **Client mode** (`src/Client.cs`): the address is normalized to `https://host:port/` (default port 43125), the server's authority is downloaded from `http://host:<port-1>/cube4notes-ca.cer`, `/api/status` is checked over HTTPS against that authority, and on Windows the authority is added to the current user's trust store (Windows asks for confirmation), since the window (WebView2) uses the system trust. A copy is saved as `server-ca.cer`. `config.json` keeps `ServerUrl` and `ServerMode` (the server mode to return to); the vault list is kept. Client mode needs a screen; closing the window quits. Only one client instance runs per configuration folder; opening it again just opens another window. If the server does not answer, the window shows a local page (open offline, try again, change address, use this computer as the server). The interface talks to the window through Photino messages (`web/src/bridge.ts`): `client:info`, `client:open`, `client:retry`, `client:server` and `client:set\n<address>`.
 - **Vaults:** any folder, except the disk root, system folders, the configuration folder and folders inside another vault. Each vault has a stable id used in routes (e.g. "Trabalho 2026" becomes `trabalho-2026`). Removing a vault from the list does not delete the folder.
 - **Migration:** the configuration from the single-folder version (`pasta-de-notas.txt` or `--notes`) becomes the vault `notas`, and old devices keep working.
 - Internal files of each vault: `<vault>/.cube4notes/` (history and renames) and `<vault>/.trash/`.
@@ -54,6 +55,8 @@ tls/            local certificate authority, server certificate and the addresse
 | `--no-cert-install` | does not add the authority to Windows trust |
 | `--no-firewall` | does not create the Windows Firewall rule |
 | `--no-network-name` | does not answer to `<computer>-notes.local` |
+| `--client <address>` | checks the address and switches to client mode |
+| `--server` | leaves client mode (back to the previous server mode) |
 
 ## Devices, agents and permissions
 
@@ -80,10 +83,11 @@ All routes require `Authorization: Bearer <token>`, except `status`, `pair` and 
 
 | Route | Purpose |
 | --- | --- |
-| `GET /api/status` | name, mode, setup wizard, whether the token is valid, administrator, interface version, address by name (`hostUrl`) |
+| `GET /api/status` | name, mode, setup wizard, whether the token is valid, administrator, interface version, address by name (`hostUrl`), whether this window can switch to client mode (`canClient`) |
 | `POST /api/pair` `{invite, deviceName, transfer}` | pairs with an invite (no invite on localhost); a connected device gets its access updated; `transfer` uses a transfer invite |
 | `POST /api/transfer` | transfer invite for the device itself |
 | `GET /api/setup/browse?path=&code=`, `POST /api/setup` | first-run setup wizard |
+| `POST /api/setup/client` `{address}` | first run choosing client mode (window on the computer itself only) |
 | `GET /api/vaults` | vaults allowed for the device |
 | `GET /api/v/{vault}/manifest` | folders, notes (with version) and attachments |
 | `POST /api/v/{vault}/fetch` `{paths}` | content of several notes |
@@ -96,7 +100,7 @@ All routes require `Authorization: Bearer <token>`, except `status`, `pair` and 
 | `POST /api/admin/invite` `{vaults, admin}` | generates an invite |
 | `GET`, `PATCH`, `DELETE /api/admin/devices[/{id}]` | lists devices and agents, changes access, removes |
 | `POST /api/admin/agents` `{name, vaults}` | creates an agent token (read-only) |
-| `GET`, `PATCH /api/admin/server` `{name, mode}` | server name and mode (changing the mode restarts) |
+| `GET`, `PATCH /api/admin/server` `{name, mode, address}` | server name and mode (changing the mode restarts); `mode: "cliente"` with `address` switches to client mode (window on the computer itself only) |
 | `POST /api/admin/quit` | quits Cube4Notes (only on the computer itself) |
 | `GET`, `POST`, `DELETE /mcp` | MCP for agents ([docs/06-ai-agents.md](../docs/06-ai-agents.md)); over HTTP only from localhost |
 | `GET /cube4notes-ca.cer`, `/cube4notes-ca.pem` | certificate authority (also over HTTP, port 43124) |
@@ -116,6 +120,7 @@ src/Firewall.cs       Windows Firewall rules (ports and mDNS), local network onl
 src/Mcp.cs            read-only access for AI agents (MCP)
 src/Interface.cs      serves the interface embedded in the executable
 src/AppWindow.cs      app window (Photino) in a separate process
+src/Client.cs         client mode: server address check, server certificate trust, offline page, window messages
 src/Tray.cs           icon near the clock on Windows (Windows API)
 src/Lang.cs           language of program messages (the system's)
 Cube4Notes.csproj     project

@@ -7,6 +7,8 @@
  * Janela própria do Cube4Notes (Photino: WebView2 no Windows, WebKitGTK no Linux, WebKit no macOS),
  * sem navegador e sem console. A janela roda num processo separado (Cube4Notes --window <endereço>):
  * fechar a janela não derruba o servidor, e abrir o Cube4Notes de novo só abre outra janela.
+ * No modo cliente a janela abre o servidor de outro computador e atende os pedidos da interface
+ * (trocar endereço, voltar a ser servidor); sem resposta do servidor, mostra uma página local.
  */
 using System.Diagnostics;
 using System.Net.Sockets;
@@ -81,6 +83,9 @@ static class AppWindow
     public static int Run(string url)
     {
         var ok = false;
+        // Janela do modo cliente: o endereço é o servidor configurado em outro computador.
+        var client = ConfigStore.Load() is { Mode: "cliente" } config && config.ServerUrl == url;
+        var reachable = !client || Client.Reachable(url);
         void Show()
         {
             try
@@ -96,7 +101,9 @@ static class AppWindow
                 if (IconPath() is { } icon) window.SetIconFile(icon);
                 // dados do WebView2 (notas offline da janela) ficam junto da configuração, não ao lado do .exe
                 if (OperatingSystem.IsWindows()) window.SetTemporaryFilesPath(WindowDataDir());
-                window.Load(new Uri(url));
+                if (client) Client.Attach(window, url);
+                if (reachable) window.Load(new Uri(url));
+                else window.LoadRawString(Client.OfflinePage(url));
                 ok = true;
                 window.WaitForClose();
             }

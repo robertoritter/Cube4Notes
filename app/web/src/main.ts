@@ -11,6 +11,7 @@
 import './fonts.css';
 import './styles.css';
 import * as S from './store';
+import * as B from './bridge';
 import { t, lang, setLang, serverError, type Lang } from './i18n';
 import { ic, type IconName } from './icons';
 import { mountEditor, type EditorHandle } from './editor';
@@ -67,6 +68,10 @@ const ui = {
   list: null as string | null, // tipo mostrado em lista no lugar da nota
   admin: false,
   loopback: false,
+  // a janela deste computador pode virar cliente de outro servidor
+  canClient: false,
+  // janela do modo cliente: endereço do servidor de outro computador
+  client: null as B.ClientInfo | null,
 };
 let editor: EditorHandle | null = null;
 let editorPath: string | null = null;
@@ -1353,6 +1358,8 @@ function openSettings(anchor: HTMLElement) {
     ui.admin ? h('div', { class: 'admin-btns' },
       h('button', { class: 'btn wide connect-btn', onclick: () => { close(); openDevices(); } }, ic('Smartphone', 15), t.connectDevice),
       h('button', { class: 'btn wide', onclick: () => { close(); openVaultsAdmin(); } }, ic('Library', 15), t.manageVaults)) : null,
+    ui.client ? h('div', { class: 'set-note client-note' },
+      h('b', {}, t.thisComputer), h('p', {}, t.clientOn(new URL(ui.client.server).host)), clientButtons(() => close())) : null,
     h('div', { class: 'set-foot' }, h('span', {}, t.device + ': ', h('b', {}, S.deviceName || '—')), h('button', { class: 'btn small', onclick: () => S.sync() }, ic('RefreshCw', 14), t.syncNow)),
     S.syncState === 'offline' && S.token ? h('p', { class: 'set-note' }, t.offlineHelp, usesIp() ? ' ' + t.offlineIpHelp(location.hostname) : '') : null,
     usesIp() && S.token && S.syncState !== 'offline' ? h('button', { class: 'btn small ghost', onclick: () => { close(); offerNameAddress(true); } }, ic('Server', 14), t.nameAddressButton) : null,
@@ -1496,7 +1503,7 @@ function pairScreen(err = '') {
     brand, h('h1', {}, t.pairTitle), h('p', { class: 'muted' }, pendingInvite ? t.pairInviteBody : t.pairNeedQr),
     codeInput ? h('ol', { class: 'pair-steps' }, h('li', {}, t.pairStep1), h('li', {}, t.pairStep2), h('li', {}, t.pairStep3)) : null,
     codeInput ? h('label', { class: 'label' }, t.pairCode) : null, codeInput,
-    h('label', { class: 'label' }, t.pairDevice), name, msg, btn, certHelp(),
+    h('label', { class: 'label' }, t.pairDevice), name, msg, btn, certHelp(), clientButtons(),
   )));
   (codeInput || btn).focus();
 }
@@ -1742,9 +1749,14 @@ async function openVaultsAdmin() {
   const srvName = h('input', { class: 'field', maxlength: '60', 'aria-label': t.serverName });
   const modeBox = h('div', { class: 'mode-cards' });
   let mode = 'rede';
-  const drawMode = () => modeBox.replaceChildren(...([['pessoal', t.modePersonal, t.modePersonalHint, 'HardDrive'], ['rede', t.modeNetwork, t.modeNetworkHint, 'Server']] as [string, string, string, IconName][])
+  const drawMode = () => modeBox.replaceChildren(...([['pessoal', t.modePersonal, t.modePersonalHint, 'HardDrive'], ['rede', t.modeNetwork, t.modeNetworkHint, 'Server'], ['cliente', t.modeClient, t.modeClientHint, 'Cloud']] as [string, string, string, IconName][])
+    .filter(([v]) => v !== 'cliente' || ui.canClient)
     .map(([v, l, hint, icon]) => h('button', { type: 'button', class: 'mode-card' + (v === mode ? ' on' : ''), onclick: () => {
       if (v === mode) return;
+      if (v === 'cliente') return dialog(t.clientModeQ, t.clientModeHint, t.change, () => prompt(t.clientAddress, t.clientConnect, async addr => {
+        toast(t.clientChecking);
+        try { flushWrite(); await S.switchToClient(addr.trim()); clientSwitching(); } catch (e: any) { toast(serverError(e, t.clientFailed), 'warn'); }
+      }));
       dialog(t.modeChangeQ, t.modeChangeHint, t.change, async () => {
         try { const r = await S.updateServer({ mode: v }); if (r.restart) waitRestart(r.next); } catch (e: any) { toast(serverError(e, t.setupFailed), 'warn'); }
       });
@@ -1780,26 +1792,73 @@ function waitRestart(next: string) {
   setTimeout(tryIt, 1200);
 }
 
+let clientReady: Promise<void> = Promise.resolve();
+// Botões do modo cliente (trocar o servidor ou voltar a ser servidor), também na tela de pareamento.
+function clientButtons(before?: () => void): HTMLElement {
+  const box = h('div', { class: 'client-btns' });
+  clientReady.then(() => {
+    if (!ui.client) return;
+    box.replaceChildren(
+      h('button', { class: 'btn small', type: 'button', onclick: () => { before?.(); changeClientAddress(); } }, ic('Server', 14), t.clientChange),
+      h('button', { class: 'btn small ghost', type: 'button', onclick: () => { before?.(); dialog(t.clientUseServer + '?', t.clientServerHint, t.change, () => { flushWrite(); B.useServer(); }); } }, ic('HardDrive', 14), t.clientUseServer));
+  });
+  return box;
+}
+
+// Este computador virou cliente: o Cube4Notes fecha esta janela e abre a do servidor.
+function clientSwitching() {
+  app.replaceChildren(h('div', { class: 'pair' }, h('div', { class: 'pair-card center' },
+    h('img', { class: 'empty-logo', src: '/brand/cube4notes.png', alt: '', width: 64, height: 64 }), h('h1', {}, t.clientSwitching))));
+  document.querySelectorAll('.overlay').forEach(o => o.remove());
+}
+
+// Janela do modo cliente: aponta para outro servidor (sucesso fecha a janela e abre a do endereço novo).
+function changeClientAddress() {
+  prompt(t.clientAddress, t.clientConnect, async addr => {
+    toast(t.clientChecking);
+    flushWrite();
+    const err = await B.setServer(addr.trim());
+    if (err) toast(serverError(err, t.clientFailed), 'warn');
+  }, ui.client ? new URL(ui.client.server).host : '');
+}
+
 // ---------------------------------------------------------------- primeira execução
 function setupScreen(st: S.ServerStatus) {
   const needCode = !st.loopback;
   const code = needCode ? h('input', { class: 'field code', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', maxlength: '7', placeholder: 'ABC123', 'aria-label': t.setupCode }) : null;
   let mode = st.loopback ? 'pessoal' : 'rede';
   const modeBox = h('div', { class: 'mode-cards' });
-  const drawMode = () => modeBox.replaceChildren(...([['pessoal', t.modePersonal, t.modePersonalHint, 'HardDrive'], ['rede', t.modeNetwork, t.modeNetworkHint, 'Server']] as [string, string, string, IconName][])
-    .filter(([v]) => st.loopback || v === 'rede')
-    .map(([v, l, hint, icon]) => h('button', { type: 'button', class: 'mode-card' + (v === mode ? ' on' : ''), onclick: () => { mode = v; drawMode(); } }, ic(icon, 18), h('b', {}, l), h('small', {}, hint))));
+  const drawMode = () => modeBox.replaceChildren(...([['pessoal', t.modePersonal, t.modePersonalHint, 'HardDrive'], ['rede', t.modeNetwork, t.modeNetworkHint, 'Server'], ['cliente', t.modeClient, t.modeClientHint, 'Cloud']] as [string, string, string, IconName][])
+    .filter(([v]) => (st.loopback || v === 'rede') && (v !== 'cliente' || st.canClient))
+    .map(([v, l, hint, icon]) => h('button', { type: 'button', class: 'mode-card' + (v === mode ? ' on' : ''), onclick: () => { mode = v; drawMode(); showParts(); } }, ic(icon, 18), h('b', {}, l), h('small', {}, hint))));
   drawMode();
+  // Conectar a outro computador: só o endereço do servidor (o pareamento acontece lá)
+  const address = h('input', { class: 'field', autocomplete: 'off', spellcheck: 'false', placeholder: '192.168.0.10', 'aria-label': t.clientAddress });
+  const clientPart = h('div', { class: 'setup-client' }, h('label', { class: 'label' }, t.clientAddress), address, h('p', { class: 'muted small-note' }, t.clientAddressHint));
   const vaultName = h('input', { class: 'field', value: t.vault, maxlength: '60', 'aria-label': t.vaultName });
   const picker = folderPicker(p => S.setupBrowse(p, code?.value.trim() || ''));
   const device = h('input', { class: 'field', value: guessDevice(), maxlength: '60', 'aria-label': t.pairDevice });
   const msg = h('p', { class: 'pair-err', role: 'alert' });
   const btn = h('button', { class: 'btn primary wide', type: 'submit' }, t.setupFinish);
   const vaultPart = h('div', { class: 'setup-vault' }, h('label', { class: 'label' }, t.vaultName), vaultName, h('label', { class: 'label' }, t.setupVault), picker.el);
+  const devicePart = h('div', {}, h('label', { class: 'label' }, t.pairDevice), device);
+  function showParts() {
+    const client = mode === 'cliente';
+    clientPart.hidden = !client; devicePart.hidden = client;
+    if (!needCode) vaultPart.hidden = client;
+    btn.textContent = client ? t.clientConnect : t.setupFinish;
+    if (client) address.focus();
+  }
   if (needCode) { vaultPart.hidden = true; code!.addEventListener('input', () => { if (code!.value.replace(/\W/g, '').length >= 6 && vaultPart.hidden) { vaultPart.hidden = false; picker.init(); } }); }
   app.replaceChildren(h('div', { class: 'pair setup' }, h('form', {
     class: 'pair-card setup-card', onsubmit: async (e: Event) => {
       e.preventDefault(); msg.textContent = ''; btn.setAttribute('disabled', '');
+      if (mode === 'cliente') {
+        msg.textContent = t.clientChecking;
+        try { await S.setupClient(address.value.trim()); clientSwitching(); }
+        catch (err: any) { msg.textContent = serverError(err, t.clientFailed); btn.removeAttribute('disabled'); }
+        return;
+      }
       try {
         const next = await S.runSetup({ code: code?.value.trim() || '', mode, serverName: '', vaultName: vaultName.value.trim(), vaultPath: picker.value(), deviceName: device.value.trim() || guessDevice() });
         keepStorage(); waitRestart(next);
@@ -1813,9 +1872,9 @@ function setupScreen(st: S.ServerStatus) {
     h('h1', {}, t.setupTitle), h('p', { class: 'muted' }, t.setupBody),
     code ? h('label', { class: 'label' }, t.setupCode) : null, code, code ? h('p', { class: 'muted small-note' }, t.setupCodeHint) : null,
     h('span', { class: 'label' }, t.setupWhere), modeBox,
-    vaultPart,
-    h('label', { class: 'label' }, t.pairDevice), device,
+    clientPart, vaultPart, devicePart,
     msg, btn, certHelp())));
+  clientPart.hidden = true;
   if (!needCode) picker.init();
   (code || vaultName).focus();
 }
@@ -1832,7 +1891,7 @@ async function start() {
     if (!ui.active && ui.tabs.length) ui.active = ui.tabs[0];
   }
   renderAll();
-  S.status().then(st => { ui.admin = !!st?.admin; ui.loopback = !!st?.loopback; uiVersion ||= st?.ui || ''; renderVaultSwitch(); });
+  S.status().then(st => { ui.admin = !!st?.admin; ui.loopback = !!st?.loopback; ui.canClient = !!st?.canClient; uiVersion ||= st?.ui || ''; renderVaultSwitch(); });
   await S.sync();
   if (!ui.tabs.length) ui.tabs = savedTabs;
   ui.tabs = ui.tabs.filter(p => S.notes.has(p));
@@ -1878,6 +1937,8 @@ async function moveToName(host: string) {
   setLang(lang); applyTheme();
   // convite vindo do QR code: guardado só em memória e removido da barra de endereço
   takeInvite();
+  // janela do modo cliente (abre o servidor de outro computador): mostra as opções em Preferências
+  clientReady = B.clientInfo().then(ci => { ui.client = ci; });
   addEventListener('hashchange', async () => { await checkUiVersion(); if (takeInvite() && !S.token) pairScreen(); });
   await S.init();
   // Mesmo aparelho chegando pelo endereço com o nome do computador: conecta sem pedir QR

@@ -4,8 +4,8 @@
  * Website: https://cube4code.com
  * Copyright (c) 2026 Roberto Ritter
  *
- * Configuração do Cube4Notes num único arquivo (config.json): nome do servidor, modo (só neste computador
- * ou rede de casa), porta e lista de vaults. Inclui a migração da versão de uma pasta só e a validação
+ * Configuração do Cube4Notes num único arquivo (config.json): nome do servidor, modo (só neste computador,
+ * rede de casa ou cliente de outro computador), porta e lista de vaults. Inclui a migração da versão de uma pasta só e a validação
  * das pastas escolhidas para vaults.
  */
 using System.Text.Json;
@@ -16,7 +16,12 @@ sealed class AppConfig
 {
     public string Name { get; set; } = Environment.MachineName;
     // "rede": HTTPS para outros aparelhos da casa. "pessoal": só este computador (localhost).
+    // "cliente": este computador não é servidor; a janela abre o Cube4Notes de outro computador (ServerUrl).
     public string Mode { get; set; } = "rede";
+    // Modo cliente: endereço do servidor (https://host:porta/).
+    public string? ServerUrl { get; set; }
+    // Modo de servidor usado antes de virar cliente, para voltar a ele (os vaults continuam na lista).
+    public string? ServerMode { get; set; }
     public int Port { get; set; } = 43125;
     public List<VaultConfig> Vaults { get; set; } = [];
     // Vault criado na migração da versão antiga (o navegador migra para ele as notas guardadas offline).
@@ -57,6 +62,33 @@ static class ConfigStore
             var temp = FilePath + ".tmp";
             File.WriteAllText(temp, JsonSerializer.Serialize(config, Json));
             File.Move(temp, FilePath, overwrite: true);
+        }
+    }
+
+    // Passa a abrir o Cube4Notes de outro computador. Vaults e modo de servidor ficam guardados para voltar.
+    public static AppConfig SetClient(string serverUrl)
+    {
+        lock (Sync)
+        {
+            var config = Load() ?? new AppConfig();
+            if (config.Mode != "cliente") config.ServerMode = config.Mode;
+            config.Mode = "cliente";
+            config.ServerUrl = serverUrl;
+            Save(config);
+            return config;
+        }
+    }
+
+    // Volta a ser servidor no modo de antes (sem vaults, o assistente de primeira execução aparece).
+    public static AppConfig UseServer()
+    {
+        lock (Sync)
+        {
+            var config = Load() ?? new AppConfig();
+            config.Mode = config.ServerMode is "pessoal" or "rede" ? config.ServerMode : "rede";
+            config.ServerMode = null;
+            Save(config);
+            return config;
         }
     }
 
